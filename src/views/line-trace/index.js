@@ -26,6 +26,18 @@ function valEqual(a, b) {
   catch { return false; }
 }
 
+/**
+ * 関数・クラス値か判定（列に載せない対象）
+ * JSInterpreter の内部型 JSFunction / JSClass、およびネイティブ関数を除外する。
+ */
+function isFunctionVal(v) {
+  if (typeof v === 'function') return true;
+  if (v && typeof v === 'object') {
+    return v.__type__ === 'JSFunction' || v.__type__ === 'JSClass';
+  }
+  return false;
+}
+
 export class LineTrace extends BaseView {
   /** @type {HTMLElement|null} */
   #container  = null;
@@ -138,9 +150,9 @@ export class LineTrace extends BaseView {
       const line = ev.loc.line;
       const vars = flattenEnv(ev.env);
 
-      // 新しい変数を登場順に収集
-      for (const [name] of vars) {
-        if (!BUILTIN_NAMES.has(name) && !varSeen.has(name)) {
+      // 新しい変数を登場順に収集（関数・クラス値は除外）
+      for (const [name, val] of vars) {
+        if (!BUILTIN_NAMES.has(name) && !varSeen.has(name) && !isFunctionVal(val)) {
           varSeen.add(name);
           newVarOrder.push(name);
         }
