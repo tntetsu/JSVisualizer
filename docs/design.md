@@ -1,80 +1,80 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 0.1 (ドラフト)  
+**バージョン**: 0.2  
 **作成日**: 2026-05-25  
+**最終更新**: 2026-05-25  
 **作成者**: Tetsuo Tanaka
+
+---
+
+## 改訂履歴
+
+| バージョン | 日付 | 変更内容 |
+|-----------|------|---------|
+| 0.1 | 2026-05-25 | 初版 |
+| 0.2 | 2026-05-25 | 実装済みモジュール（step-controller, trace-builder, code-view, state-view, animated-trace, trace-table, scope-view, callstack-view, settings-panel）の設計を実態に合わせて更新。CSS テーマシステム、ファイル構成を更新 |
 
 ---
 
 ## 1. システム全体構成
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  ブラウザ                                                    │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  app.js  （全体協調・イベントバス）                    │  │
-│  └──────┬──────────┬──────────────────┬─────────────────┘  │
-│         │          │                  │                     │
-│  ┌──────▼──────┐ ┌─▼─────────────┐ ┌─▼────────────────┐   │
-│  │  components/ │ │  core/         │ │  views/           │   │
-│  │  ─────────── │ │  ───────────── │ │  ───────────────  │   │
-│  │  code-editor │ │  debugger-     │ │  各ビュー         │   │
-│  │  step-       │ │  adapter       │ │  （共通 I/F）     │   │
-│  │  controls    │ │  step-         │ │                   │   │
-│  │  view-       │ │  controller    │ │                   │   │
-│  │  switcher    │ │  trace-builder │ │                   │   │
-│  └─────────────┘ └────────┬───────┘ └──────────────────┘   │
-│                            │                                 │
-│  ┌─────────────────────────▼───────────────────────────┐   │
-│  │  interpreter.bundle.js                               │   │
-│  │  （JSInterpreter を esbuild でバンドル）              │   │
-│  │  JSDebugger / trace[] / TraceEvent                   │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  ブラウザ                                                        │
+│                                                                 │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  app.js  （全体協調・イベントバス）                          │ │
+│  └──────┬──────────┬──────────────────┬───────────────────────┘ │
+│         │          │                  │                         │
+│  ┌──────▼──────┐ ┌─▼─────────────┐ ┌─▼────────────────┐        │
+│  │  components/ │ │  core/         │ │  views/           │        │
+│  │  ─────────── │ │  ───────────── │ │  ───────────────  │        │
+│  │  code-editor │ │  debugger-     │ │  code-view  ✅    │        │
+│  │  step-       │ │  adapter       │ │  state-view ✅    │        │
+│  │  controls    │ │  step-         │ │  animated-  ✅    │        │
+│  │  view-       │ │  controller    │ │  trace             │        │
+│  │  switcher    │ │  trace-builder │ │  trace-     ✅    │        │
+│  │  settings-   │ └────────┬───────┘ │  table             │        │
+│  │  panel       │          │         │  scope-view ✅    │        │
+│  └─────────────┘          │         │  callstack- ✅    │        │
+│                            │         │  view              │        │
+│                            │         │  (開発予定...) 🔧 │        │
+│                            │         └──────────────────┘        │
+│  ┌─────────────────────────▼─────────────────────────────────┐  │
+│  │  interpreter.bundle.js                                      │  │
+│  │  （JSInterpreter を esbuild でバンドル）                     │  │
+│  │  JSDebugger / trace[] / TraceEvent                          │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 1.1 データフロー
 
 ```
-ユーザーがコード入力
+ユーザーがコードを入力して ▶ Run
         │
         ▼
 debugger-adapter.js
-  new JSDebugger(source)
-  ────────────────────
-  → trace[]（全ステップ記録）
-  → consoleLogs[]
+  new JSDebugger(source)     → trace[]（全ステップ記録）
+  adapter.moveTo(0)          → 'ready' イベント dispatch
         │
         ▼
-trace-builder.js
-  trace[] を事前解析
-  ────────────────────
-  → heatmapData（行ごと実行回数）
-  → lifetimeData（変数ライフタイム）
-  → recursionData（再帰ツリー構造）
-  → controlFlowData（CFG ノード）
+app.js の 'ready' ハンドラ
+  new TraceBuilder(trace)    → 事前集計データを生成
+  switcher.onReady(state, builder)  → アクティブビューを再マウント
+  codeView.setSource(source) → コード行を描画
+  codeView.setTrace(trace)   → callSiteEndMap を構築
+        │
+ステップ操作（ボタン / キーボード / スライダー）
         │
         ▼
 step-controller.js
-  cursor の管理・粒度別ステップ
+  adapter.moveTo(nextCursor) → 'step' イベント dispatch
         │
-ステップ変化イベント（カスタムイベント）
-        │
-        ├──▶ code-view → 行ハイライト更新
-        ├──▶ animated-trace → 行追記
-        ├──▶ scope-view → 枠再描画
-        ├──▶ callstack-view → カード更新
-        ├──▶ bar-chart → 棒高さ更新
-        ├──▶ color-box → 色更新
-        ├──▶ timeline → 現在ステップ線移動
-        ├──▶ heatmap → （静的：変化なし）
-        ├──▶ recursion-tree → ノードハイライト
-        ├──▶ lifetime → 現在ステップ線移動
-        ├──▶ control-flow → ブロックハイライト
-        ├──▶ memory-view → セル生成・解放
-        └──▶ object-graph → ノード更新
+        ├──▶ codeView.update(state)     → 3層ハイライト更新
+        ├──▶ stepControls.update(state) → ボタン有効化・カウンタ更新
+        └──▶ switcher.update(state)     → アクティブビューの update() を呼ぶ
 ```
 
 ---
@@ -87,64 +87,34 @@ step-controller.js
 
 ```js
 class DebuggerAdapter extends EventTarget {
-  // ── フィールド ──────────────────────────────────────────────
   #debugger = null         // JSDebugger インスタンス
   #prevEnv  = null         // 前ステップの env スナップショット
 
-  // ── 公開 API ──────────────────────────────────────────────
-  /**
-   * コードをコンパイルして全ステップを記録する
-   * 成功時に 'ready' イベントを dispatch
-   * @param {string} source
-   */
+  /** コードをコンパイルして全ステップを記録 → 'ready' イベント */
   load(source) { ... }
 
-  /**
-   * cursor を移動して状態を更新する
-   * 'step' イベントを dispatch（payload = AppState）
-   * @param {number} nextCursor
-   */
+  /** cursor を移動して状態を更新 → 'step' イベント（payload = AppState） */
   moveTo(nextCursor) { ... }
 
-  /**
-   * 正規化された現在状態を返す
-   * @returns {AppState}
-   */
-  getState() { ... }
+  /** 正規化された現在状態を返す */
+  getState()  { ... }  // → AppState
 
-  /**
-   * trace-builder 用の全トレースデータを返す
-   * @returns {TraceEvent[]}
-   */
-  getTrace() { ... }
+  /** trace-builder / code-view 用の全トレースデータを返す */
+  getTrace()  { ... }  // → TraceEvent[]
 }
 
 /**
  * @typedef {Object} AppState
- * @property {number}      cursor        現在の cursor 値
- * @property {number}      totalSteps    trace.length
- * @property {TraceEvent|null} event     現在の TraceEvent
- * @property {Object}      variables     getVariables('all') の結果
- * @property {Object[]}    scopes        env[] スコープチェーン
- * @property {Object[]}    callStack     getCallStack() の結果
- * @property {string[]}    changedVars   前ステップから変化した変数名の配列
- * @property {Object[]}    consoleOutput getConsoleOutput() の結果
- * @property {boolean}     done          isDone()
+ * @property {number}           cursor       現在の cursor 値
+ * @property {number}           totalSteps   trace.length
+ * @property {TraceEvent|null}  event        現在の TraceEvent
+ * @property {Object}           variables    getVariables('all') の結果
+ * @property {Object[]}         scopes       env[] スコープチェーン
+ * @property {Object[]}         callStack    getCallStack() の結果
+ * @property {string[]}         changedVars  前ステップから変化した変数名
+ * @property {Object[]}         consoleOutput getConsoleOutput() の結果
+ * @property {boolean}          done         isDone()
  */
-```
-
-**差分検出の実装**:
-```js
-function detectChanges(prevEnv, currEnv) {
-  const changed = new Set();
-  // スコープチェーンをフラット化して比較
-  for (const [name, val] of Object.entries(flattenEnv(currEnv))) {
-    if (!deepEqual(val, flattenEnv(prevEnv)[name])) {
-      changed.add(name);
-    }
-  }
-  return [...changed];
-}
 ```
 
 ---
@@ -153,36 +123,45 @@ function detectChanges(prevEnv, currEnv) {
 
 **責務**: 粒度別ステップ操作を統一インターフェースで提供
 
+実装済みの公開メソッド一覧:
+
 ```js
 class StepController {
-  #adapter    // DebuggerAdapter
-  #granularity = 'human'  // 'expr' | 'stmt' | 'func' | 'human'
+  #adapter   // DebuggerAdapter
 
-  setGranularity(g) { this.#granularity = g; }
+  goToStart()           { this.#adapter.moveTo(0); }
+  goToEnd()             { this.#adapter.moveTo(this.#adapter.getTrace().length); }
+  jumpTo(cursor)        { this.#adapter.moveTo(cursor); }
 
-  stepForward() {
-    switch (this.#granularity) {
-      case 'expr':  this.#stepExpr();  break;
-      case 'stmt':  this.#stepStmt();  break;
-      case 'func':  this.#stepFunc();  break;
-      case 'human': this.#stepHuman(); break;
-    }
+  // 式粒度（cursor ±1）
+  stepExprForward()     { this.#adapter.moveTo(dbg.cursor + 1); }
+  stepExprBackward()    { this.#adapter.moveTo(dbg.cursor - 1); }
+
+  // 文粒度（stepOver → matchIdx）
+  stepStmtForward()     { dbg.stepOver(); this.#adapter.moveTo(dbg.cursor); }
+  stepStmtBackward()    { dbg.stepBack(); this.#adapter.moveTo(dbg.cursor); }
+
+  // 人にやさしい粒度
+  stepHumanForward()    { dbg.humanStep();     this.#adapter.moveTo(dbg.cursor); }
+  stepHumanBackward()   { dbg.humanStepBack(); this.#adapter.moveTo(dbg.cursor); }
+
+  // 関数呼び出し粒度（callDepth 変化点まで cursor を移動）
+  stepCallForward() {
+    const trace      = dbg.trace;
+    const startDepth = trace[dbg.cursor]?.callDepth ?? 0;
+    let next = dbg.cursor + 1;
+    while (next < trace.length && trace[next].callDepth === startDepth) next++;
+    this.#adapter.moveTo(Math.min(next, trace.length));
   }
-  stepBackward() { ... }  // 各粒度の逆方向
-  goToStart()    { this.#adapter.moveTo(0); }
-  goToEnd()      { this.#adapter.moveTo(this.#adapter.getTrace().length); }
-  jumpTo(cursor) { this.#adapter.moveTo(cursor); }
+  stepCallBackward() {
+    const trace      = dbg.trace;
+    const startDepth = trace[dbg.cursor]?.callDepth ?? 0;
+    let prev = dbg.cursor - 1;
+    while (prev > 0 && trace[prev].callDepth === startDepth) prev--;
+    this.#adapter.moveTo(prev);
+  }
 }
 ```
-
-**粒度と JSDebugger API の対応**:
-
-| 粒度 | forward | backward |
-|------|---------|----------|
-| `expr` | `debugger.stepIn()` → `moveTo(cursor+1)` | `moveTo(cursor-1)` |
-| `stmt` | `debugger.stepOver()` → `moveTo(matchIdx)` | matchIdx の逆引きで `moveTo` |
-| `func` | `debugger.stepOut()` → `moveTo(outIdx)` | 逆方向 callDepth 追跡 |
-| `human` | `debugger.humanStep()` → `moveTo(humanIdx)` | `debugger.humanStepBack()` |
 
 ---
 
@@ -190,366 +169,280 @@ class StepController {
 
 **責務**: trace 配列を一度だけ走査して各ビューが必要な集計データを生成
 
+実装済み API:
+
 ```js
 class TraceBuilder {
-  /**
-   * @param {TraceEvent[]} trace
-   */
-  constructor(trace) { ... }
+  #trace          // TraceEvent[]（コンストラクタで受け取り）
+  #humanStepList  // number[]（humanStep に対応する cursor 値）
 
-  /** 行ごとの実行回数 Map<lineNo, count> */
-  buildHeatmap() { ... }
+  constructor(trace) { /* humanStepList を構築 */ }
 
-  /**
-   * 変数ライフタイム情報
-   * @returns {LifetimeEntry[]}
-   * @typedef {{ name, scopeId, birthCursor, deathCursor }} LifetimeEntry
-   */
-  buildLifetime() { ... }
+  /** humanStep に対応する cursor 値の昇順配列を返す */
+  getHumanStepList()  { return this.#humanStepList; }
 
-  /**
-   * 再帰ツリーノード配列
-   * @returns {RecursionNode[]}
-   * @typedef {{ id, funcName, args, parentId, enterCursor, exitCursor, returnValue }} RecursionNode
-   */
-  buildRecursionTree() { ... }
-
-  /**
-   * 制御フローグラフ（AST 解析から生成）
-   * @returns {CFGNode[]}
-   */
-  buildControlFlow(ast) { ... }
-
-  /**
-   * humanStep インデックスの Set
-   * @returns {Set<number>}
-   */
-  buildHumanIndices() { ... }
+  /** 生の trace 配列への参照を返す（read-only） */
+  get trace()         { return this.#trace; }
 }
 ```
+
+> 今後のビューで必要になる `buildHeatmap()`, `buildLifetime()`, `buildRecursionTree()` 等は
+> 各ビューの実装時に追加する。
 
 ---
 
 ### 2.4 ビューの共通インターフェース
 
-全ビューが実装する抽象クラス:
+全ビューが実装するメソッド:
 
 ```js
 class BaseView {
   /**
-   * @param {HTMLElement} container マウント先 DOM 要素
-   * @param {TraceBuilder} builder  事前集計データへのアクセス
+   * @param {HTMLElement}  container マウント先 DOM 要素
+   * @param {TraceBuilder} builder   事前集計データ（null の場合もあるが init 時は常に渡される）
    */
   init(container, builder) { throw new Error('not implemented'); }
 
   /**
    * ステップ変化時に呼ばれる
-   * @param {AppState} state  現在の状態
+   * @param {AppState} state
    */
   update(state) { throw new Error('not implemented'); }
 
   /** 状態を初期化（コード再実行時） */
   reset() { throw new Error('not implemented'); }
 
-  /** DOM をアンマウント（ビュー非表示時） */
+  /** DOM をアンマウント（ビュー切り替え時） */
   destroy() { throw new Error('not implemented'); }
 }
 ```
 
 ---
 
-### 2.5 各ビューの実装方針
+### 2.5 各ビューの実装詳細
 
-#### V-01: `animated-trace/`
+#### `code-view/` — コードハイライト（3層）✅
 
+**構造**:
 ```
-データ構造:
-  rows: Array<{ cursor, label, varSnapshot }>
-  ─ cursor 進行ごとに push
-  ─ 変化したセルに .flash クラスを付与 → CSS で 0.4s フラッシュ
-
-DOM 構造:
-  <table class="animated-trace">
-    <thead>  変数名ヘッダ行（列選択チェックボックス付き） </thead>
-    <tbody>  ステップ行（動的追記） </tbody>
-  </table>
-```
-
-#### V-02: `trace-table/`
-
-```
-データ構造:
-  全 humanStep インデックスのみ行化
-  builder.buildHumanIndices() を使用
-
-DOM 構造:
-  V-01 と同様だが全行が初期描画済み・現在行を CSS でハイライト
+CodeView
+├── #linesEl (.cv-lines)     ← 行要素コンテナ
+│   ├── .cv-line[data-line="1"]
+│   │   ├── .cv-line-num     ← 行番号
+│   │   └── .cv-line-code    ← ハイライト済みコード（position: relative）
+│   │       ├── [syntax spans]
+│   │       ├── .cv-expr-highlight     ← 式ハイライト（position: absolute）
+│   │       └── .cv-callsite-highlight ← 呼び出し元ハイライト（同上）
+│   └── ...
+├── #exprHighlightEls[]      ← 現在の式ハイライト要素を追跡
+├── #callSiteHighlightEls[]  ← 現在の呼び出し元ハイライト要素を追跡
+└── #callSiteEndMap          ← Map<"line:col", {line, column}>
 ```
 
-#### V-03: `scope-view/`
+**公開 API**:
+- `init(container)` — `.cv-lines` 要素を生成してマウント
+- `setSource(source)` — シンタックスハイライト付きで行を描画
+- `setTrace(trace)` — `CallExpression.enter` イベントから `callSiteEndMap` を構築
+- `update(state)` — 3層ハイライトを更新
+- `reset()` — 全ハイライトをクリア
 
+**ハイライト配置の仕組み**:
 ```
-DOM 構造:
-  <div class="scope-chain">
-    <div class="scope-frame" data-name="global">
-      <div class="var-row"> x = <span class="v-num">5</span> </div>
-      <div class="scope-frame" data-name="foo">
-        ...
-      </div>
-    </div>
+.cv-line-code { position: relative; isolation: isolate; }
+.cv-expr-highlight, .cv-callsite-highlight {
+  position: absolute;
+  left:  calc(startCh * 1ch);   /* JS で style.left に設定 */
+  width: calc(lengthCh * 1ch);  /* JS で style.width に設定 */
+  z-index: -1;                  /* isolation: isolate の中で文字の背後に */
+}
+```
+
+**呼び出し元 end 位置の取得フロー**:
+```
+setTrace(trace) で CallExpression.enter イベントを走査
+  → key = "loc.line:loc.column"
+  → value = ev.end
+  → callSiteEndMap に格納
+
+update(state) で callStack.length > 0 の場合:
+  → topFrame = callStack[0]
+  → key = "topFrame.loc.line:topFrame.loc.column"
+  → end = callSiteEndMap.get(key)
+  → setHighlight(topFrame.loc, end, 'cv-callsite-highlight', ...)
+```
+
+---
+
+#### `state-view/` — 変数・スタック統合パネル ✅
+
+**構成カード**（スクロール可能な縦並び）:
+1. **Current Step** — phase, nodeType, 行番号, 評価値
+2. **変数** — 全スコープをグループ表示。変化した変数に `var-flash` アニメーション
+3. **コールスタック** — フレームとその行番号
+4. **コンソール出力** — `console.log` の出力行
+
+---
+
+#### `animated-trace/` — アニメーション付きトレース表 ✅
+
+**動作**:
+- `init()` で空テーブルを生成
+- `update(state)` で `humanStepList` から `targetCount`（cursor 以下の humanStep 数）を計算
+  - `targetCount > rows.length` → 新行を `<tbody>` の先頭に挿入（`.at-row--new` クラス → CSS slide-in）
+  - `targetCount < rows.length` → 末尾行を削除（ステップバック対応）
+
+**テーブル列**: # | 行 | イベント | 値
+
+---
+
+#### `trace-table/` — 全ステップ表 ✅
+
+**動作**:
+- `init()` で `builder.getHumanStepList()` の全行を一括描画
+- `update()` は `tt-row--active` クラスの付け替えとスクロールのみ
+
+---
+
+#### `scope-view/` — スコープ・変数ビュー ✅
+
+**DOM 構造**:
+```html
+<div class="scv-frame scv-frame--active">
+  <div class="scv-frame-header">
+    <span class="scv-frame-name">fib</span>
+    <span class="scv-frame-badge">内側</span>
   </div>
-
-更新ロジック:
-  state.scopes を env[] から生成
-  前回の DOM と diffing（変数ノードのみ更新）
-  changedVars に含まれる変数名に .changed クラス → CSS フラッシュ
-```
-
-#### V-04: `callstack-view/`
-
-```
-DOM 構造:
-  <div class="call-stack">
-    <div class="frame frame-top"> fib(n=3) ▸ line 2 </div>
-    <div class="frame"> fib(n=4) ▸ line 4 </div>
-    ...
-    <div class="frame frame-global"> (global) </div>
+  <div class="scv-vars">
+    <div class="var-row"> n = <span class="v-num">3</span> </div>
   </div>
-
-アニメーション:
-  push → translateY(100%) から 0 へ（slide-in-up）
-  pop  → translateY(-100%) かつ opacity:0 へ（fade-up）
+</div>
 ```
 
-#### V-05: `bar-chart/`
+最内側フレームに `.scv-frame--active`（アクセントボーダー＋背景色）を付与。
 
-```
-DOM 構造:
-  <div class="bar-chart">
-    <div class="bar-wrap" data-name="arr[0]">
-      <div class="bar" style="height: calc(var(--val) * 1%)"></div>
-      <span class="bar-label">0</span>
-    </div>
-    ...
+---
+
+#### `callstack-view/` — コールスタックビュー ✅
+
+**DOM 構造**:
+```html
+<div class="csv-stack">
+  <div class="csv-card csv-card--top csv-card--enter">
+    <div class="csv-name">fib</div>
+    <div class="csv-loc">呼び出し元: 5行目</div>
   </div>
-
-CSS:
-  .bar { transition: height 0.3s ease; }
-  高さ = (値 / maxValue) * 100%（maxValue は全ステップで集計）
-```
-
-#### V-06: `color-box/`
-
-```
-DOM 構造:
-  <div class="color-boxes">
-    <div class="index-row"> 0  1  2  3  4  5  6 </div>
-    <div class="box-row">
-      <div class="box" data-idx="0">6</div>
-      ...
-    </div>
-    <div class="pointer-row"> ↑i        ↑j </div>
+  <div class="csv-card csv-card--global">
+    <div class="csv-name">(global)</div>
   </div>
-
-色クラス:
-  .box-access     オレンジ（現在アクセス中）
-  .box-compare    青（比較対象）
-  .box-sorted     緑（確定済み）
-  .box-default    デフォルト
-
-インデックス検出:
-  nodeType=MemberExpression かつ property が変数 → 対応 idx をハイライト
+</div>
 ```
 
-#### V-07: `timeline/`（変数の時系列グラフ）
-
-```
-実装: SVG
-
-描画ロジック:
-  1. builder の全 humanStep で対象変数の値を収集
-  2. SVG polyline を生成（点 = (step_idx, value)）
-  3. update() で現在ステップに対応する x 位置に縦線を移動
-
-SVG 構造:
-  <svg>
-    <g class="axes"> 軸線・目盛り </g>
-    <g class="lines">
-      <polyline class="var-line" data-name="n" points="..."/>
-      ...
-    </g>
-    <line class="current-step-line" x1="..." .../>
-  </svg>
-```
-
-#### V-08: `heatmap/`
-
-```
-実装: コードビューのオーバーレイ
-
-描画ロジック:
-  1. builder.buildHeatmap() で Map<line, count> 取得
-  2. count の最大値に対して [0..1] に正規化
-  3. 各行要素に background: rgba(255, 80, 0, opacity) を設定
-  4. ホバーで <tooltip> に実行回数表示
-```
-
-#### V-09: `recursion-tree/`
-
-```
-実装: SVG + 再帰的レイアウト（Reingold-Tilford アルゴリズムの簡易版）
-
-データ:
-  builder.buildRecursionTree() → RecursionNode[]
-
-描画ロジック:
-  1. 初回: 全ノードを先読みして木構造を構築・座標計算
-  2. update(): enterCursor <= cursor <= exitCursor のノードを "active" クラス
-               exitCursor <= cursor のノードに retVal ラベルを表示
-
-SVG 構造:
-  <svg>
-    <g class="edges"> <line> ... </g>
-    <g class="nodes">
-      <g class="node" data-id="...">
-        <circle/>
-        <text class="label">fib(3)</text>
-        <text class="retval">→ 2</text>
-      </g>
-      ...
-    </g>
-  </svg>
-```
-
-#### V-10: `lifetime/`（スコープ・ライフタイムタイムライン）
-
-```
-実装: SVG ガントチャート
-
-データ:
-  builder.buildLifetime() → LifetimeEntry[]
-
-描画ロジック:
-  1. 縦軸: 変数名（スコープ別グループ）
-  2. 横軸: humanStep ステップ数
-  3. 各変数の [birthCursor, deathCursor] を横バーで描画
-  4. update(): 現在ステップに縦線を描画
-```
-
-#### V-11: `control-flow/`
-
-```
-実装: SVG
-
-データ:
-  builder.buildControlFlow(ast) → CFGNode[]
-
-CFGNode の種類:
-  - start / end
-  - statement（一般文）
-  - condition（if / while / for 条件式）
-  - block（then / else / loop body）
-  - merge（分岐合流点）
-
-描画ロジック:
-  1. CFGNode を上→下にレイアウト
-  2. 条件ノードはダイヤモンド形、分岐はY→N の2本の辺
-  3. update(): loc がノードに含まれるものを .active クラスに
-               通過済みの辺に .visited クラス（青色）
-```
-
-#### V-12: `memory-view/`
-
-```
-DOM 構造:
-  <div class="memory-view">
-    <div class="stack-area">
-      <div class="stack-frame" data-depth="2">
-        <div class="frame-label">fib(n=3)</div>
-        <div class="cell" data-name="n">n = 3</div>
-        <div class="cell ref" data-name="arr" data-heap-id="h1">arr ●</div>
-      </div>
-      ...
-    </div>
-    <div class="heap-area">
-      <div class="heap-object" data-id="h1">
-        [6, 5, 4, 1, 0, 2, 3]
-      </div>
-    </div>
-  </div>
-  <svg class="ref-arrows"> ... </svg>
-
-アニメーション:
-  セル生成: scale(0) → scale(1)（0.2s）
-  セル消滅: opacity:1 → opacity:0（0.2s）
-  参照矢印: SVG path、beginElement() で再描画
-```
-
-#### V-13: `object-graph/`
-
-```
-実装: SVG + Force-directed レイアウト（簡易実装）
-
-ノード種別:
-  - 変数（プリミティブ）: 矩形テキスト
-  - オブジェクト: 角丸矩形 + プロパティリスト
-  - 配列: 横並び矩形
-
-エッジ:
-  - 参照: 実線矢印
-  - 配列インデックス: インデックスラベル付き矢印
-
-更新:
-  env の変化に応じてノード/エッジの追加・削除
-  変化したノードを 0.3s ハイライト
-```
+- `callStack.length > prevDepth` のとき最上位カードに `.csv-card--enter` → CSS slide-in
+- グローバルカードは常に末尾に配置
 
 ---
 
 ## 3. コンポーネント設計
 
-### 3.1 `components/step-controls.js`
+### 3.1 `components/step-controls.js` ✅
+
+**ボタン構成（2行×4列グリッド）**:
 
 ```
-DOM 構造:
-  <div class="step-controls">
-    <button id="btn-start">⏮</button>
-    <button id="btn-back">◀</button>
-    <select id="granularity-select">
-      <option value="expr">式評価</option>
-      <option value="stmt">文評価</option>
-      <option value="func">関数呼び出し</option>
-      <option value="human" selected>人にやさしい単位</option>
-    </select>
-    <button id="btn-forward">▶</button>
-    <button id="btn-end">⏭</button>
-    <input type="range" id="step-slider" min="0" max="...">
-    <span id="step-counter">42 / 891</span>
-  </div>
-
-キーボードバインド:
-  Home → goToStart()
-  End  → goToEnd()
-  ← / b → stepBackward()
-  → / n → stepForward()
+⏮(高) │ [btn-stmt-back] [btn-expr-back] [btn-expr-forward] [btn-stmt-forward] │ ⏭(高)
+       │ [btn-call-back] [btn-human-back][btn-human-forward][btn-call-forward]  │
 ```
 
-### 3.2 `components/view-switcher.js`
-
+**キーボードバインド**:
+```js
+switch (e.key) {
+  case 'ArrowLeft':
+  case 'b': ctrl.stepExprBackward();  break;
+  case 'ArrowRight':
+  case 'n': ctrl.stepExprForward();   break;
+  case 'h': ctrl.stepHumanForward();  break;
+  case 'H': ctrl.stepHumanBackward(); break;
+  case 'v': ctrl.stepStmtForward();   break;
+  case 'V': ctrl.stepStmtBackward();  break;
+  case 'f': ctrl.stepCallForward();   break;
+  case 'F': ctrl.stepCallBackward();  break;
+  case 'Home': ctrl.goToStart();      break;
+  case 'End':  ctrl.goToEnd();        break;
+}
 ```
-DOM 構造:
-  <div class="view-tabs">
-    <button class="tab" data-view="animated-trace">トレース表</button>
-    <button class="tab" data-view="trace-table">静的テーブル</button>
-    ...
-  </div>
-  <div id="view-container">
-    <!-- アクティブなビューの DOM が入る -->
-  </div>
 
-状態:
-  activeViews: Map<viewId, BaseView>
-  ビュー切り替え時に前ビューの destroy() → 新ビューの init() を呼ぶ
+`<textarea>` / `<input>` フォーカス中は無効化。
+
+---
+
+### 3.2 `components/view-switcher.js` ✅
+
+**状態**:
+- `#registry: Map<id, { label, ViewClass, instance }>` — 登録されたビュー
+- `#activeId: string | null` — 現在アクティブなビューの ID
+- `#builder: TraceBuilder | null` — 最新の TraceBuilder
+- `#lastState: AppState | null` — 最新の AppState
+
+**重要メソッド**:
+
+```js
+register(id, label, ViewClass)
+// タブボタンを生成して registry に登録
+
+onReady(state, builder)
+// 毎回アクティブビューを destroy → 再 init する
+// → ビューは常に最新の builder を持つことが保証される
+// コード:
+//   entry.instance.destroy(); entry.instance = null;
+//   mountView(activeId);
+
+update(state)
+// アクティブビューの update(state) を呼ぶ
+
+reset()
+// 全 instance を destroy して null にする
+```
+
+---
+
+### 3.3 `components/settings-panel.js` ✅
+
+**責務**: テーマ切り替え UI を提供し、設定を localStorage に永続化する
+
+**テーマ適用の仕組み**:
+```
+ライトテーマ（デフォルト）: <html> に data-theme 属性なし
+ダークテーマ:              <html data-theme="dark">
+```
+
+**公開関数**:
+```js
+applyTheme(theme)   // 'light' | 'dark' → <html> data-theme を更新
+loadTheme()         // localStorage から読み込み（未設定なら 'light'）
+```
+
+**クラス**:
+```js
+class SettingsPanel {
+  constructor(btnEl, panelEl)  // 初期化・イベント登録・保存済みテーマ適用
+  // 内部: #open(), #close(), #syncRadios(theme), #bindEvents()
+}
+```
+
+**イベント処理**:
+- 設定ボタンクリック → パネルのトグル（開閉）
+- パネル外クリック / `Escape` キー → パネルを閉じる
+- ラジオボタン変更 → `localStorage` 保存 + `applyTheme()` 呼び出し
+
+**FOUC 防止スクリプト** (`web/index.html` `<head>` 内):
+```html
+<script>
+  (function () {
+    if (localStorage.getItem('jsv-theme') === 'dark') {
+      document.documentElement.dataset.theme = 'dark';
+    }
+  }());
+</script>
 ```
 
 ---
@@ -559,66 +452,43 @@ DOM 構造:
 ```
 JSVisualizer/
 ├── src/
-│   ├── app.js
+│   ├── app.js                      ← エントリポイント・全体協調
 │   ├── core/
-│   │   ├── debugger-adapter.js
-│   │   ├── step-controller.js
-│   │   └── trace-builder.js
+│   │   ├── debugger-adapter.js     ← JSDebugger ラッパー・差分検出
+│   │   ├── step-controller.js      ← 粒度別ステップ操作（10メソッド）
+│   │   └── trace-builder.js        ← humanStepList・trace getter
 │   ├── views/
-│   │   ├── base-view.js              ← 抽象基底クラス
 │   │   ├── code-view/
-│   │   │   ├── index.js
-│   │   │   └── style.css
+│   │   │   └── index.js            ← 3層ハイライト・setTrace()
+│   │   ├── state-view/
+│   │   │   └── index.js            ← 変数・スタック・コンソール統合
 │   │   ├── animated-trace/
-│   │   │   ├── index.js
-│   │   │   └── style.css
+│   │   │   └── index.js            ← 動的行追記トレース表
 │   │   ├── trace-table/
-│   │   │   ├── index.js
-│   │   │   └── style.css
+│   │   │   └── index.js            ← 全ステップ静的テーブル
 │   │   ├── scope-view/
-│   │   │   ├── index.js
-│   │   │   └── style.css
+│   │   │   └── index.js            ← スコープチェーン枠表示
 │   │   ├── callstack-view/
-│   │   │   ├── index.js
-│   │   │   └── style.css
-│   │   ├── bar-chart/
-│   │   │   ├── index.js
-│   │   │   └── style.css
-│   │   ├── color-box/
-│   │   │   ├── index.js
-│   │   │   └── style.css
-│   │   ├── timeline/
-│   │   │   ├── index.js
-│   │   │   └── style.css
-│   │   ├── heatmap/
-│   │   │   ├── index.js
-│   │   │   └── style.css
-│   │   ├── recursion-tree/
-│   │   │   ├── index.js
-│   │   │   ├── layout.js             ← ツリーレイアウトアルゴリズム
-│   │   │   └── style.css
-│   │   ├── lifetime/
-│   │   │   ├── index.js
-│   │   │   └── style.css
-│   │   ├── control-flow/
-│   │   │   ├── index.js
-│   │   │   ├── cfg-builder.js        ← AST → CFGNode 変換
-│   │   │   └── style.css
-│   │   ├── memory-view/
-│   │   │   ├── index.js
-│   │   │   └── style.css
-│   │   └── object-graph/
-│   │       ├── index.js
-│   │       ├── layout.js             ← Force-directed レイアウト
-│   │       └── style.css
+│   │   │   └── index.js            ← コールスタックカード表示
+│   │   ├── bar-chart/              ← [未実装]
+│   │   ├── color-box/              ← [未実装]
+│   │   ├── timeline/               ← [未実装]
+│   │   ├── heatmap/                ← [未実装]
+│   │   ├── recursion-tree/         ← [未実装]
+│   │   ├── lifetime/               ← [未実装]
+│   │   ├── control-flow/           ← [未実装]
+│   │   ├── memory-view/            ← [未実装]
+│   │   └── object-graph/           ← [未実装]
 │   └── components/
-│       ├── code-editor.js
-│       ├── step-controls.js
-│       └── view-switcher.js
+│       ├── code-editor.js          ← コードエディタ
+│       ├── step-controls.js        ← ステップ操作バー（10ボタン）
+│       ├── view-switcher.js        ← ビュー切り替えタブ
+│       └── settings-panel.js       ← テーマ切り替え設定パネル
 ├── web/
-│   ├── index.html
-│   ├── style.css                     ← グローバルスタイル・CSS カスタムプロパティ
-│   └── interpreter.bundle.js         ← esbuild 生成（git 管理外）
+│   ├── index.html                  ← FOUC防止スクリプト含む
+│   ├── style.css                   ← ライト/ダークテーマ CSS
+│   ├── app.bundle.js               ← esbuild 生成（git 管理外）
+│   └── interpreter.bundle.js       ← esbuild 生成（git 管理外）
 ├── tests/
 │   ├── core/
 │   │   ├── debugger-adapter.test.js
@@ -639,29 +509,99 @@ JSVisualizer/
 
 ## 5. CSS 設計方針
 
+### 5.1 テーマシステム
+
+CSS カスタムプロパティで 2 テーマを管理する。
+
 ```css
-/* CSS カスタムプロパティによるテーマ管理 */
+/* ライトテーマ（デフォルト）: Catppuccin Latte ベース */
 :root {
-  --color-bg:           #1e1e2e;
-  --color-surface:      #2a2a3e;
-  --color-border:       #44475a;
-  --color-text:         #cdd6f4;
-  --color-accent:       #89b4fa;  /* 現在行ハイライト */
-  --color-changed:      #f38ba8;  /* 変化した変数 */
-  --color-access:       #fab387;  /* 配列アクセス（オレンジ） */
-  --color-compare:      #89dceb;  /* 比較対象（青） */
-  --color-sorted:       #a6e3a1;  /* 確定済み（緑） */
+  --bg:           #eff1f5;
+  --surface:      #e6e9ef;
+  --surface2:     #ccd0da;
+  --border:       #acb0be;
+  --text:         #4c4f69;
+  --text-muted:   #9ca0b0;
+  --text-dim:     #6c6f85;
+  --accent:       #1e66f5;
+  --accent-bg:    #dde5fd;
+  --changed:      #d20f39;
+  --changed-bg:   #fce8ee;
+  --access:       #fe640b;
+  --compare:      #04a5e5;
+  --sorted:       #40a02b;
 
-  --anim-flash:         0.4s;
-  --anim-slide:         0.2s;
+  /* シンタックスハイライト */
+  --tok-keyword:  #8839ef;
+  --tok-string:   #40a02b;
+  --tok-number:   #fe640b;
+  --tok-comment:  #8c8fa1;
+
+  /* 値の型色 */
+  --v-num: #fe640b;  --v-str: #40a02b;  --v-bool: #04a5e5;
+  --v-null: #9ca0b0; --v-undef: #9ca0b0; --v-fn: #8839ef; --v-obj: #df8e1d;
+
+  /* ハイライト変数（テーマ依存） */
+  --hl-expr:     rgba(254, 100,  11, 0.18);  /* 式ハイライト */
+  --hl-expr-act: rgba(254, 100,  11, 0.32);  /* アクティブ行の式ハイライト */
+  --hl-call:     rgba(136,  57, 239, 0.12);  /* 呼び出し元ハイライト */
+  --hl-call-act: rgba(136,  57, 239, 0.22);  /* アクティブ行の呼び出し元ハイライト */
+  --hl-call-bdr: rgba(136,  57, 239, 0.55);  /* 呼び出し元ハイライトの破線色 */
 }
 
-/* フラッシュアニメーション */
-@keyframes cell-flash {
-  0%   { background-color: var(--color-changed); }
-  100% { background-color: transparent; }
+/* ダークテーマ: Catppuccin Mocha ベース */
+[data-theme="dark"] {
+  --bg:           #1e1e2e;
+  --surface:      #2a2a3e;
+  --surface2:     #313244;
+  --border:       #44475a;
+  --text:         #cdd6f4;
+  --text-muted:   #6c7086;
+  --text-dim:     #a6adc8;
+  --accent:       #89b4fa;
+  --accent-bg:    #1a2a45;
+  /* ...（全変数をオーバーライド）... */
+
+  --hl-expr:     rgba(250, 179, 135, 0.30);
+  --hl-expr-act: rgba(250, 179, 135, 0.45);
+  --hl-call:     rgba(203, 166, 247, 0.20);
+  --hl-call-act: rgba(203, 166, 247, 0.35);
+  --hl-call-bdr: rgba(203, 166, 247, 0.70);
 }
-.flash { animation: cell-flash var(--anim-flash) ease-out; }
+```
+
+### 5.2 ハイライトオーバーレイ
+
+式ハイライトと呼び出し元ハイライトは `position: absolute` + モノスペースフォントの `1ch` 単位で配置する。
+
+```css
+.cv-line-code {
+  position: relative;
+  isolation: isolate;   /* z-index スタッキングコンテキストを作成 */
+}
+
+.cv-expr-highlight,
+.cv-callsite-highlight {
+  position: absolute;
+  top: 0.1em;
+  height: 1.35em;
+  z-index: -1;           /* isolation により文字の背後に配置 */
+  pointer-events: none;
+  /* left / width は JS 側で calc(N * 1ch) を設定 */
+}
+
+.cv-expr-highlight     { background: var(--hl-expr); }
+.cv-callsite-highlight { background: var(--hl-call); border-bottom: 2px dashed var(--hl-call-bdr); }
+```
+
+### 5.3 フラッシュアニメーション
+
+```css
+@keyframes var-flash {
+  0%   { background: var(--changed-bg); }
+  100% { background: transparent; }
+}
+.var-row--changed { animation: var-flash var(--anim-flash) ease-out; }
 ```
 
 ---
@@ -669,21 +609,18 @@ JSVisualizer/
 ## 6. ビルド設定
 
 ```json
-// package.json（抜粋）
 {
   "type": "module",
   "scripts": {
     "build:interp": "esbuild ../JSInterpreter/src/interpreter/debugger.js --bundle --format=esm --outfile=web/interpreter.bundle.js",
-    "build:app":    "esbuild src/app.js --bundle --format=esm --outfile=web/app.bundle.js --external:./interpreter.bundle.js",
+    "build:app":    "esbuild src/app.js --bundle --format=esm --outfile=web/app.bundle.js",
     "build":        "npm run build:interp && npm run build:app",
     "dev":          "npm run build:interp && esbuild src/app.js --bundle --format=esm --outfile=web/app.bundle.js --servedir=web --watch"
-  },
-  "devDependencies": {
-    "esbuild": "^0.21.0",
-    "jest":    "^29.0.0"
   }
 }
 ```
+
+> `interpreter.bundle.js` と `app.bundle.js` は `.gitignore` で管理外とする。
 
 ---
 
@@ -692,7 +629,7 @@ JSVisualizer/
 | 対象 | 方針 |
 |------|------|
 | `debugger-adapter.js` | load/moveTo の副作用、diff 検出のユニットテスト |
-| `step-controller.js` | 粒度別ステップの cursor 移動のユニットテスト |
-| `trace-builder.js` | heatmap/lifetime/recursionTree の集計結果のユニットテスト |
+| `step-controller.js` | 粒度別ステップ（expr/stmt/human/call）の cursor 移動のユニットテスト |
+| `trace-builder.js` | `getHumanStepList()` の集計結果のユニットテスト |
 | 各ビュー | jsdom + Jest による DOM 更新のスナップショットテスト（主要ビューのみ） |
 | E2E | 手動テスト（自動化は Phase 5 以降） |
