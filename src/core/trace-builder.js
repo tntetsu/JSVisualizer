@@ -151,4 +151,12 @@ export class TraceBuilder {
   get length() {
     return this.#trace.length;
   }
+
+  /**
+   * 生の trace 配列への参照を返す（ビュー側での参照用）。
+   * @returns {Object[]}
+   */
+  get trace() {
+    return this.#trace;
+  }
 }

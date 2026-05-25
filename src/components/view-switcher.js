@@ -1,0 +1,162 @@
+/**
+ * view-switcher.js — ビュー切り替えタブコンポーネント
+ *
+ * ビュークラスを登録してタブ UI を自動生成する。
+ * タブクリックで前ビューを destroy → 新ビューを init + update する。
+ */
+
+export class ViewSwitcher {
+  /** @type {HTMLElement} タブボタン置き場 */
+  #tabsEl;
+
+  /** @type {HTMLElement} ビュー DOM の置き場 */
+  #containerEl;
+
+  /**
+   * @type {Map<string, { label: string, ViewClass: Function, instance: import('../views/base-view.js').BaseView|null }>}
+   */
+  #registry = new Map();
+
+  /** @type {string|null} 現在アクティブなビュー ID */
+  #activeId = null;
+
+  /** @type {import('../core/debugger-adapter.js').AppState|null} 最後の state */
+  #lastState = null;
+
+  /** @type {import('../core/trace-builder.js').TraceBuilder|null} */
+  #builder = null;
+
+  /**
+   * @param {HTMLElement} tabsEl      タブボタン置き場
+   * @param {HTMLElement} containerEl ビューコンテンツ置き場
+   */
+  constructor(tabsEl, containerEl) {
+    this.#tabsEl      = tabsEl;
+    this.#containerEl = containerEl;
+  }
+
+  // ── 公開 API ──────────────────────────────────────────────────────────────
+
+  /**
+   * ビュークラスを登録してタブボタンを生成する。
+   * @param {string}   id         ビューの一意 ID
+   * @param {string}   label      タブに表示するラベル
+   * @param {Function} ViewClass  BaseView を継承したクラス
+   */
+  register(id, label, ViewClass) {
+    this.#registry.set(id, { label, ViewClass, instance: null });
+    this.#addTab(id, label);
+  }
+
+  /**
+   * 実行開始時に呼ぶ。builder をセットしてアクティブビューを再初期化する。
+   * @param {import('../core/debugger-adapter.js').AppState}     state
+   * @param {import('../core/trace-builder.js').TraceBuilder}    builder
+   */
+  onReady(state, builder) {
+    this.#builder   = builder;
+    this.#lastState = state;
+
+    if (this.#activeId) {
+      // builder が更新されるため、常に destroy → 再マウントして
+      // init(container, builder) を最新の builder で呼び直す。
+      const entry = this.#registry.get(this.#activeId);
+      if (entry?.instance) {
+        entry.instance.destroy();
+        entry.instance = null;
+      }
+      this.#mountView(this.#activeId);
+    } else {
+      // デフォルトで最初のビューをアクティブに
+      const firstId = this.#registry.keys().next().value;
+      if (firstId) this.#activate(firstId);
+    }
+  }
+
+  /**
+   * ステップ変化時に呼ぶ。アクティブビューを更新する。
+   * @param {import('../core/debugger-adapter.js').AppState} state
+   */
+  update(state) {
+    this.#lastState = state;
+    const entry = this.#activeId ? this.#registry.get(this.#activeId) : null;
+    entry?.instance?.update(state);
+  }
+
+  /**
+   * リセット時に呼ぶ。全ビューを destroy して状態をクリアする。
+   */
+  reset() {
+    for (const [, entry] of this.#registry) {
+      entry.instance?.destroy();
+      entry.instance = null;
+    }
+    this.#containerEl.innerHTML = '';
+    this.#lastState = null;
+    this.#builder   = null;
+  }
+
+  // ── 内部ヘルパー ──────────────────────────────────────────────────────────
+
+  /**
+   * タブボタンを生成して追加する。
+   */
+  #addTab(id, label) {
+    const btn = document.createElement('button');
+    btn.className    = 'view-tab';
+    btn.dataset.view = id;
+    btn.textContent  = label;
+    btn.addEventListener('click', () => this.#activate(id));
+    this.#tabsEl.appendChild(btn);
+  }
+
+  /**
+   * 指定ビューをアクティブにする。
+   */
+  #activate(id) {
+    if (id === this.#activeId) return;
+
+    // 前ビューを非表示（destroy せず DOM を保持する設計も可だが
+    // シンプルに destroy + 再 init 方式を採用）
+    if (this.#activeId) {
+      const prev = this.#registry.get(this.#activeId);
+      if (prev?.instance) {
+        prev.instance.destroy();
+        prev.instance = null;
+      }
+    }
+
+    this.#activeId = id;
+
+    // タブのアクティブ状態を更新
+    this.#tabsEl.querySelectorAll('.view-tab').forEach(btn => {
+      btn.classList.toggle('view-tab--active', btn.dataset.view === id);
+    });
+
+    // 新ビューをマウント
+    this.#mountView(id);
+  }
+
+  /**
+   * ビューを DOM にマウントして初期化する。
+   */
+  #mountView(id) {
+    const entry = this.#registry.get(id);
+    if (!entry) return;
+
+    // コンテナをクリアして新ビューの DOM 置き場を作成
+    this.#containerEl.innerHTML = '';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'view-wrapper';
+    this.#containerEl.appendChild(wrapper);
+
+    // インスタンス生成・初期化
+    entry.instance = new entry.ViewClass();
+    entry.instance.init(wrapper, this.#builder);
+
+    // builder が既にあれば（実行済み状態なら）最後の state で更新
+    if (this.#lastState) {
+      entry.instance.update(this.#lastState);
+    }
+  }
+}

@@ -57,60 +57,15 @@
 
     </section>
 
-    <!-- ── 右ペイン: デバッグ情報 ── -->
+    <!-- ── 右ペイン: ビュー切り替えエリア ── -->
     <section class="pane debug-pane">
 
-      <!-- ビュー切り替えタブ（Phase 2 以降で拡張） -->
-      <div class="view-tabs">
-        <button class="view-tab view-tab--active" data-view="state">変数・スタック</button>
-        <!-- Phase 2+ のタブをここに追加 -->
-      </div>
+      <!-- タブバー（ViewSwitcher が生成・管理） -->
+      <div id="view-tabs" class="view-tabs"></div>
 
-      <!-- スクロール可能なコンテンツ領域 -->
-      <div class="debug-scroll">
+      <!-- ビューコンテンツ（ViewSwitcher が動的にマウント） -->
+      <div id="view-container" class="view-container"></div>
 
-        <!-- 現在のステップ情報 -->
-        <div class="debug-card" id="card-current">
-          <div class="card-header">Current Step</div>
-          <div id="current-step" class="current-step">
-            <p class="placeholder">▶ Run を押して実行を開始してください</p>
-          </div>
-        </div>
-
-        <!-- 変数パネル -->
-        <div class="debug-card">
-          <div class="card-header">
-            Variables
-            <label class="scope-toggle" title="スコープ別に表示">
-              <input type="checkbox" id="scope-all">
-              <span>スコープ別</span>
-            </label>
-          </div>
-          <div id="variables" class="variables">
-            <p class="placeholder">—</p>
-          </div>
-        </div>
-
-        <!-- コールスタックパネル -->
-        <div class="debug-card">
-          <div class="card-header">Call Stack</div>
-          <div id="callstack" class="callstack">
-            <p class="placeholder">—</p>
-          </div>
-        </div>
-
-        <!-- コンソール出力パネル -->
-        <div class="debug-card">
-          <div class="card-header">
-            Console
-            <span id="console-count" class="console-count"></span>
-          </div>
-          <div id="console-output" class="console-output">
-            <p class="placeholder">—</p>
-          </div>
-        </div>
-
-      </div><!-- /debug-scroll -->
     </section>
 
   </main>

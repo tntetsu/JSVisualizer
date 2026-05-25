@@ -1,0 +1,227 @@
+/**
+ * state-view/index.js — 変数・コールスタック・コンソール統合ビュー
+ *
+ * Phase 1 のデバッグパネルを BaseView として独立させた実装。
+ * 4 つのカード（Current Step / Variables / Call Stack / Console）を
+ * スクロール可能な縦並びで表示する。
+ */
+
+import { BaseView }                        from '../base-view.js';
+import { esc, formatValue, BUILTIN_NAMES } from '../../utils/format.js';
+
+export class StateView extends BaseView {
+  /** @type {HTMLElement|null} */
+  #container       = null;
+  #currentStepEl   = null;
+  #variablesEl     = null;
+  #callstackEl     = null;
+  #consoleOutputEl = null;
+  #consoleCountEl  = null;
+  #scopeAllCb      = null;
+  /** @type {import('../../core/debugger-adapter.js').AppState|null} */
+  #lastState       = null;
+
+  // ── BaseView ──────────────────────────────────────────────────────────────
+
+  /**
+   * @param {HTMLElement} container
+   * @param {*}           _builder  不使用（BaseView インターフェース準拠）
+   */
+  init(container, _builder) {
+    this.#container = container;
+    container.innerHTML = `
+      <div class="sv-scroll">
+        <div class="debug-card">
+          <div class="card-header">Current Step</div>
+          <div class="sv-current current-step">
+            <p class="placeholder">実行待ち</p>
+          </div>
+        </div>
+
+        <div class="debug-card">
+          <div class="card-header">
+            Variables
+            <label class="scope-toggle" title="スコープ別に表示">
+              <input type="checkbox" class="sv-scope-all">
+              <span>スコープ別</span>
+            </label>
+          </div>
+          <div class="sv-variables variables">
+            <p class="placeholder">—</p>
+          </div>
+        </div>
+
+        <div class="debug-card">
+          <div class="card-header">Call Stack</div>
+          <div class="sv-callstack callstack">
+            <p class="placeholder">—</p>
+          </div>
+        </div>
+
+        <div class="debug-card">
+          <div class="card-header">
+            Console
+            <span class="sv-console-count console-count"></span>
+          </div>
+          <div class="sv-console console-output">
+            <p class="placeholder">—</p>
+          </div>
+        </div>
+      </div>`;
+
+    this.#currentStepEl   = container.querySelector('.sv-current');
+    this.#variablesEl     = container.querySelector('.sv-variables');
+    this.#callstackEl     = container.querySelector('.sv-callstack');
+    this.#consoleOutputEl = container.querySelector('.sv-console');
+    this.#consoleCountEl  = container.querySelector('.sv-console-count');
+    this.#scopeAllCb      = container.querySelector('.sv-scope-all');
+
+    this.#scopeAllCb.addEventListener('change', () => {
+      if (this.#lastState) this.#renderVariables(this.#lastState);
+    });
+  }
+
+  /** @param {import('../../core/debugger-adapter.js').AppState} state */
+  update(state) {
+    this.#lastState = state;
+    this.#renderCurrentStep(state);
+    this.#renderVariables(state);
+    this.#renderCallStack(state);
+    this.#renderConsole(state);
+  }
+
+  reset() {
+    this.#lastState = null;
+    if (!this.#container) return;
+    this.#currentStepEl.innerHTML    = '<p class="placeholder">実行待ち</p>';
+    this.#variablesEl.innerHTML      = '<p class="placeholder">—</p>';
+    this.#callstackEl.innerHTML      = '<p class="placeholder">—</p>';
+    this.#consoleOutputEl.innerHTML  = '<p class="placeholder">—</p>';
+    this.#consoleCountEl.textContent = '';
+    if (this.#scopeAllCb) this.#scopeAllCb.checked = false;
+  }
+
+  destroy() {
+    if (this.#container) this.#container.innerHTML = '';
+    this.#container       = null;
+    this.#currentStepEl   = null;
+    this.#variablesEl     = null;
+    this.#callstackEl     = null;
+    this.#consoleOutputEl = null;
+    this.#consoleCountEl  = null;
+    this.#scopeAllCb      = null;
+    this.#lastState       = null;
+  }
+
+  // ── 内部レンダリング ──────────────────────────────────────────────────────
+
+  #renderCurrentStep(state) {
+    const { event, done } = state;
+    if (done || !event) {
+      this.#currentStepEl.innerHTML = '<p class="placeholder">実行完了</p>';
+      return;
+    }
+    const phase    = event.phase === 'enter' ? '▶ enter' : '◀ exit';
+    const phaseCls = event.phase === 'enter' ? 'cs-phase-enter' : 'cs-phase-exit';
+    const loc      = event.loc ? `line ${event.loc.line}` : '';
+    const val      = event.value !== undefined
+      ? `<span class="cs-value"> → ${formatValue(event.value)}</span>` : '';
+
+    this.#currentStepEl.innerHTML = `
+      <div class="cs-line">
+        <span class="${phaseCls}">${esc(phase)}</span>
+        <span class="cs-node"> ${esc(event.nodeType)}</span>
+        <span> ${esc(loc)}</span>
+        ${val}
+      </div>
+      <div class="cs-line">
+        depth: <span>${event.depth}</span>
+        &nbsp; callDepth: <span>${event.callDepth}</span>
+      </div>`;
+  }
+
+  #renderVariables(state) {
+    const { scopes, variables, changedVars, event } = state;
+    const scopeAll = this.#scopeAllCb?.checked ?? false;
+    const changed  = new Set(changedVars);
+
+    if (!event) {
+      this.#variablesEl.innerHTML = '<p class="placeholder">—</p>';
+      return;
+    }
+
+    let html = '';
+
+    if (scopeAll && scopes.length > 0) {
+      scopes.forEach((scope, i) => {
+        const label   = state.callStack[i]?.name
+                      ?? (i === scopes.length - 1 ? 'global' : `scope[${i}]`);
+        const entries = Object.entries(scope ?? {}).filter(([k]) => !BUILTIN_NAMES.has(k));
+        if (!entries.length) return;
+        html += `<div class="scope-frame">
+          <div class="scope-label">${esc(label)}</div>`;
+        for (const [name, val] of entries) {
+          const flash = changed.has(name) ? ' var-row--changed' : '';
+          html += `<div class="var-row${flash}">
+            <span class="var-name">${esc(name)}</span>
+            <span class="var-eq">=</span>
+            ${formatValue(val)}
+          </div>`;
+        }
+        html += '</div>';
+      });
+    } else {
+      const entries = Object.entries(variables).filter(([k]) => !BUILTIN_NAMES.has(k));
+      if (!entries.length) {
+        this.#variablesEl.innerHTML = '<p class="placeholder">変数なし</p>';
+        return;
+      }
+      for (const [name, val] of entries) {
+        const flash = changed.has(name) ? ' var-row--changed' : '';
+        html += `<div class="var-row${flash}">
+          <span class="var-name">${esc(name)}</span>
+          <span class="var-eq">=</span>
+          ${formatValue(val)}
+        </div>`;
+      }
+    }
+
+    this.#variablesEl.innerHTML = html || '<p class="placeholder">変数なし</p>';
+  }
+
+  #renderCallStack(state) {
+    const { callStack } = state;
+    if (!callStack || callStack.length === 0) {
+      this.#callstackEl.innerHTML = '<p class="placeholder">—</p>';
+      return;
+    }
+    let html = '';
+    [...callStack].reverse().forEach((frame, i) => {
+      const isTop = i === 0;
+      const name  = frame.name ?? '<anonymous>';
+      const loc   = frame.loc ? `line ${frame.loc.line}` : '';
+      html += `<div class="frame-card${isTop ? ' frame-card--top' : ''}">
+        <span class="frame-name">${esc(name)}</span>
+        <span class="frame-loc">${esc(loc)}</span>
+      </div>`;
+    });
+    this.#callstackEl.innerHTML = html;
+  }
+
+  #renderConsole(state) {
+    const { consoleOutput } = state;
+    if (!consoleOutput || consoleOutput.length === 0) {
+      this.#consoleOutputEl.innerHTML = '<p class="placeholder">—</p>';
+      this.#consoleCountEl.textContent = '';
+      return;
+    }
+    this.#consoleCountEl.textContent = String(consoleOutput.length);
+    let html = '';
+    for (const log of consoleOutput) {
+      const cls = log.level === 'warn'  ? ' console-line--warn'
+                : log.level === 'error' ? ' console-line--error' : '';
+      html += `<div class="console-line${cls}">${esc(log.text)}</div>`;
+    }
+    this.#consoleOutputEl.innerHTML = html;
+  }
+}
