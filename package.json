@@ -1,0 +1,29 @@
+{
+  "name": "js-visualizer",
+  "version": "0.1.0",
+  "description": "JavaScript program execution visualizer for programming education",
+  "type": "module",
+  "scripts": {
+    "build:interp": "esbuild ../JSInterpreter/src/interpreter/debugger.js --bundle --format=esm --outfile=web/interpreter.bundle.js",
+    "build:app": "esbuild src/app.js --bundle --format=esm --outfile=web/app.bundle.js",
+    "build": "npm run build:interp && npm run build:app",
+    "dev": "npm run build:interp && esbuild src/app.js --bundle --format=esm --outfile=web/app.bundle.js --servedir=web --watch",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch"
+  },
+  "dependencies": {
+    "js-interpreter": "file:../JSInterpreter"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.0",
+    "jest": "^29.0.0",
+    "playwright": "^1.60.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "transform": {}
+  }
+}

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSVisualizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════
+       ヘッダー
+  ════════════════════════════════════════ -->
+  <header class="app-header">
+    <div class="header-left">
+      <span class="logo">🔬</span>
+      <h1 class="app-title">JSVisualizer</h1>
+    </div>
+    <div class="header-right">
+      <select id="sample-select" title="サンプルコードを選択">
+        <option value="">— サンプル —</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- ════════════════════════════════════════
+       メインレイアウト
+  ════════════════════════════════════════ -->
+  <main class="app-main">
+
+    <!-- ── 左ペイン: ソースコード ── -->
+    <section class="pane editor-pane">
+
+      <div class="pane-header">
+        <span class="pane-title">Source</span>
+        <div class="editor-actions">
+          <button id="btn-run"   class="btn btn-primary">▶ Run</button>
+          <button id="btn-reset" class="btn btn-secondary" hidden>⟳ Reset</button>
+        </div>
+      </div>
+
+      <!-- 編集モード -->
+      <div id="editor-area" class="editor-area">
+        <textarea id="source-editor"
+                  spellcheck="false"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  placeholder="JavaScript コードを入力してください…"></textarea>
+      </div>
+
+      <!-- 実行モード: コードハイライト表示 -->
+      <div id="code-display" class="code-display hidden"></div>
+
+      <!-- エラー表示 -->
+      <div id="error-msg" class="error-msg" hidden></div>
+
+    </section>
+
+    <!-- ── 右ペイン: デバッグ情報 ── -->
+    <section class="pane debug-pane">
+
+      <!-- ビュー切り替えタブ（Phase 2 以降で拡張） -->
+      <div class="view-tabs">
+        <button class="view-tab view-tab--active" data-view="state">変数・スタック</button>
+        <!-- Phase 2+ のタブをここに追加 -->
+      </div>
+
+      <!-- スクロール可能なコンテンツ領域 -->
+      <div class="debug-scroll">
+
+        <!-- 現在のステップ情報 -->
+        <div class="debug-card" id="card-current">
+          <div class="card-header">Current Step</div>
+          <div id="current-step" class="current-step">
+            <p class="placeholder">▶ Run を押して実行を開始してください</p>
+          </div>
+        </div>
+
+        <!-- 変数パネル -->
+        <div class="debug-card">
+          <div class="card-header">
+            Variables
+            <label class="scope-toggle" title="スコープ別に表示">
+              <input type="checkbox" id="scope-all">
+              <span>スコープ別</span>
+            </label>
+          </div>
+          <div id="variables" class="variables">
+            <p class="placeholder">—</p>
+          </div>
+        </div>
+
+        <!-- コールスタックパネル -->
+        <div class="debug-card">
+          <div class="card-header">Call Stack</div>
+          <div id="callstack" class="callstack">
+            <p class="placeholder">—</p>
+          </div>
+        </div>
+
+        <!-- コンソール出力パネル -->
+        <div class="debug-card">
+          <div class="card-header">
+            Console
+            <span id="console-count" class="console-count"></span>
+          </div>
+          <div id="console-output" class="console-output">
+            <p class="placeholder">—</p>
+          </div>
+        </div>
+
+      </div><!-- /debug-scroll -->
+    </section>
+
+  </main>
+
+  <!-- ════════════════════════════════════════
+       ステップコントロールバー（フッター）
+  ════════════════════════════════════════ -->
+  <footer class="step-bar">
+    <button id="btn-start"   class="ctrl-btn" title="先頭へ (Home)"      disabled>⏮</button>
+    <button id="btn-back"    class="ctrl-btn" title="1ステップ戻る (← / b)" disabled>◀</button>
+
+    <select id="granularity-select" class="granularity-select" title="ステップ粒度">
+      <option value="human" selected>人にやさしい単位</option>
+      <option value="expr">式評価</option>
+      <option value="stmt">文評価</option>
+      <option value="func">関数呼び出し</option>
+    </select>
+
+    <button id="btn-forward" class="ctrl-btn" title="1ステップ進む (→ / n)" disabled>▶</button>
+    <button id="btn-end"     class="ctrl-btn" title="末尾へ (End)"         disabled>⏭</button>
+
+    <input type="range" id="step-slider" class="step-slider"
+           min="0" max="0" value="0" disabled>
+    <span id="step-counter" class="step-counter"></span>
+  </footer>
+
+  <script type="module" src="app.bundle.js"></script>
+</body>
+</html>
