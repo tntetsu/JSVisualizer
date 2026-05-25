@@ -197,6 +197,30 @@ html, body {
   line-height: 1.6;
   white-space: pre;
   padding-right: 12px;
+  /* 式ハイライト用: 相対位置の基点を作り、子の z-index が有効になるスタッキングコンテキストを生成 */
+  position: relative;
+  isolation: isolate;
+}
+
+/**
+ * 式ハイライトオーバーレイ
+ * - position: absolute で行コード内の文字範囲に重ねる
+ * - z-index: -1 + isolation: isolate の組み合わせでテキストの"背後"に配置
+ * - left / width は JS 側で calc(N * 1ch) を設定（モノスペースフォント前提）
+ */
+.cv-expr-highlight {
+  position: absolute;
+  top:    0.1em;
+  height: 1.35em;         /* line-height 1.6 より少し短めにして字間に余白 */
+  z-index: -1;
+  background: rgba(250, 179, 135, 0.30);   /* --access をベースにした薄い橙 */
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* アクティブ行の式ハイライトは少し濃くする */
+.cv-line--active .cv-expr-highlight {
+  background: rgba(250, 179, 135, 0.45);
 }
 
 /* シンタックスハイライト */
