@@ -42,7 +42,7 @@
 
   /* サイズ */
   --header-h:    44px;
-  --footer-h:    52px;
+  --footer-h:    80px;   /* 2行ボタン対応（旧 52px） */
   --pane-gap:    8px;
   --radius:      6px;
   --radius-sm:   3px;
@@ -417,70 +417,80 @@ html, body {
   background: var(--surface);
   border-top: 1px solid var(--border);
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  align-items: stretch;   /* 子要素を縦方向に引き伸ばす */
+  gap: 6px;
+  padding: 6px 12px;
   flex-shrink: 0;
+}
+
+/* 2行×4列グリッド（先頭/末尾ボタンの間に配置） */
+.ctrl-grid {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  align-self: center;   /* グリッド自体をフッター内で垂直中央に */
 }
 
 .ctrl-btn {
   background: var(--surface2);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 5px 10px;
+  padding: 4px 8px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   transition: background 0.1s, opacity 0.1s;
-  min-width: 36px;
+  min-width: 40px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  gap: 1px;
 }
 
 .ctrl-btn:hover:not(:disabled) { background: var(--accent-bg); border-color: var(--accent); }
 .ctrl-btn:disabled { opacity: 0.3; cursor: default; }
 
-/* 式ボタン: アクセントカラー系 */
-.ctrl-btn--expr {
+/* 先頭/末尾ナビゲーションボタン（高さをフッターいっぱいに） */
+.ctrl-btn--nav {
+  font-size: 16px;
+  padding: 4px 14px;
+  /* align-self: stretch は step-bar の align-items: stretch から自動継承 */
+}
+
+/* 細粒度ボタン（式・人）: アクセントブルー */
+.ctrl-btn--expr,
+.ctrl-btn--human {
   border-color: var(--accent);
   color: var(--accent);
 }
-.ctrl-btn--expr:hover:not(:disabled) {
+.ctrl-btn--expr:hover:not(:disabled),
+.ctrl-btn--human:hover:not(:disabled) {
   background: var(--accent-bg);
 }
 
-/* 文ボタン: より控えめな色 */
-.ctrl-btn--stmt {
+/* 粗粒度ボタン（文・関数）: グレー系 */
+.ctrl-btn--stmt,
+.ctrl-btn--call {
   border-color: var(--border);
   color: var(--text-dim);
 }
-.ctrl-btn--stmt:hover:not(:disabled) {
+.ctrl-btn--stmt:hover:not(:disabled),
+.ctrl-btn--call:hover:not(:disabled) {
   background: var(--surface2);
   border-color: var(--text-dim);
   color: var(--text);
 }
 
-/* ボタンのテキスト要素 */
-.btn-arrows  { font-size: 12px; letter-spacing: -1px; }
+/* ボタン内テキスト要素 */
+.btn-arrows   { font-size: 11px; letter-spacing: -1px; line-height: 1.1; }
 .btn-label-sm {
-  font-size: 10px;
-  opacity: 0.7;
-  font-weight: 600;
+  font-size: 9px;
+  opacity: 0.75;
+  font-weight: 700;
   letter-spacing: 0.04em;
-}
-
-/* 式/文ボタンをペアとして視覚的にまとめるグループ */
-.ctrl-group {
-  display: flex;
-  gap: 1px;
-}
-
-.ctrl-group .ctrl-btn:first-child {
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-}
-.ctrl-group .ctrl-btn:last-child {
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  line-height: 1;
 }
 
 .step-slider {

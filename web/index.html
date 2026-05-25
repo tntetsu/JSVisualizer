@@ -72,38 +72,66 @@
 
   <!-- ════════════════════════════════════════
        ステップコントロールバー（フッター）
+       レイアウト:  ⏮(高) │ 2行×4列グリッド │ ⏭(高)  ─ slider ─ counter
   ════════════════════════════════════════ -->
   <footer class="step-bar">
 
-    <button id="btn-start"        class="ctrl-btn" title="先頭へ (Home)" disabled>⏮</button>
+    <button id="btn-start" class="ctrl-btn ctrl-btn--nav"
+            title="先頭へ (Home)" disabled>⏮</button>
 
-    <div class="ctrl-group">
-      <button id="btn-stmt-back"  class="ctrl-btn ctrl-btn--stmt"
+    <!-- 2行×4列グリッド
+         行1: 文(外) 式(内) 式(内) 文(外)
+         行2: 関(外) 人(内) 人(内) 関(外) -->
+    <div class="ctrl-grid">
+
+      <!-- 行1: 後退◀ ─── ─── ───▶前進 -->
+      <button id="btn-stmt-back"     class="ctrl-btn ctrl-btn--stmt"
               title="文単位で戻る (V)" disabled>
         <span class="btn-arrows">◀◀</span>
         <span class="btn-label-sm">文</span>
       </button>
-      <button id="btn-expr-back"  class="ctrl-btn ctrl-btn--expr"
+      <button id="btn-expr-back"     class="ctrl-btn ctrl-btn--expr"
               title="式単位で戻る (← / b)" disabled>
         <span class="btn-arrows">◀</span>
         <span class="btn-label-sm">式</span>
       </button>
-    </div>
-
-    <div class="ctrl-group">
-      <button id="btn-expr-forward" class="ctrl-btn ctrl-btn--expr"
+      <button id="btn-expr-forward"  class="ctrl-btn ctrl-btn--expr"
               title="式単位で進む (→ / n)" disabled>
         <span class="btn-arrows">▶</span>
         <span class="btn-label-sm">式</span>
       </button>
-      <button id="btn-stmt-forward" class="ctrl-btn ctrl-btn--stmt"
+      <button id="btn-stmt-forward"  class="ctrl-btn ctrl-btn--stmt"
               title="文単位で進む (v)" disabled>
         <span class="btn-arrows">▶▶</span>
         <span class="btn-label-sm">文</span>
       </button>
-    </div>
 
-    <button id="btn-end"          class="ctrl-btn" title="末尾へ (End)" disabled>⏭</button>
+      <!-- 行2: 後退◀ ─── ─── ───▶前進 -->
+      <button id="btn-call-back"     class="ctrl-btn ctrl-btn--call"
+              title="関数単位で戻る (F)" disabled>
+        <span class="btn-arrows">⏪</span>
+        <span class="btn-label-sm">関</span>
+      </button>
+      <button id="btn-human-back"    class="ctrl-btn ctrl-btn--human"
+              title="人間単位で戻る (H)" disabled>
+        <span class="btn-arrows">◁</span>
+        <span class="btn-label-sm">人</span>
+      </button>
+      <button id="btn-human-forward" class="ctrl-btn ctrl-btn--human"
+              title="人間単位で進む (h)" disabled>
+        <span class="btn-arrows">▷</span>
+        <span class="btn-label-sm">人</span>
+      </button>
+      <button id="btn-call-forward"  class="ctrl-btn ctrl-btn--call"
+              title="関数単位で進む (f)" disabled>
+        <span class="btn-arrows">⏩</span>
+        <span class="btn-label-sm">関</span>
+      </button>
+
+    </div><!-- /ctrl-grid -->
+
+    <button id="btn-end" class="ctrl-btn ctrl-btn--nav"
+            title="末尾へ (End)" disabled>⏭</button>
 
     <input type="range" id="step-slider" class="step-slider"
            min="0" max="0" value="0" disabled>
