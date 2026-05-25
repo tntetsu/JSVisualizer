@@ -5,49 +5,49 @@
 
 /* ── CSS カスタムプロパティ（テーマ） ──────────────────────────── */
 
-/* ライトテーマ（デフォルト）: Catppuccin Latte ベース */
+/* ライトテーマ（デフォルト）: VS Code Light Modern ベース */
 :root {
   /* 背景・サーフェス */
-  --bg:           #eff1f5;
-  --surface:      #e6e9ef;
-  --surface2:     #ccd0da;
-  --border:       #acb0be;
+  --bg:           #ffffff;   /* エディタ背景：純白 */
+  --surface:      #f3f3f3;   /* サイドバー・ヘッダー */
+  --surface2:     #ebebeb;   /* カード・タブ */
+  --border:       #d4d4d4;   /* 境界線 */
 
   /* テキスト */
-  --text:         #4c4f69;
-  --text-muted:   #9ca0b0;
-  --text-dim:     #6c6f85;
+  --text:         #1f1f1f;   /* メインテキスト（ほぼ黒） */
+  --text-muted:   #616161;   /* サブテキスト */
+  --text-dim:     #3b3b3b;   /* 中間テキスト */
 
   /* アクセントカラー */
-  --accent:       #1e66f5;    /* 現在行ハイライト */
-  --accent-bg:    #dde5fd;
-  --changed:      #d20f39;    /* 変化した変数 */
-  --changed-bg:   #fce8ee;
-  --access:       #fe640b;    /* 配列アクセス（オレンジ） */
-  --compare:      #04a5e5;    /* 比較対象（青） */
-  --sorted:       #40a02b;    /* 確定済み（緑） */
+  --accent:       #0066bf;   /* 現在行ハイライト（VS Code ブルー） */
+  --accent-bg:    #dbeafe;
+  --changed:      #cd3131;   /* 変化した変数（VS Code エラーレッド） */
+  --changed-bg:   #fef2f2;
+  --access:       #e07400;   /* 配列アクセス（オレンジ） */
+  --compare:      #0070c1;   /* 比較対象（青） */
+  --sorted:       #14855f;   /* 確定済み（緑） */
 
-  /* シンタックスハイライト */
-  --tok-keyword:  #8839ef;
-  --tok-string:   #40a02b;
-  --tok-number:   #fe640b;
-  --tok-comment:  #8c8fa1;
+  /* シンタックスハイライト（VS Code Light Modern 準拠） */
+  --tok-keyword:  #af00db;   /* キーワード: マゼンタパープル */
+  --tok-string:   #a31515;   /* 文字列: ダークレッド */
+  --tok-number:   #098658;   /* 数値: グリーン */
+  --tok-comment:  #008000;   /* コメント: グリーン */
 
-  /* 値の型色 */
-  --v-num:    #fe640b;
-  --v-str:    #40a02b;
-  --v-bool:   #04a5e5;
-  --v-null:   #9ca0b0;
-  --v-undef:  #9ca0b0;
-  --v-fn:     #8839ef;
-  --v-obj:    #df8e1d;
+  /* 値の型色（VS Code Light Modern 準拠） */
+  --v-num:    #098658;   /* 数値: グリーン */
+  --v-str:    #a31515;   /* 文字列: ダークレッド */
+  --v-bool:   #0000ff;   /* 真偽値: ブルー */
+  --v-null:   #808080;   /* null */
+  --v-undef:  #808080;   /* undefined */
+  --v-fn:     #795e26;   /* 関数: ゴールドブラウン */
+  --v-obj:    #267f99;   /* オブジェクト: ティール */
 
-  /* 式・呼び出し元ハイライト */
-  --hl-expr:     rgba(254, 100,  11, 0.18);
-  --hl-expr-act: rgba(254, 100,  11, 0.32);
-  --hl-call:     rgba(136,  57, 239, 0.12);
-  --hl-call-act: rgba(136,  57, 239, 0.22);
-  --hl-call-bdr: rgba(136,  57, 239, 0.55);
+  /* 式・呼び出し元ハイライト（白背景でも視認できるよう濃いめ） */
+  --hl-expr:     rgba(255, 165,   0, 0.25);
+  --hl-expr-act: rgba(255, 165,   0, 0.42);
+  --hl-call:     rgba(175,   0, 219, 0.12);
+  --hl-call-act: rgba(175,   0, 219, 0.22);
+  --hl-call-bdr: rgba(175,   0, 219, 0.60);
 
   /* サイズ */
   --header-h:    44px;
