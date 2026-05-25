@@ -14,6 +14,7 @@ import { TraceBuilder }     from './core/trace-builder.js';
 import { CodeEditor }       from './components/code-editor.js';
 import { StepControls }     from './components/step-controls.js';
 import { ViewSwitcher }     from './components/view-switcher.js';
+import { SettingsPanel }    from './components/settings-panel.js';
 import { CodeView }         from './views/code-view/index.js';
 import { StateView }        from './views/state-view/index.js';
 import { AnimatedTrace }    from './views/animated-trace/index.js';
@@ -34,11 +35,16 @@ const btnRun          = $('btn-run');
 const btnReset        = $('btn-reset');
 const viewTabsEl      = $('view-tabs');
 const viewContainerEl = $('view-container');
+const btnSettings     = $('btn-settings');
+const settingsPanelEl = $('settings-panel');
 
 // ── コアモジュールの初期化 ─────────────────────────────────────────────────
 
 const adapter    = new DebuggerAdapter();
 const controller = new StepController(adapter);
+
+// ── 設定パネルの初期化（テーマ切り替えを含む） ────────────────────────────
+new SettingsPanel(btnSettings, settingsPanelEl);
 
 // ── ビューの初期化 ────────────────────────────────────────────────────────
 

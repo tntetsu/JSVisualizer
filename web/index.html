@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JSVisualizer</title>
   <link rel="stylesheet" href="style.css">
+  <script>
+    /* テーマフラッシュ防止: DOMContentLoaded より前にダークテーマを適用 */
+    (function () {
+      if (localStorage.getItem('jsv-theme') === 'dark') {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    }());
+  </script>
 </head>
 <body>
 
@@ -20,8 +28,29 @@
       <select id="sample-select" title="サンプルコードを選択">
         <option value="">— サンプル —</option>
       </select>
+      <button id="btn-settings" class="btn-icon" title="設定">⚙</button>
     </div>
   </header>
+
+  <!-- 設定パネル（固定配置・初期非表示） -->
+  <div id="settings-panel" class="settings-panel hidden" role="dialog" aria-label="設定">
+    <div class="settings-header">設定</div>
+    <div class="settings-body">
+      <div class="settings-section">
+        <div class="settings-section-title">テーマ</div>
+        <label class="settings-option">
+          <input type="radio" name="theme" value="light" checked>
+          <span class="settings-option-icon">☀️</span>
+          <span>ライト</span>
+        </label>
+        <label class="settings-option">
+          <input type="radio" name="theme" value="dark">
+          <span class="settings-option-icon">🌙</span>
+          <span>ダーク</span>
+        </label>
+      </div>
+    </div>
+  </div>
 
   <!-- ════════════════════════════════════════
        メインレイアウト

@@ -4,7 +4,65 @@
 ═══════════════════════════════════════════════════════════════ */
 
 /* ── CSS カスタムプロパティ（テーマ） ──────────────────────────── */
+
+/* ライトテーマ（デフォルト）: Catppuccin Latte ベース */
 :root {
+  /* 背景・サーフェス */
+  --bg:           #eff1f5;
+  --surface:      #e6e9ef;
+  --surface2:     #ccd0da;
+  --border:       #acb0be;
+
+  /* テキスト */
+  --text:         #4c4f69;
+  --text-muted:   #9ca0b0;
+  --text-dim:     #6c6f85;
+
+  /* アクセントカラー */
+  --accent:       #1e66f5;    /* 現在行ハイライト */
+  --accent-bg:    #dde5fd;
+  --changed:      #d20f39;    /* 変化した変数 */
+  --changed-bg:   #fce8ee;
+  --access:       #fe640b;    /* 配列アクセス（オレンジ） */
+  --compare:      #04a5e5;    /* 比較対象（青） */
+  --sorted:       #40a02b;    /* 確定済み（緑） */
+
+  /* シンタックスハイライト */
+  --tok-keyword:  #8839ef;
+  --tok-string:   #40a02b;
+  --tok-number:   #fe640b;
+  --tok-comment:  #8c8fa1;
+
+  /* 値の型色 */
+  --v-num:    #fe640b;
+  --v-str:    #40a02b;
+  --v-bool:   #04a5e5;
+  --v-null:   #9ca0b0;
+  --v-undef:  #9ca0b0;
+  --v-fn:     #8839ef;
+  --v-obj:    #df8e1d;
+
+  /* 式・呼び出し元ハイライト */
+  --hl-expr:     rgba(254, 100,  11, 0.18);
+  --hl-expr-act: rgba(254, 100,  11, 0.32);
+  --hl-call:     rgba(136,  57, 239, 0.12);
+  --hl-call-act: rgba(136,  57, 239, 0.22);
+  --hl-call-bdr: rgba(136,  57, 239, 0.55);
+
+  /* サイズ */
+  --header-h:    44px;
+  --footer-h:    80px;   /* 2行ボタン対応（旧 52px） */
+  --pane-gap:    8px;
+  --radius:      6px;
+  --radius-sm:   3px;
+
+  /* アニメーション */
+  --anim-flash:   0.5s;
+  --anim-slide:   0.2s;
+}
+
+/* ダークテーマ: Catppuccin Mocha ベース */
+[data-theme="dark"] {
   /* 背景・サーフェス */
   --bg:           #1e1e2e;
   --surface:      #2a2a3e;
@@ -17,13 +75,13 @@
   --text-dim:     #a6adc8;
 
   /* アクセントカラー */
-  --accent:       #89b4fa;    /* 現在行ハイライト */
+  --accent:       #89b4fa;
   --accent-bg:    #1a2a45;
-  --changed:      #f38ba8;    /* 変化した変数 */
+  --changed:      #f38ba8;
   --changed-bg:   #3d1a22;
-  --access:       #fab387;    /* 配列アクセス（オレンジ） */
-  --compare:      #89dceb;    /* 比較対象（青） */
-  --sorted:       #a6e3a1;    /* 確定済み（緑） */
+  --access:       #fab387;
+  --compare:      #89dceb;
+  --sorted:       #a6e3a1;
 
   /* シンタックスハイライト */
   --tok-keyword:  #cba6f7;
@@ -40,16 +98,12 @@
   --v-fn:     #cba6f7;
   --v-obj:    #f9e2af;
 
-  /* サイズ */
-  --header-h:    44px;
-  --footer-h:    80px;   /* 2行ボタン対応（旧 52px） */
-  --pane-gap:    8px;
-  --radius:      6px;
-  --radius-sm:   3px;
-
-  /* アニメーション */
-  --anim-flash:   0.5s;
-  --anim-slide:   0.2s;
+  /* 式・呼び出し元ハイライト */
+  --hl-expr:     rgba(250, 179, 135, 0.30);
+  --hl-expr-act: rgba(250, 179, 135, 0.45);
+  --hl-call:     rgba(203, 166, 247, 0.20);
+  --hl-call-act: rgba(203, 166, 247, 0.35);
+  --hl-call-bdr: rgba(203, 166, 247, 0.70);
 }
 
 /* ── リセット・基本 ────────────────────────────────────────────── */
@@ -213,14 +267,14 @@ html, body {
   top:    0.1em;
   height: 1.35em;         /* line-height 1.6 より少し短めにして字間に余白 */
   z-index: -1;
-  background: rgba(250, 179, 135, 0.30);   /* --access をベースにした薄い橙 */
+  background: var(--hl-expr);
   border-radius: 3px;
   pointer-events: none;
 }
 
 /* アクティブ行の式ハイライトは少し濃くする */
 .cv-line--active .cv-expr-highlight {
-  background: rgba(250, 179, 135, 0.45);
+  background: var(--hl-expr-act);
 }
 
 /**
@@ -233,15 +287,15 @@ html, body {
   top:    0.1em;
   height: 1.35em;
   z-index: -1;
-  background: rgba(203, 166, 247, 0.20);   /* --tok-keyword (#cba6f7) をベースにした薄いパープル */
-  border-bottom: 2px dashed rgba(203, 166, 247, 0.70);
+  background: var(--hl-call);
+  border-bottom: 2px dashed var(--hl-call-bdr);
   border-radius: 3px;
   pointer-events: none;
 }
 
 /* アクティブ行の呼び出し元ハイライトは少し濃くする */
 .cv-line--active .cv-callsite-highlight {
-  background: rgba(203, 166, 247, 0.35);
+  background: var(--hl-call-act);
 }
 
 /* シンタックスハイライト */
@@ -871,3 +925,103 @@ html, body {
 ::-webkit-scrollbar-track { background: var(--surface); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── 設定ボタン ────────────────────────────────────────────────── */
+.btn-icon {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  flex-shrink: 0;
+}
+
+.btn-icon:hover {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* ── 設定パネル ────────────────────────────────────────────────── */
+.settings-panel {
+  position: fixed;
+  z-index: 1000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.20);
+  min-width: 200px;
+  overflow: hidden;
+  /* 開閉アニメーション */
+  transform-origin: top right;
+  animation: settings-open 0.12s ease-out;
+}
+
+@keyframes settings-open {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);     }
+}
+
+.settings-header {
+  padding: 10px 14px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-body {
+  padding: 8px 0;
+}
+
+.settings-section {
+  padding: 0 8px 4px;
+}
+
+.settings-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 4px 6px 6px;
+}
+
+.settings-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  transition: background 0.1s;
+  user-select: none;
+}
+
+.settings-option:hover {
+  background: var(--surface2);
+}
+
+.settings-option input[type="radio"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.settings-option-icon {
+  font-size: 14px;
+  line-height: 1;
+}
