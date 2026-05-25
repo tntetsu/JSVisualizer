@@ -1,16 +1,18 @@
 /**
  * code-view/index.js — コードハイライトビュー
  *
- * 実行中のコードを行ごとに表示する。
- *
- * ハイライト 2 層:
+ * ハイライト 3 層:
  *   1. 行ハイライト (.cv-line--active)
- *      現在の TraceEvent が属する行全体に左ボーダー＋背景色を付ける。
+ *      現在の TraceEvent が属する行全体に左ボーダー＋背景を付ける。
  *
  *   2. 式ハイライト (.cv-expr-highlight)
- *      TraceEvent に loc (start) と end (end) の両方が揃っている場合、
- *      その文字範囲を絶対位置スパンで下地着色する。
- *      モノスペースフォントを前提に 1ch 単位で計算するため再レンダリング不要。
+ *      TraceEvent に loc + end が両方揃う式ノードの文字範囲をオレンジで着色。
+ *      calc(N * 1ch) でモノスペースフォントの文字幅を利用。
+ *
+ *   3. 呼び出し元ハイライト (.cv-callsite-highlight)
+ *      関数の内部を実行中（callStack.length > 0）のとき、
+ *      その関数を呼び出した CallExpression をパープルで着色する。
+ *      → 「どこから呼ばれたか」を一目で把握できる。
  */
 
 /** HTML エスケープ */
@@ -21,9 +23,6 @@ function esc(s) {
     .replace(/>/g, '&gt;');
 }
 
-/**
- * トークンパターン（簡易シンタックスハイライト用）
- */
 const TOKEN_PATTERNS = [
   { cls: 'tok-comment', re: /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/g },
   { cls: 'tok-string',  re: /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g },
@@ -31,16 +30,10 @@ const TOKEN_PATTERNS = [
   { cls: 'tok-keyword', re: /\b(function|return|if|else|while|for|let|const|var|new|class|extends|import|export|break|continue|null|undefined|true|false|this|of|in|typeof|instanceof|throw|try|catch|finally|async|await)\b/g },
 ];
 
-/**
- * ソースコードに簡易シンタックスハイライトを適用して HTML 文字列を返す。
- * @param {string} source
- * @returns {string}
- */
 function highlightSyntax(source) {
   const placeholders = [];
   let s = source;
 
-  // コメント・文字列を退避
   for (const { cls, re } of TOKEN_PATTERNS.slice(0, 2)) {
     s = s.replace(re, (m) => {
       const idx = placeholders.length;
@@ -49,7 +42,6 @@ function highlightSyntax(source) {
     });
   }
 
-  // 数値・キーワードも同様にプレースホルダー退避
   s = esc(s);
   for (const { cls, re } of TOKEN_PATTERNS.slice(2)) {
     s = s.replace(re, (_, g) => {
@@ -59,7 +51,6 @@ function highlightSyntax(source) {
     });
   }
 
-  // 全プレースホルダーを一括展開
   s = s.replace(/\x00(\d+)\x00/g, (_, idx) => placeholders[Number(idx)]);
   return s;
 }
@@ -67,33 +58,43 @@ function highlightSyntax(source) {
 // ── CodeView ─────────────────────────────────────────────────────────────────
 
 export class CodeView {
-  /** @type {HTMLElement} マウント先コンテナ */
+  /** @type {HTMLElement} */
   #container;
 
-  /** @type {HTMLElement} 行を格納する要素 */
+  /** @type {HTMLElement} */
   #linesEl;
 
-  /** @type {string} 現在のソースコード */
+  /** @type {string} */
   #source = '';
 
   /** @type {number} 現在ハイライト中の行（1始まり, 0=なし） */
   #currentLine = 0;
 
   /**
-   * 式ハイライト用スパン要素の配列。
-   * 複数行にまたがる式にも対応するため配列で管理する。
+   * 式ハイライト用スパン要素（複数行対応のため配列）
    * @type {HTMLElement[]}
    */
   #exprHighlightEls = [];
 
-  // ── 公開 API ──────────────────────────────────────────────────────────────
+  /**
+   * 呼び出し元ハイライト用スパン要素
+   * @type {HTMLElement[]}
+   */
+  #callSiteHighlightEls = [];
 
   /**
-   * @param {HTMLElement} container
+   * CallExpression.enter の loc → end のマップ。
+   * キー: "${line}:${column}"（呼び出し元の start）
+   * 値: end 位置 { line, column }
+   * @type {Map<string, {line:number, column:number}>}
    */
+  #callSiteEndMap = new Map();
+
+  // ── 公開 API ──────────────────────────────────────────────────────────────
+
+  /** @param {HTMLElement} container */
   init(container) {
     this.#container = container;
-
     this.#linesEl = document.createElement('div');
     this.#linesEl.className = 'cv-lines';
     this.#container.appendChild(this.#linesEl);
@@ -107,7 +108,26 @@ export class CodeView {
     this.#source = source;
     this.#currentLine = 0;
     this.#exprHighlightEls = [];
+    this.#callSiteHighlightEls = [];
     this.#render();
+  }
+
+  /**
+   * トレース配列を受け取り、CallExpression の位置→end マップを構築する。
+   * app.js の 'ready' ハンドラで adapter.getTrace() を渡す。
+   * @param {Object[]} trace
+   */
+  setTrace(trace) {
+    this.#callSiteEndMap.clear();
+    if (!trace) return;
+    for (const ev of trace) {
+      if (ev.nodeType === 'CallExpression' && ev.phase === 'enter'
+          && ev.loc && ev.end) {
+        const key = `${ev.loc.line}:${ev.loc.column}`;
+        // 同じ位置に複数の呼び出しがある場合は上書き（どの呼び出しも同じ範囲なので問題なし）
+        this.#callSiteEndMap.set(key, ev.end);
+      }
+    }
   }
 
   /**
@@ -132,15 +152,34 @@ export class CodeView {
       }
     }
 
-    // ── 2. 式ハイライト ────────────────────────────────────────────────────
+    // ── 2. 式ハイライト（評価中の式の文字範囲）────────────────────────────
     this.#clearExprHighlight();
     if (ev?.loc && ev?.end) {
-      this.#setExprHighlight(ev.loc, ev.end);
+      this.#setHighlight(ev.loc, ev.end, 'cv-expr-highlight', this.#exprHighlightEls);
+    }
+
+    // ── 3. 呼び出し元ハイライト ────────────────────────────────────────────
+    this.#clearCallSiteHighlight();
+    const callStack = state.callStack;
+    if (callStack && callStack.length > 0) {
+      // callStack[0] が最内側フレーム（最新の呼び出し）
+      const topFrame = callStack[0];
+      if (topFrame?.loc) {
+        const key = `${topFrame.loc.line}:${topFrame.loc.column}`;
+        const end = this.#callSiteEndMap.get(key);
+        if (end) {
+          this.#setHighlight(
+            topFrame.loc, end,
+            'cv-callsite-highlight', this.#callSiteHighlightEls
+          );
+        }
+      }
     }
   }
 
   reset() {
     this.#clearExprHighlight();
+    this.#clearCallSiteHighlight();
     this.#currentLine = 0;
     this.#linesEl.querySelectorAll('.cv-line--active')
       .forEach(el => el.classList.remove('cv-line--active'));
@@ -159,12 +198,12 @@ export class CodeView {
     const frag = document.createDocumentFragment();
     lines.forEach((_, i) => {
       const lineNo = i + 1;
-      const row = document.createElement('div');
-      row.className = 'cv-line';
+      const row    = document.createElement('div');
+      row.className  = 'cv-line';
       row.dataset.line = String(lineNo);
 
-      const numEl = document.createElement('span');
-      numEl.className = 'cv-line-num';
+      const numEl  = document.createElement('span');
+      numEl.className   = 'cv-line-num';
       numEl.textContent = String(lineNo);
 
       const codeEl = document.createElement('span');
@@ -180,73 +219,63 @@ export class CodeView {
     this.#linesEl.appendChild(frag);
   }
 
-  /**
-   * 式ハイライトをすべて除去する。
-   */
-  #clearExprHighlight() {
-    for (const el of this.#exprHighlightEls) el.remove();
-    this.#exprHighlightEls = [];
-  }
+  // ── ハイライト共通 ────────────────────────────────────────────────────────
 
   /**
-   * 指定した loc (start) ～ end の文字範囲を式ハイライトで着色する。
+   * loc (start) ～ end の文字範囲を指定クラスのスパンでハイライトし、
+   * 生成したスパン要素を storage 配列に push する。
    *
-   * loc / end は JSInterpreter が付与する位置情報:
-   *   - line   : 1 始まり
-   *   - column : 1 始まり（先頭文字が 1）
-   *   - end.column は最後の文字の列（inclusive）
-   *
-   * @param {{ line: number, column: number }} loc   開始位置
-   * @param {{ line: number, column: number }} end   終了位置
+   * @param {{ line:number, column:number }} loc
+   * @param {{ line:number, column:number }} end
+   * @param {string}        cls      スパンの className
+   * @param {HTMLElement[]} storage  生成スパンを追跡する配列
    */
-  #setExprHighlight(loc, end) {
+  #setHighlight(loc, end, cls, storage) {
     if (loc.line === end.line) {
-      // ── 単一行 ─────────────────────────────────────────────────
-      const startCh = loc.column - 1;               // 0-based offset
-      const length  = end.column - loc.column + 1;  // 文字数
-      this.#addHighlightSpan(loc.line, startCh, length);
+      const startCh = loc.column - 1;
+      const length  = end.column - loc.column + 1;
+      this.#addHighlightSpan(loc.line, startCh, length, cls, storage);
     } else {
-      // ── 複数行 ─────────────────────────────────────────────────
       for (let line = loc.line; line <= end.line; line++) {
-        if (line === loc.line) {
-          // 開始行: loc.column から行末まで
-          this.#addHighlightSpan(line, loc.column - 1, 9999);
-        } else if (line === end.line) {
-          // 終了行: 行頭から end.column まで
-          this.#addHighlightSpan(line, 0, end.column);
-        } else {
-          // 中間行: 行全体
-          this.#addHighlightSpan(line, 0, 9999);
-        }
+        if      (line === loc.line) this.#addHighlightSpan(line, loc.column - 1, 9999, cls, storage);
+        else if (line === end.line) this.#addHighlightSpan(line, 0, end.column, cls, storage);
+        else                        this.#addHighlightSpan(line, 0, 9999, cls, storage);
       }
     }
   }
 
   /**
-   * 指定行の `.cv-line-code` に絶対配置の式ハイライトスパンを追加する。
-   *
-   * @param {number} lineNo     1 始まり
-   * @param {number} startCh    0-based 文字オフセット（left = startCh * 1ch）
-   * @param {number} lengthCh   文字数（width = lengthCh * 1ch）
+   * @param {number}        lineNo   1始まり
+   * @param {number}        startCh  0-based 文字オフセット
+   * @param {number}        lengthCh 文字数
+   * @param {string}        cls
+   * @param {HTMLElement[]} storage
    */
-  #addHighlightSpan(lineNo, startCh, lengthCh) {
+  #addHighlightSpan(lineNo, startCh, lengthCh, cls, storage) {
     const lineEl = this.#getLineEl(lineNo);
     if (!lineEl) return;
     const codeEl = lineEl.querySelector('.cv-line-code');
     if (!codeEl) return;
 
     const mark = document.createElement('span');
-    mark.className   = 'cv-expr-highlight';
+    mark.className   = cls;
     mark.style.left  = `calc(${startCh} * 1ch)`;
     mark.style.width = `calc(${lengthCh} * 1ch)`;
     codeEl.appendChild(mark);
-    this.#exprHighlightEls.push(mark);
+    storage.push(mark);
   }
 
-  /**
-   * @param {number} lineNo 1始まり
-   * @returns {HTMLElement|null}
-   */
+  #clearExprHighlight() {
+    for (const el of this.#exprHighlightEls) el.remove();
+    this.#exprHighlightEls = [];
+  }
+
+  #clearCallSiteHighlight() {
+    for (const el of this.#callSiteHighlightEls) el.remove();
+    this.#callSiteHighlightEls = [];
+  }
+
+  /** @param {number} lineNo 1始まり */
   #getLineEl(lineNo) {
     return this.#linesEl.querySelector(`[data-line="${lineNo}"]`);
   }

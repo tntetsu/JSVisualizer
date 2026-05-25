@@ -223,6 +223,27 @@ html, body {
   background: rgba(250, 179, 135, 0.45);
 }
 
+/**
+ * 呼び出し元ハイライトオーバーレイ
+ * - 関数内部を実行中のとき、その関数を呼び出した CallExpression をパープルで着色
+ * - 破線アンダーラインで「呼び出し元」であることを視覚的に示す
+ */
+.cv-callsite-highlight {
+  position: absolute;
+  top:    0.1em;
+  height: 1.35em;
+  z-index: -1;
+  background: rgba(203, 166, 247, 0.20);   /* --tok-keyword (#cba6f7) をベースにした薄いパープル */
+  border-bottom: 2px dashed rgba(203, 166, 247, 0.70);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* アクティブ行の呼び出し元ハイライトは少し濃くする */
+.cv-line--active .cv-callsite-highlight {
+  background: rgba(203, 166, 247, 0.35);
+}
+
 /* シンタックスハイライト */
 .tok-keyword { color: var(--tok-keyword); }
 .tok-string  { color: var(--tok-string);  }

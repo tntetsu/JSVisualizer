@@ -96,6 +96,7 @@ adapter.addEventListener('ready', (e) => {
   editorArea.classList.add('hidden');
   codeDisplay.classList.remove('hidden');
   codeView.setSource(source);
+  codeView.setTrace(adapter.getTrace());   // 呼び出し元ハイライト用マップを構築
 
   editor.setRunningMode(true);
   stepControls.setEnabled(true);
