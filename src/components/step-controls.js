@@ -1,8 +1,17 @@
 /**
  * step-controls.js — ステップ操作バーコンポーネント
  *
- * ボタン・スライダー・粒度セレクターを管理し、
- * StepController へのハンドリングとキーボードショートカットを担当する。
+ * ボタン構成:
+ *   [⏮ 先頭]  [◀◀ 文戻り]  [◀ 式戻り]  [▶ 式進む]  [▶▶ 文進む]  [⏭ 末尾]
+ *   [スライダー]  [カウンター]
+ *
+ * キーボードショートカット:
+ *   b / ← … 式単位で戻る
+ *   n / → … 式単位で進む
+ *   v      … 文単位で進む
+ *   V      … 文単位で戻る
+ *   Home   … 先頭へ
+ *   End    … 末尾へ
  */
 
 export class StepControls {
@@ -10,37 +19,40 @@ export class StepControls {
   #ctrl;
 
   /** @type {HTMLButtonElement} */ #btnStart;
-  /** @type {HTMLButtonElement} */ #btnBack;
-  /** @type {HTMLButtonElement} */ #btnForward;
+  /** @type {HTMLButtonElement} */ #btnExprBack;
+  /** @type {HTMLButtonElement} */ #btnStmtBack;
+  /** @type {HTMLButtonElement} */ #btnExprForward;
+  /** @type {HTMLButtonElement} */ #btnStmtForward;
   /** @type {HTMLButtonElement} */ #btnEnd;
-  /** @type {HTMLSelectElement} */ #granularitySelect;
   /** @type {HTMLInputElement}  */ #slider;
   /** @type {HTMLElement}       */ #counter;
 
-  /** @type {(e: KeyboardEvent) => void} キーボードハンドラの参照（解除用） */
+  /** @type {(e: KeyboardEvent) => void} */
   #keyHandler = null;
 
   /**
    * @param {Object} opts
    * @param {import('../core/step-controller.js').StepController} opts.controller
    * @param {HTMLButtonElement} opts.btnStart
-   * @param {HTMLButtonElement} opts.btnBack
-   * @param {HTMLButtonElement} opts.btnForward
+   * @param {HTMLButtonElement} opts.btnExprBack
+   * @param {HTMLButtonElement} opts.btnStmtBack
+   * @param {HTMLButtonElement} opts.btnExprForward
+   * @param {HTMLButtonElement} opts.btnStmtForward
    * @param {HTMLButtonElement} opts.btnEnd
-   * @param {HTMLSelectElement} opts.granularitySelect
    * @param {HTMLInputElement}  opts.slider
    * @param {HTMLElement}       opts.counter
    */
-  constructor({ controller, btnStart, btnBack, btnForward, btnEnd,
-                granularitySelect, slider, counter }) {
-    this.#ctrl             = controller;
-    this.#btnStart         = btnStart;
-    this.#btnBack          = btnBack;
-    this.#btnForward       = btnForward;
-    this.#btnEnd           = btnEnd;
-    this.#granularitySelect = granularitySelect;
-    this.#slider           = slider;
-    this.#counter          = counter;
+  constructor({ controller, btnStart, btnExprBack, btnStmtBack,
+                btnExprForward, btnStmtForward, btnEnd, slider, counter }) {
+    this.#ctrl           = controller;
+    this.#btnStart       = btnStart;
+    this.#btnExprBack    = btnExprBack;
+    this.#btnStmtBack    = btnStmtBack;
+    this.#btnExprForward = btnExprForward;
+    this.#btnStmtForward = btnStmtForward;
+    this.#btnEnd         = btnEnd;
+    this.#slider         = slider;
+    this.#counter        = counter;
 
     this.#bindEvents();
     this.setEnabled(false);
@@ -55,18 +67,17 @@ export class StepControls {
   update(state) {
     const { cursor, totalSteps, done } = state;
 
-    // スライダー
     this.#slider.max   = String(totalSteps);
     this.#slider.value = String(cursor);
-
-    // カウンター
     this.#counter.textContent = `${cursor} / ${totalSteps}`;
 
-    // ボタンの有効/無効
-    this.#btnStart.disabled   = cursor === 0;
-    this.#btnBack.disabled    = cursor === 0;
-    this.#btnForward.disabled = done;
-    this.#btnEnd.disabled     = done;
+    const atStart = cursor === 0;
+    this.#btnStart.disabled       = atStart;
+    this.#btnExprBack.disabled    = atStart;
+    this.#btnStmtBack.disabled    = atStart;
+    this.#btnExprForward.disabled = done;
+    this.#btnStmtForward.disabled = done;
+    this.#btnEnd.disabled         = done;
   }
 
   /**
@@ -74,8 +85,9 @@ export class StepControls {
    * @param {boolean} enabled
    */
   setEnabled(enabled) {
-    [this.#btnStart, this.#btnBack, this.#btnForward, this.#btnEnd,
-     this.#granularitySelect, this.#slider].forEach(el => {
+    [this.#btnStart, this.#btnExprBack, this.#btnStmtBack,
+     this.#btnExprForward, this.#btnStmtForward, this.#btnEnd,
+     this.#slider].forEach(el => {
       el.disabled = !enabled;
     });
 
@@ -91,16 +103,12 @@ export class StepControls {
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
 
   #bindEvents() {
-    this.#btnStart.addEventListener('click',   () => this.#ctrl.goToStart());
-    this.#btnBack.addEventListener('click',    () => this.#ctrl.stepBackward());
-    this.#btnForward.addEventListener('click', () => this.#ctrl.stepForward());
-    this.#btnEnd.addEventListener('click',     () => this.#ctrl.goToEnd());
-
-    this.#granularitySelect.addEventListener('change', () => {
-      this.#ctrl.setGranularity(
-        /** @type {any} */ (this.#granularitySelect.value)
-      );
-    });
+    this.#btnStart.addEventListener('click',       () => this.#ctrl.goToStart());
+    this.#btnExprBack.addEventListener('click',    () => this.#ctrl.stepExprBackward());
+    this.#btnStmtBack.addEventListener('click',    () => this.#ctrl.stepStmtBackward());
+    this.#btnExprForward.addEventListener('click', () => this.#ctrl.stepExprForward());
+    this.#btnStmtForward.addEventListener('click', () => this.#ctrl.stepStmtForward());
+    this.#btnEnd.addEventListener('click',         () => this.#ctrl.goToEnd());
 
     this.#slider.addEventListener('input', () => {
       this.#ctrl.jumpTo(Number(this.#slider.value));
@@ -108,9 +116,8 @@ export class StepControls {
   }
 
   #registerKeyboard() {
-    if (this.#keyHandler) return;  // 二重登録防止
+    if (this.#keyHandler) return;
     this.#keyHandler = (e) => {
-      // テキストエリアにフォーカスがある場合はスキップ
       const tag = document.activeElement?.tagName;
       if (tag === 'TEXTAREA' || tag === 'INPUT') return;
 
@@ -118,13 +125,20 @@ export class StepControls {
         case 'ArrowLeft':
         case 'b':
           e.preventDefault();
-          this.#ctrl.stepBackward();
+          this.#ctrl.stepExprBackward();
           break;
         case 'ArrowRight':
         case 'n':
-        case 'Enter':
           e.preventDefault();
-          this.#ctrl.stepForward();
+          this.#ctrl.stepExprForward();
+          break;
+        case 'v':
+          e.preventDefault();
+          this.#ctrl.stepStmtForward();
+          break;
+        case 'V':
+          e.preventDefault();
+          this.#ctrl.stepStmtBackward();
           break;
         case 'Home':
           e.preventDefault();

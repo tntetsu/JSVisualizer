@@ -56,14 +56,15 @@ const editor = new CodeEditor({
 });
 
 const stepControls = new StepControls({
-  controller:        controller,
-  btnStart:          $('btn-start'),
-  btnBack:           $('btn-back'),
-  btnForward:        $('btn-forward'),
-  btnEnd:            $('btn-end'),
-  granularitySelect: $('granularity-select'),
-  slider:            $('step-slider'),
-  counter:           $('step-counter'),
+  controller:      controller,
+  btnStart:        $('btn-start'),
+  btnExprBack:     $('btn-expr-back'),
+  btnStmtBack:     $('btn-stmt-back'),
+  btnExprForward:  $('btn-expr-forward'),
+  btnStmtForward:  $('btn-stmt-forward'),
+  btnEnd:          $('btn-end'),
+  slider:          $('step-slider'),
+  counter:         $('step-counter'),
 });
 
 // ── イベントリスナー ──────────────────────────────────────────────────────

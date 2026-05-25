@@ -427,28 +427,61 @@ html, body {
   background: var(--surface2);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   transition: background 0.1s, opacity 0.1s;
-  min-width: 38px;
+  min-width: 36px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .ctrl-btn:hover:not(:disabled) { background: var(--accent-bg); border-color: var(--accent); }
 .ctrl-btn:disabled { opacity: 0.3; cursor: default; }
 
-.granularity-select {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 5px 8px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  cursor: pointer;
+/* 式ボタン: アクセントカラー系 */
+.ctrl-btn--expr {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.ctrl-btn--expr:hover:not(:disabled) {
+  background: var(--accent-bg);
 }
 
-.granularity-select:disabled { opacity: 0.3; }
+/* 文ボタン: より控えめな色 */
+.ctrl-btn--stmt {
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+.ctrl-btn--stmt:hover:not(:disabled) {
+  background: var(--surface2);
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+
+/* ボタンのテキスト要素 */
+.btn-arrows  { font-size: 12px; letter-spacing: -1px; }
+.btn-label-sm {
+  font-size: 10px;
+  opacity: 0.7;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* 式/文ボタンをペアとして視覚的にまとめるグループ */
+.ctrl-group {
+  display: flex;
+  gap: 1px;
+}
+
+.ctrl-group .ctrl-btn:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.ctrl-group .ctrl-btn:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
 
 .step-slider {
   flex: 1;

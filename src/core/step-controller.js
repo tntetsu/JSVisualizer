@@ -38,34 +38,86 @@ export class StepController {
     return this.#granularity;
   }
 
-  // ── ステップ操作 ──────────────────────────────────────────────────────────
+  // ── ステップ操作（式単位） ────────────────────────────────────────────────
 
-  /** 1 ステップ前進（粒度に応じた単位） */
-  stepForward() {
+  /** 式単位で 1 ステップ前進（stepIn） */
+  stepExprForward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.isDone()) return;
-
-    switch (this.#granularity) {
-      case 'expr':  { dbg.stepIn();       break; }
-      case 'stmt':  { dbg.stepOver();     break; }
-      case 'func':  { dbg.stepOut();      break; }
-      case 'human': { dbg.humanStep();    break; }
-    }
+    dbg.stepIn();
     this.#adapter.moveTo(dbg.cursor);
   }
 
-  /** 1 ステップ後退（粒度に応じた単位） */
-  stepBackward() {
+  /** 式単位で 1 ステップ後退（stepBack） */
+  stepExprBackward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.cursor === 0) return;
-
-    switch (this.#granularity) {
-      case 'expr':  { dbg.stepBack();         break; }
-      case 'stmt':  { this.#stepOverBack(dbg); break; }
-      case 'func':  { this.#stepOutBack(dbg);  break; }
-      case 'human': { dbg.humanStepBack();    break; }
-    }
+    dbg.stepBack();
     this.#adapter.moveTo(dbg.cursor);
+  }
+
+  // ── ステップ操作（文単位） ────────────────────────────────────────────────
+
+  /** 文単位で 1 ステップ前進（stepOver） */
+  stepStmtForward() {
+    const dbg = this.#adapter.getDebugger();
+    if (!dbg || dbg.isDone()) return;
+    dbg.stepOver();
+    this.#adapter.moveTo(dbg.cursor);
+  }
+
+  /** 文単位で 1 ステップ後退（stepOver の逆） */
+  stepStmtBackward() {
+    const dbg = this.#adapter.getDebugger();
+    if (!dbg || dbg.cursor === 0) return;
+    this.#stepOverBack(dbg);
+    this.#adapter.moveTo(dbg.cursor);
+  }
+
+  // ── 後方互換: 粒度指定ステップ（Phase 2+ から使用予定） ──────────────────
+
+  /** @deprecated 式/文ボタンを直接使うこと */
+  stepForward() {
+    switch (this.#granularity) {
+      case 'expr':  this.stepExprForward();  break;
+      case 'stmt':  this.stepStmtForward();  break;
+      case 'func': {
+        const dbg = this.#adapter.getDebugger();
+        if (!dbg || dbg.isDone()) return;
+        dbg.stepOut();
+        this.#adapter.moveTo(dbg.cursor);
+        break;
+      }
+      case 'human': {
+        const dbg = this.#adapter.getDebugger();
+        if (!dbg || dbg.isDone()) return;
+        dbg.humanStep();
+        this.#adapter.moveTo(dbg.cursor);
+        break;
+      }
+    }
+  }
+
+  /** @deprecated 式/文ボタンを直接使うこと */
+  stepBackward() {
+    switch (this.#granularity) {
+      case 'expr':  this.stepExprBackward();  break;
+      case 'stmt':  this.stepStmtBackward();  break;
+      case 'func': {
+        const dbg = this.#adapter.getDebugger();
+        if (!dbg || dbg.cursor === 0) return;
+        this.#stepOutBack(dbg);
+        this.#adapter.moveTo(dbg.cursor);
+        break;
+      }
+      case 'human': {
+        const dbg = this.#adapter.getDebugger();
+        if (!dbg || dbg.cursor === 0) return;
+        dbg.humanStepBack();
+        this.#adapter.moveTo(dbg.cursor);
+        break;
+      }
+    }
   }
 
   /** 先頭（cursor = 0）へ移動 */

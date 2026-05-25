@@ -119,18 +119,36 @@
        ステップコントロールバー（フッター）
   ════════════════════════════════════════ -->
   <footer class="step-bar">
-    <button id="btn-start"   class="ctrl-btn" title="先頭へ (Home)"      disabled>⏮</button>
-    <button id="btn-back"    class="ctrl-btn" title="1ステップ戻る (← / b)" disabled>◀</button>
 
-    <select id="granularity-select" class="granularity-select" title="ステップ粒度">
-      <option value="human" selected>人にやさしい単位</option>
-      <option value="expr">式評価</option>
-      <option value="stmt">文評価</option>
-      <option value="func">関数呼び出し</option>
-    </select>
+    <button id="btn-start"        class="ctrl-btn" title="先頭へ (Home)" disabled>⏮</button>
 
-    <button id="btn-forward" class="ctrl-btn" title="1ステップ進む (→ / n)" disabled>▶</button>
-    <button id="btn-end"     class="ctrl-btn" title="末尾へ (End)"         disabled>⏭</button>
+    <div class="ctrl-group">
+      <button id="btn-stmt-back"  class="ctrl-btn ctrl-btn--stmt"
+              title="文単位で戻る (V)" disabled>
+        <span class="btn-arrows">◀◀</span>
+        <span class="btn-label-sm">文</span>
+      </button>
+      <button id="btn-expr-back"  class="ctrl-btn ctrl-btn--expr"
+              title="式単位で戻る (← / b)" disabled>
+        <span class="btn-arrows">◀</span>
+        <span class="btn-label-sm">式</span>
+      </button>
+    </div>
+
+    <div class="ctrl-group">
+      <button id="btn-expr-forward" class="ctrl-btn ctrl-btn--expr"
+              title="式単位で進む (→ / n)" disabled>
+        <span class="btn-arrows">▶</span>
+        <span class="btn-label-sm">式</span>
+      </button>
+      <button id="btn-stmt-forward" class="ctrl-btn ctrl-btn--stmt"
+              title="文単位で進む (v)" disabled>
+        <span class="btn-arrows">▶▶</span>
+        <span class="btn-label-sm">文</span>
+      </button>
+    </div>
+
+    <button id="btn-end"          class="ctrl-btn" title="末尾へ (End)" disabled>⏭</button>
 
     <input type="range" id="step-slider" class="step-slider"
            min="0" max="0" value="0" disabled>
