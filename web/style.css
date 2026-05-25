@@ -1031,3 +1031,343 @@ html, body {
   font-size: 14px;
   line-height: 1;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase 3 — BarChart (棒グラフ)  .bc-*
+═══════════════════════════════════════════════════════════════ */
+
+.bc-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.bc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.bc-chip {
+  padding: 2px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.bc-chip--on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.bc-chip:hover:not(.bc-chip--on) {
+  background: var(--border);
+  color: var(--text);
+}
+
+.bc-chart {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bc-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bc-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.bc-bars-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.bc-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.bc-bar {
+  border-radius: 2px 2px 0 0;
+  transition: height 0.25s ease, background 0.25s ease;
+  min-height: 2px;
+}
+
+.bc-bar-val {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  text-align: center;
+}
+
+.bc-bar-idx {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.bc-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase 3 — ColorBox (色付き箱)  .cb-*
+═══════════════════════════════════════════════════════════════ */
+
+.cb-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.cb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cb-chip {
+  padding: 2px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.cb-chip--on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.cb-chip:hover:not(.cb-chip--on) {
+  background: var(--border);
+  color: var(--text);
+}
+
+.cb-box-area {
+  flex: 1;
+  overflow: auto;
+}
+
+.cb-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.cb-row {
+  display: flex;
+  gap: 3px;
+}
+
+.cb-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-family: monospace;
+  font-weight: 600;
+  color: #1a1a1a;   /* 箱の色が背景になるので常に暗い文字 */
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: background 0.2s, border-color 0.2s;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.cb-cell--idx {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-weight: normal;
+  font-size: 10px;
+}
+
+.cb-cell--hl {
+  border: 2px solid var(--accent) !important;
+  background: var(--accent-bg) !important;
+  color: var(--accent);
+}
+
+.cb-cell--ptr {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.cb-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase 3 — Timeline (時系列グラフ)  .tl-*
+═══════════════════════════════════════════════════════════════ */
+
+.tl-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.tl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tl-chip {
+  padding: 2px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.tl-chip--on {
+  background: var(--chip-color, var(--accent));
+  border-color: var(--chip-color, var(--accent));
+  color: #fff;
+}
+
+.tl-chip:hover:not(.tl-chip--on) {
+  background: var(--border);
+  color: var(--text);
+}
+
+.tl-chart {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.tl-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.tl-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase 3 — Heatmap (ヒートマップ)  .hm-*
+═══════════════════════════════════════════════════════════════ */
+
+.hm-wrap {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.hm-lines {
+  padding: 6px 4px;
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.hm-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1.5px solid transparent;
+  transition: border-color 0.1s;
+  box-sizing: border-box;
+}
+
+.hm-line--active {
+  border-color: var(--accent) !important;
+  outline: none;
+}
+
+.hm-lineno {
+  color: var(--text-muted);
+  min-width: 2.8ch;
+  text-align: right;
+  font-size: 11px;
+  user-select: none;
+  flex-shrink: 0;
+  padding-right: 10px;
+}
+
+.hm-src {
+  flex: 1;
+  white-space: pre;
+  color: var(--text);
+  overflow: hidden;
+}
+
+.hm-count {
+  color: var(--text-muted);
+  font-size: 10px;
+  min-width: 4ch;
+  text-align: right;
+  flex-shrink: 0;
+  padding-left: 6px;
+  user-select: none;
+}
+
+.hm-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 16px;
+}

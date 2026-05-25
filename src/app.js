@@ -21,6 +21,10 @@ import { AnimatedTrace }    from './views/animated-trace/index.js';
 import { TraceTable }       from './views/trace-table/index.js';
 import { ScopeView }        from './views/scope-view/index.js';
 import { CallStackView }    from './views/callstack-view/index.js';
+import { BarChart }         from './views/bar-chart/index.js';
+import { ColorBox }         from './views/color-box/index.js';
+import { Timeline }         from './views/timeline/index.js';
+import { Heatmap }          from './views/heatmap/index.js';
 
 // ── DOM 参照 ───────────────────────────────────────────────────────────────
 
@@ -54,11 +58,15 @@ codeView.init(codeDisplay);
 
 // 右ペイン: ViewSwitcher でタブ切り替え管理
 const switcher = new ViewSwitcher(viewTabsEl, viewContainerEl);
-switcher.register('state',   '変数・スタック', StateView);
-switcher.register('scope',   'スコープ',       ScopeView);
-switcher.register('trace',   'トレース',       AnimatedTrace);
-switcher.register('table',   '全ステップ',     TraceTable);
-switcher.register('callstack', 'コールスタック', CallStackView);
+switcher.register('state',     '変数・スタック',   StateView);
+switcher.register('scope',     'スコープ',         ScopeView);
+switcher.register('trace',     'トレース',         AnimatedTrace);
+switcher.register('table',     '全ステップ',       TraceTable);
+switcher.register('callstack', 'コールスタック',   CallStackView);
+switcher.register('bar',       '棒グラフ',         BarChart);
+switcher.register('colorbox',  '色付き箱',         ColorBox);
+switcher.register('timeline',  '時系列',           Timeline);
+switcher.register('heatmap',   'ヒートマップ',     Heatmap);
 
 // ── UI コンポーネントの初期化 ──────────────────────────────────────────────
 
@@ -93,7 +101,7 @@ const stepControls = new StepControls({
 adapter.addEventListener('ready', (e) => {
   const state   = e.detail;
   const source  = editor.getCode();
-  const builder = new TraceBuilder(adapter.getTrace());
+  const builder = new TraceBuilder(adapter.getTrace(), source);
 
   // ViewSwitcher に builder + 初期 state を通知（builder 付きで再マウント）
   switcher.onReady(state, builder);

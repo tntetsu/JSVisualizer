@@ -12,6 +12,9 @@ export class TraceBuilder {
   /** @type {Object[]} TraceEvent の配列 */
   #trace;
 
+  /** @type {string} 元ソースコード（Heatmap ビュー用） */
+  #source;
+
   /** @type {Set<number>|null} キャッシュ */
   #humanIndicesCache = null;
 
@@ -19,10 +22,12 @@ export class TraceBuilder {
   #heatmapCache = null;
 
   /**
-   * @param {Object[]} trace  JSDebugger.trace
+   * @param {Object[]} trace   JSDebugger.trace
+   * @param {string}  [source] 元ソースコード（Heatmap ビューに渡す）
    */
-  constructor(trace) {
-    this.#trace = trace;
+  constructor(trace, source = '') {
+    this.#trace  = trace;
+    this.#source = source;
   }
 
   // ── Phase 1 ───────────────────────────────────────────────────────────────
@@ -158,5 +163,13 @@ export class TraceBuilder {
    */
   get trace() {
     return this.#trace;
+  }
+
+  /**
+   * 元ソースコードを返す（Heatmap ビューに渡す）。
+   * @returns {string}
+   */
+  get source() {
+    return this.#source;
   }
 }
