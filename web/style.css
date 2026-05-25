@@ -1033,6 +1033,139 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   LineTrace — ソース行×変数トレース表  .lt-*
+═══════════════════════════════════════════════════════════════ */
+
+.lt-wrap {
+  height: 100%;
+  overflow: auto;
+  box-sizing: border-box;
+}
+
+.lt-table {
+  border-collapse: collapse;
+  white-space: nowrap;
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 12.5px;
+  min-width: 100%;
+}
+
+/* ── ヘッダー行 ────────────────────────────────────────────────── */
+
+.lt-thead-row {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.lt-th {
+  padding: 4px 8px;
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lt-th-lineno {
+  color: var(--text-muted);
+  text-align: right;
+  min-width: 3ch;
+}
+
+.lt-th-src {
+  color: var(--text-muted);
+  text-align: left;
+  min-width: 180px;
+}
+
+/* 変数列ヘッダー */
+.lt-th-var {
+  color: var(--accent);
+  text-align: center;
+  min-width: 72px;
+  border-left: 1px solid var(--border);
+}
+
+/* ── データ行 ──────────────────────────────────────────────────── */
+
+.lt-row {
+  border-bottom: 1px solid var(--surface2);
+  transition: background 0.1s;
+}
+
+.lt-row--active .lt-td {
+  background: var(--accent-bg);
+}
+
+.lt-row--active .lt-td-lineno {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ── セル共通 ──────────────────────────────────────────────────── */
+
+.lt-td {
+  padding: 1px 8px;
+  vertical-align: middle;
+  line-height: 1.65;
+}
+
+.lt-td-lineno {
+  color: var(--text-muted);
+  text-align: right;
+  font-size: 11px;
+  user-select: none;
+}
+
+.lt-td-src {
+  color: var(--text);
+  white-space: pre;
+  padding-right: 16px;
+}
+
+/* 変数値セル */
+.lt-td-var {
+  text-align: center;
+  border-left: 1px solid var(--border);
+  min-width: 72px;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 値なし（まだ実行されていない行） */
+.lt-empty {
+  color: var(--border);
+  font-size: 11px;
+}
+
+/* ── 変化フラッシュアニメーション ─────────────────────────────────── */
+
+@keyframes lt-flash {
+  0%   { background: rgba(255, 165, 0, 0.55); }
+  70%  { background: rgba(255, 165, 0, 0.20); }
+  100% { background: transparent; }
+}
+
+.lt-flash {
+  animation: lt-flash 0.85s ease forwards;
+}
+
+/* ダークテーマ時のフラッシュは少し暖色に */
+[data-theme="dark"] .lt-flash {
+  animation: lt-flash-dark 0.85s ease forwards;
+}
+
+@keyframes lt-flash-dark {
+  0%   { background: rgba(249, 226, 175, 0.50); color: #f9e2af; }
+  70%  { background: rgba(249, 226, 175, 0.15); }
+  100% { background: transparent; color: inherit; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    Phase 3 — BarChart (棒グラフ)  .bc-*
 ═══════════════════════════════════════════════════════════════ */
 
