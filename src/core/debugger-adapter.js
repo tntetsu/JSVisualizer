@@ -108,8 +108,17 @@ export class DebuggerAdapter extends EventTarget {
       this.dispatchEvent(new CustomEvent('ready', { detail: this.#buildState([]) }));
     } catch (err) {
       this.#dbg = null;
+      // SyntaxError またはパーサーエラーはパースエラー、それ以外は実行時エラーとして区別する
+      const msg = err?.message ?? '';
+      const isParseError = err instanceof SyntaxError
+        || err?.name === 'SyntaxError'
+        || /^\[Parser\]/i.test(msg)
+        || /^(Unexpected token|Unexpected end of|SyntaxError|Invalid or unexpected)/i.test(msg);
       this.dispatchEvent(new CustomEvent('error', {
-        detail: { message: err.message ?? String(err) },
+        detail: {
+          message:   err.message ?? String(err),
+          errorType: isParseError ? 'parse' : 'runtime',
+        },
       }));
     }
   }

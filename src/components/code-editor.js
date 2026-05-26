@@ -5,6 +5,15 @@
  * サンプルコードの選択と、Run/Reset ボタンのハンドリングを担当。
  */
 
+/** HTML エスケープ（エラーメッセージ表示用） */
+function _esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // ── サンプルコード ───────────────────────────────────────────────────────────
 
 export const SAMPLES = {
@@ -219,6 +228,73 @@ let tree = null;
 for (const v of [5, 3, 8, 1, 4]) tree = insert(tree, v);
 search(tree, 4);`,
   },
+
+  fibonacciDP: {
+    label: 'フィボナッチ（DP/メモ化）',
+    code: `\
+function fibDP(n) {
+  const dp = [0, 1];
+  for (let i = 2; i <= n; i++) {
+    dp[i] = dp[i - 1] + dp[i - 2];
+  }
+  return dp[n];
+}
+fibDP(8);`,
+  },
+
+  classExample: {
+    label: 'クラスと継承',
+    code: `\
+class Animal {
+  constructor(name) {
+    this.name = name;
+  }
+  speak() {
+    return this.name + ' makes a sound.';
+  }
+}
+class Dog extends Animal {
+  constructor(name) {
+    super(name);
+    this.tricks = [];
+  }
+  learn(trick) {
+    this.tricks.push(trick);
+  }
+  speak() {
+    return this.name + ' barks.';
+  }
+}
+const dog = new Dog('Rex');
+dog.learn('sit');
+dog.learn('shake');
+dog.speak();`,
+  },
+
+  linkedList: {
+    label: '連結リスト',
+    code: `\
+function node(val, next = null) {
+  return { val, next };
+}
+function prepend(list, val) {
+  return node(val, list);
+}
+function toArray(list) {
+  const result = [];
+  let cur = list;
+  while (cur !== null) {
+    result.push(cur.val);
+    cur = cur.next;
+  }
+  return result;
+}
+let list = null;
+list = prepend(list, 3);
+list = prepend(list, 2);
+list = prepend(list, 1);
+toArray(list);`,
+  },
 };
 
 // ── CodeEditor ───────────────────────────────────────────────────────────────
@@ -278,13 +354,23 @@ export class CodeEditor {
     return this.#textarea.value;
   }
 
-  /** エラーメッセージを表示する（null で非表示） */
-  showError(msg) {
+  /**
+   * エラーメッセージを表示する（null で非表示）。
+   * @param {string|null} msg
+   * @param {'parse'|'runtime'|null} [errorType]
+   */
+  showError(msg, errorType = null) {
     if (msg) {
-      this.#errorEl.textContent = msg;
+      const typeLabel = errorType === 'parse'   ? '構文エラー'
+                      : errorType === 'runtime' ? '実行エラー'
+                      : null;
+      this.#errorEl.innerHTML = typeLabel
+        ? `<span class="error-badge">${typeLabel}</span> ${_esc(msg)}`
+        : _esc(msg);
+      this.#errorEl.dataset.errorType = errorType ?? '';
       this.#errorEl.hidden = false;
     } else {
-      this.#errorEl.textContent = '';
+      this.#errorEl.innerHTML = '';
       this.#errorEl.hidden = true;
     }
   }
@@ -306,9 +392,9 @@ export class CodeEditor {
       { label: '─ ソート（基本） ─',      keys: ['bubbleSort', 'selectionSort'] },
       { label: '─ ソート（高度） ─',      keys: ['quickSort', 'mergeSort'] },
       { label: '─ ソート（オブジェクト） ─', keys: ['sortByNumericKey', 'sortByStringKey'] },
-      { label: '─ 数学・アルゴリズム ─',  keys: ['euclidLoop', 'euclidRecursive', 'factorial', 'fibonacci'] },
-      { label: '─ データ構造 ─',          keys: ['binaryTree'] },
-      { label: '─ スコープ・オブジェクト ─', keys: ['closure'] },
+      { label: '─ 数学・アルゴリズム ─',  keys: ['euclidLoop', 'euclidRecursive', 'factorial', 'fibonacci', 'fibonacciDP'] },
+      { label: '─ データ構造 ─',          keys: ['binaryTree', 'linkedList'] },
+      { label: '─ スコープ・オブジェクト ─', keys: ['closure', 'classExample'] },
     ];
 
     for (const { label, keys } of groups) {

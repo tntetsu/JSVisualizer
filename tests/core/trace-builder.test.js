@@ -108,3 +108,236 @@ describe('TraceBuilder.getHumanStepList()', () => {
     expect(list.includes(1)).toBe(false);
   });
 });
+
+// ── buildRecursionTree ────────────────────────────────────────────────────
+
+describe('TraceBuilder.buildRecursionTree()', () => {
+  /** callDepth の変化で関数進入/復帰をシミュレートするトレースを作る */
+  function makeCallTrace(calls) {
+    // calls = [{ name, args, retVal, enterIdx, exitIdx }]
+    // depth=0 のベース trace に対して callDepth を増減させる
+    const steps = [];
+
+    // グローバルスコープの enter（深さ0）
+    steps.push(ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }));
+
+    for (const call of calls) {
+      // 関数進入: callDepth が 1 増える
+      steps.push(ev('enter', 'CallExpression', 2, {
+        callDepth: 1,
+        callStack: [{ name: call.name, args: call.args ?? [], loc: { line: 2, column: 0 } }],
+      }));
+      // 関数内処理
+      steps.push(ev('enter', 'ReturnStatement', 3, { callDepth: 1 }));
+      // 関数復帰: callDepth が 0 に戻る
+      steps.push(ev('exit', 'CallExpression', 2, {
+        callDepth: 0,
+        value: call.retVal,
+      }));
+    }
+
+    return steps;
+  }
+
+  test('関数呼び出しのないトレースでは空配列を返す', () => {
+    const trace = [
+      ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }),
+      ev('exit',  'ExpressionStatement', 1, { callDepth: 0 }),
+    ];
+    const builder = new TraceBuilder(trace);
+    expect(builder.buildRecursionTree()).toEqual([]);
+  });
+
+  test('1 回の関数呼び出しで 1 ルートノードを返す', () => {
+    const trace = makeCallTrace([{ name: 'foo', args: [1], retVal: 42 }]);
+    const roots = new TraceBuilder(trace).buildRecursionTree();
+    expect(roots).toHaveLength(1);
+    expect(roots[0].funcName).toBe('foo');
+    expect(roots[0].args).toEqual([1]);
+    expect(roots[0].returnVal).toBe(42);
+    expect(roots[0].children).toHaveLength(0);
+  });
+
+  test('2 回の連続呼び出しで 2 ルートノードを返す', () => {
+    const trace = makeCallTrace([
+      { name: 'f', args: [1], retVal: 10 },
+      { name: 'g', args: [2], retVal: 20 },
+    ]);
+    const roots = new TraceBuilder(trace).buildRecursionTree();
+    expect(roots).toHaveLength(2);
+    expect(roots[0].funcName).toBe('f');
+    expect(roots[1].funcName).toBe('g');
+  });
+
+  test('ネストした呼び出しでは子ノードに追加される', () => {
+    // depth: 0 → 1 → 2 → 1 → 0
+    const trace = [
+      ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }),
+      // outer 進入
+      ev('enter', 'CallExpression', 2, {
+        callDepth: 1,
+        callStack: [{ name: 'outer', args: [], loc: { line: 2, column: 0 } }],
+      }),
+      // inner 進入
+      ev('enter', 'CallExpression', 3, {
+        callDepth: 2,
+        callStack: [
+          { name: 'inner', args: [], loc: { line: 3, column: 0 } },
+          { name: 'outer', args: [], loc: { line: 2, column: 0 } },
+        ],
+      }),
+      // inner 復帰
+      ev('exit', 'CallExpression', 3, { callDepth: 1, value: 'inner-ret' }),
+      // outer 復帰
+      ev('exit', 'CallExpression', 2, { callDepth: 0, value: 'outer-ret' }),
+    ];
+    const roots = new TraceBuilder(trace).buildRecursionTree();
+    expect(roots).toHaveLength(1);
+    expect(roots[0].funcName).toBe('outer');
+    expect(roots[0].children).toHaveLength(1);
+    expect(roots[0].children[0].funcName).toBe('inner');
+    expect(roots[0].children[0].returnVal).toBe('inner-ret');
+  });
+
+  test('キャッシュを返す（同一オブジェクト）', () => {
+    const trace = makeCallTrace([{ name: 'f', args: [], retVal: 1 }]);
+    const builder = new TraceBuilder(trace);
+    expect(builder.buildRecursionTree()).toBe(builder.buildRecursionTree());
+  });
+});
+
+// ── buildLifetime ─────────────────────────────────────────────────────────
+
+describe('TraceBuilder.buildLifetime()', () => {
+  /** humanStep となるトレースイベントを作る */
+  function humanEv(line, envChain, callDepth = 0) {
+    return ev('enter', 'ExpressionStatement', line, {
+      callDepth,
+      env: envChain,
+    });
+  }
+
+  test('変数が登場した humanStep から endHi まで区間を持つ', () => {
+    const trace = [
+      humanEv(1, [{ x: 1 }], 0),   // hi=0: x=1
+      humanEv(2, [{ x: 2 }], 0),   // hi=1: x=2
+      humanEv(3, [{ x: 2 }], 0),   // hi=2: x=2 (変化なし)
+    ];
+    const builder = new TraceBuilder(trace);
+    const entries = builder.buildLifetime();
+    const xEntry = entries.find(e => e.varName === 'x');
+    expect(xEntry).toBeDefined();
+    expect(xEntry.startHi).toBe(0);
+    expect(xEntry.endHi).toBe(2);
+    expect(xEntry.callDepth).toBe(0);
+  });
+
+  test('空の trace では空配列を返す', () => {
+    const builder = new TraceBuilder([]);
+    expect(builder.buildLifetime()).toEqual([]);
+  });
+
+  test('組み込み変数（BUILTIN_NAMES）は含まない', () => {
+    const trace = [
+      humanEv(1, [{ console: {}, x: 1 }], 0),
+    ];
+    const entries = new TraceBuilder(trace).buildLifetime();
+    expect(entries.every(e => e.varName !== 'console')).toBe(true);
+  });
+
+  test('異なる callDepth の同名変数は別エントリになる', () => {
+    const trace = [
+      humanEv(1, [{ n: 3 }], 0),   // グローバルスコープの n
+      humanEv(2, [{ n: 1 }], 1),   // 関数スコープの n
+    ];
+    const entries = new TraceBuilder(trace).buildLifetime();
+    const nEntries = entries.filter(e => e.varName === 'n');
+    expect(nEntries.length).toBe(2);
+    expect(nEntries.some(e => e.callDepth === 0)).toBe(true);
+    expect(nEntries.some(e => e.callDepth === 1)).toBe(true);
+  });
+
+  test('キャッシュを返す（同一オブジェクト）', () => {
+    const trace = [humanEv(1, [{ x: 1 }], 0)];
+    const builder = new TraceBuilder(trace);
+    expect(builder.buildLifetime()).toBe(builder.buildLifetime());
+  });
+});
+
+// ── buildControlFlow ──────────────────────────────────────────────────────
+
+describe('TraceBuilder.buildControlFlow()', () => {
+  const source = 'let x = 1;\nif (x > 0) {\n  x = 2;\n}\n';
+
+  function humanEv2(line) {
+    return ev('enter', 'ExpressionStatement', line, { callDepth: 0, env: [{}] });
+  }
+
+  test('通過した行のノードが含まれる', () => {
+    const trace = [
+      humanEv2(1),
+      humanEv2(2),
+      humanEv2(3),
+    ];
+    const { nodes } = new TraceBuilder(trace, source).buildControlFlow();
+    const lineNos = nodes.map(n => n.lineNo);
+    expect(lineNos).toContain(1);
+    expect(lineNos).toContain(2);
+    expect(lineNos).toContain(3);
+  });
+
+  test('エッジは行番号の遷移ペアを含む', () => {
+    const trace = [
+      humanEv2(1),
+      humanEv2(2),
+      humanEv2(3),
+    ];
+    const { edges } = new TraceBuilder(trace, source).buildControlFlow();
+    expect(edges.some(e => e.from === 1 && e.to === 2)).toBe(true);
+    expect(edges.some(e => e.from === 2 && e.to === 3)).toBe(true);
+  });
+
+  test('同じ行への繰り返し遷移でカウントが増える', () => {
+    const trace = [
+      humanEv2(2),
+      humanEv2(3),
+      humanEv2(2),  // ループバック
+      humanEv2(3),
+    ];
+    const { edges } = new TraceBuilder(trace, source).buildControlFlow();
+    const loopEdge = edges.find(e => e.from === 3 && e.to === 2);
+    expect(loopEdge).toBeDefined();
+    expect(loopEdge.count).toBe(1);
+
+    const fwdEdge = edges.find(e => e.from === 2 && e.to === 3);
+    expect(fwdEdge?.count).toBe(2);
+  });
+
+  test('nodes の firstSeen 順にソートされる', () => {
+    const trace = [humanEv2(3), humanEv2(1), humanEv2(2)];
+    const { nodes } = new TraceBuilder(trace, source).buildControlFlow();
+    // 最初に登場した行番号順 = 3, 1, 2
+    expect(nodes[0].lineNo).toBe(3);
+    expect(nodes[1].lineNo).toBe(1);
+    expect(nodes[2].lineNo).toBe(2);
+  });
+
+  test('humanSteps 配列が含まれる', () => {
+    const trace = [humanEv2(1), humanEv2(2)];
+    const { humanSteps } = new TraceBuilder(trace, source).buildControlFlow();
+    expect(Array.isArray(humanSteps)).toBe(true);
+    expect(humanSteps.length).toBeGreaterThan(0);
+  });
+
+  test('空の trace では空の nodes/edges を返す', () => {
+    const { nodes, edges } = new TraceBuilder([], source).buildControlFlow();
+    expect(nodes).toEqual([]);
+    expect(edges).toEqual([]);
+  });
+
+  test('キャッシュを返す（同一オブジェクト）', () => {
+    const trace = [humanEv2(1)];
+    const builder = new TraceBuilder(trace, source);
+    expect(builder.buildControlFlow()).toBe(builder.buildControlFlow());
+  });
+});

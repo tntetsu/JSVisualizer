@@ -5,7 +5,7 @@
 ## プロジェクト概要
 
 **JSVisualizer** は、JavaScript プログラムの実行過程をインタラクティブに可視化する教育用 Web アプリケーションです。  
-[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、複数の可視化ビューを提供します。
+[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、14 種類の可視化ビューを提供します。
 
 対象ユーザーはプログラミング入門〜中級の学習者および教員です。
 
@@ -17,23 +17,24 @@ JSVisualizer/
 │   ├── core/
 │   │   ├── debugger-adapter.js   # JSDebugger ラッパー・差分検出
 │   │   ├── step-controller.js    # ステップ粒度の統合管理（4粒度×前後 + start/end）
-│   │   └── trace-builder.js      # 全トレースデータの事前集計
+│   │   └── trace-builder.js      # 全トレースデータの事前集計（6メソッド）
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
-│   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）✅
-│   │   ├── state-view/           # 変数・コールスタック・コンソール統合パネル  ✅
-│   │   ├── animated-trace/       # アニメーション付きトレース表                ✅
-│   │   ├── trace-table/          # 静的トレース表（全ステップ先読み）           ✅
-│   │   ├── scope-view/           # スコープ・変数ビュー（ネスト枠）            ✅
-│   │   ├── callstack-view/       # コールスタックビュー                        ✅
-│   │   ├── bar-chart/            # 棒グラフアニメーション（数値変化）        [未実装]
-│   │   ├── color-box/            # 色付き箱アニメーション（配列変化）        [未実装]
-│   │   ├── timeline/             # 変数の時系列グラフ                        [未実装]
-│   │   ├── recursion-tree/       # 再帰ツリービュー                          [未実装]
-│   │   ├── lifetime/             # スコープ・ライフタイムタイムライン         [未実装]
-│   │   ├── heatmap/              # 実行頻度ヒートマップ                      [未実装]
-│   │   ├── control-flow/         # 制御フロービュー                          [未実装]
-│   │   ├── memory-view/          # メモリモデルビュー（スタック/ヒープ）     [未実装]
-│   │   └── object-graph/         # ポインタ/オブジェクトグラフ              [未実装]
+│   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅
+│   │   ├── state-view/           # 変数・コールスタック・コンソール統合パネル        ✅
+│   │   ├── scope-view/           # スコープ・変数ビュー（ネスト枠）                 ✅
+│   │   ├── callstack-view/       # コールスタックビュー                            ✅
+│   │   ├── line-trace/           # トレース表（行=ソース行・列=変数）               ✅  ← タブ「トレース表」
+│   │   ├── trace-table/          # 静的トレース表（全ステップ先読み）               ✅  ← タブ「全ステップ」
+│   │   ├── bar-chart/            # 棒グラフアニメーション（数値・配列変化）         ✅
+│   │   ├── color-box/            # 色付き箱アニメーション（配列・ポインタ）         ✅
+│   │   ├── timeline/             # 変数の時系列グラフ（SVG折れ線）                  ✅
+│   │   ├── heatmap/              # 実行頻度ヒートマップ                             ✅
+│   │   ├── recursion-tree/       # 再帰呼び出しツリー（SVG）                       ✅
+│   │   ├── lifetime/             # 変数ライフタイム Gantt チャート（SVG）           ✅
+│   │   ├── control-flow/         # 制御フロービュー（SVG フローチャート）           ✅
+│   │   ├── memory-view/          # メモリモデルビュー（スタック/ヒープ + SVG矢印）  ✅
+│   │   ├── object-graph/         # オブジェクト参照グラフ（SVG 力学的レイアウト）   ✅
+│   │   └── animated-trace/       # アニメーション付きトレース表（実装済み・非アクティブ）
 │   ├── components/
 │   │   ├── code-editor.js        # コードエディタ（実行前）
 │   │   ├── step-controls.js      # ステップ操作バー（2行×4列ボタン＋キーボード）
@@ -105,6 +106,35 @@ class BaseView {
 > `ViewSwitcher.onReady()` はアクティブビューを `destroy` → 再マウントするため、
 > ビューは常に最新の builder を受け取ることが保証される。
 
+### TraceBuilder の集計メソッド
+
+```js
+class TraceBuilder {
+  constructor(trace, source)          // trace: TraceEvent[], source: ソース文字列
+
+  // Phase 1
+  buildHumanIndices()                 // → Set<number>   humanStep インデックスの集合
+  getHumanStepList()                  // → number[]      ソート済み humanStep 配列
+
+  // Phase 3
+  buildHeatmap()                      // → Map<lineNo, count>  行ごとの実行回数
+
+  // Phase 4
+  buildRecursionTree()                // → TreeNode[]    再帰ツリーノード配列（callDepth 変化から構築）
+  buildLifetime()                     // → LifetimeEntry[]  変数ライフタイム区間（startHi/endHi は humanStep インデックス）
+  buildControlFlow()                  // → { nodes, edges, humanSteps }  実行フローグラフ
+
+  get trace()                         // → TraceEvent[]  生の trace 配列
+  get source()                        // → string        元ソースコード
+  get length()                        // → number        trace.length
+}
+```
+
+`buildRecursionTree()` は `callDepth` の増減から関数進入・復帰を検出。  
+`buildLifetime()` は humanStep ごとの env を走査し `callDepth:varName` をキーにして区間を記録。  
+`buildControlFlow()` は humanStep の行番号遷移からノード（ユニーク行）とエッジ（行→行）を構築。  
+すべてキャッシュ付きで、2回目以降の呼び出しは O(1)。
+
 ### ステップ粒度とボタンレイアウト
 
 フッターのステップ操作バーは **2行×4列グリッド**（＋両端の先頭/末尾ボタン）で構成されます。
@@ -137,6 +167,21 @@ class BaseView {
 呼び出し元の end 位置は `setTrace()` 時に `CallExpression.enter` イベントからマップを事前構築
 （`#callSiteEndMap: Map<"line:col", {line, column}>`）。
 
+### SVG ビューの設計パターン
+
+再帰ツリー・ライフタイム・制御フロー・オブジェクトグラフは SVG で描画します。
+
+| ビュー | レイアウト方式 | update の方針 |
+|--------|--------------|--------------|
+| RecursionTree | 再帰的サブツリー幅計算（葉=NODE_W、内部=子の和＋gap） | ノードごとの className を cursor で更新 |
+| Lifetime | 線形（X=humanStep, Y=変数行） | カーソル線の x1/x2 を移動 |
+| ControlFlow | first-seen 順の縦並び（前向きエッジ右・後向きエッジ左） | activeNode の className を更新 |
+| MemoryView | 2カラム（stack \| heap）+ SVG オーバーレイ矢印 | DOM 再描画 → rAF で矢印を再計算 |
+| ObjectGraph | Fruchterman-Reingold 力学的レイアウト（80iter, cool=0.92） | update() ごとに SVG 全体を再描画 |
+
+`isFunctionVal(v)` は LineTrace・TraceBuilder・MemoryView・ObjectGraph で共通で使用し、
+`v.__type__ === 'JSFunction'` / `'JSClass'` またはネイティブ関数を除外します。
+
 ### テーマシステム
 
 `web/style.css` では CSS カスタムプロパティによる 2 テーマを実装しています。
@@ -164,9 +209,11 @@ class BaseView {
 ## 重要な設計判断
 
 - **ビルドツール**: esbuild（JSInterpreter と同方式）
-- **可視化ライブラリ**: 使用しない（DOM + CSS アニメーションで実装）
-- **再帰ツリー/オブジェクトグラフのレイアウト**: SVG + 手動レイアウトアルゴリズム（未実装）
+- **可視化ライブラリ**: 使用しない（DOM + CSS アニメーション + SVG 手動描画で実装）
+- **SVG レイアウト**: 再帰ツリーは再帰的幅計算、ObjectGraph は Fruchterman-Reingold 力学的レイアウト
 - **差分検出**: 前後 `env` スナップショットを比較し変化した変数名のセットを生成
+- **オブジェクト同一性**: MemoryView・ObjectGraph では `WeakMap` でオブジェクト参照を追跡し重複ヒープ登録を防ぐ
+- **LineTrace vs AnimatedTrace**: `animated-trace/` ディレクトリは実装済みだが、タブには現在 `line-trace/`（ソース行×変数マトリクス表）を使用
 - **対象ブラウザ**: モダンブラウザ（Chrome/Firefox/Safari 最新版）
 
 ## 依存 JSInterpreter の主要 API

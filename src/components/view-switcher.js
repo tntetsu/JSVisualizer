@@ -3,7 +3,12 @@
  *
  * ビュークラスを登録してタブ UI を自動生成する。
  * タブクリックで前ビューを destroy → 新ビューを init + update する。
+ *
+ * キーボードショートカット（実行中のみ有効）:
+ *   1〜9  … 登録順の N 番目のタブへ切り替え
  */
+
+const STORAGE_KEY_TAB = 'jsv-active-tab';
 
 export class ViewSwitcher {
   /** @type {HTMLElement} タブボタン置き場 */
@@ -25,6 +30,9 @@ export class ViewSwitcher {
 
   /** @type {import('../core/trace-builder.js').TraceBuilder|null} */
   #builder = null;
+
+  /** @type {((e: KeyboardEvent) => void)|null} キーボードハンドラ */
+  #keyHandler = null;
 
   /**
    * @param {HTMLElement} tabsEl      タブボタン置き場
@@ -57,6 +65,9 @@ export class ViewSwitcher {
     this.#builder   = builder;
     this.#lastState = state;
 
+    // キーボードショートカットを登録
+    this.#registerKeyboard();
+
     if (this.#activeId) {
       // builder が更新されるため、常に destroy → 再マウントして
       // init(container, builder) を最新の builder で呼び直す。
@@ -67,9 +78,12 @@ export class ViewSwitcher {
       }
       this.#mountView(this.#activeId);
     } else {
-      // デフォルトで最初のビューをアクティブに
-      const firstId = this.#registry.keys().next().value;
-      if (firstId) this.#activate(firstId);
+      // 前回保存したタブ → なければ最初のビュー
+      const savedId = localStorage.getItem(STORAGE_KEY_TAB);
+      const targetId = (savedId && this.#registry.has(savedId))
+        ? savedId
+        : this.#registry.keys().next().value;
+      if (targetId) this.#activate(targetId);
     }
   }
 
@@ -87,6 +101,7 @@ export class ViewSwitcher {
    * リセット時に呼ぶ。全ビューを destroy して状態をクリアする。
    */
   reset() {
+    this.#unregisterKeyboard();
     for (const [, entry] of this.#registry) {
       entry.instance?.destroy();
       entry.instance = null;
@@ -111,6 +126,32 @@ export class ViewSwitcher {
   }
 
   /**
+   * キーボードショートカット（1〜9 でタブ切り替え）を登録する。
+   */
+  #registerKeyboard() {
+    if (this.#keyHandler) return;
+    const ids = [...this.#registry.keys()];
+    this.#keyHandler = (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+      const digit = parseInt(e.key, 10);
+      if (digit >= 1 && digit <= 9) {
+        const id = ids[digit - 1];
+        if (id) { e.preventDefault(); this.#activate(id); }
+      }
+    };
+    document.addEventListener('keydown', this.#keyHandler);
+  }
+
+  /** キーボードショートカットを解除する。 */
+  #unregisterKeyboard() {
+    if (this.#keyHandler) {
+      document.removeEventListener('keydown', this.#keyHandler);
+      this.#keyHandler = null;
+    }
+  }
+
+  /**
    * 指定ビューをアクティブにする。
    */
   #activate(id) {
@@ -127,6 +168,9 @@ export class ViewSwitcher {
     }
 
     this.#activeId = id;
+
+    // アクティブタブを localStorage に保存
+    try { localStorage.setItem(STORAGE_KEY_TAB, id); } catch { /* ignore */ }
 
     // タブのアクティブ状態を更新
     this.#tabsEl.querySelectorAll('.view-tab').forEach(btn => {

@@ -1,9 +1,9 @@
 # 機能仕様書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 0.2  
+**バージョン**: 0.5  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-05-25  
+**最終更新**: 2026-05-26  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -14,6 +14,9 @@
 |-----------|------|---------|
 | 0.1 | 2026-05-25 | 初版 |
 | 0.2 | 2026-05-25 | ステップコントロール UI（2行×4列ボタン）、コードハイライト 3層構造、テーマ切り替え機能を追記 |
+| 0.3 | 2026-05-26 | Phase 3 実装反映: V-06 BarChart / V-07 ColorBox / V-08 Timeline / V-09 Heatmap を ✅ に更新 |
+| 0.4 | 2026-05-26 | Phase 3.5 実装反映: V-02b LineTrace（トレース表）を追加。AnimatedTrace は非アクティブに変更 |
+| 0.5 | 2026-05-26 | Phase 4/5 実装反映: V-10 RecursionTree / V-11 Lifetime / V-12 ControlFlow / V-13 MemoryView / V-14 ObjectGraph を ✅ に更新。TraceBuilder 新メソッドを追記 |
 
 ---
 
@@ -136,29 +139,49 @@
 
 #### V-01: 変数・スタック（StateView）✅ 実装済み
 
+タブ名: **変数・スタック**
+
 - 現在の TraceEvent（nodeType・phase・行・評価値）を表示
-- 変数パネル: 全スコープの変数値を一覧（変化した変数をフラッシュ）
+- 変数パネル: 全スコープの変数値を一覧（変化した変数をフラッシュ）。「スコープ別」チェックボックスでスコープチェーン表示に切り替え可
 - コールスタックパネル: フレームと行番号のリスト
 - コンソール出力パネル: `console.log` の出力履歴
 
 **入力**: `state.event`, `state.variables`, `state.scopes`, `state.callStack`, `state.consoleOutput`
 
-#### V-02: アニメーション付きトレース表（AnimatedTrace）✅ 実装済み
+---
 
-- ステップが進むたびに行が追記される（スライドインアニメーション）
-- 列: # | 行 | イベント | 値
-- 表示粒度は humanStep ベース（意味のある変化点のみ行追加）
+#### V-02: トレース表（LineTrace）✅ 実装済み
 
-**入力**: `builder.getHumanStepList()`, `builder.trace`
+タブ名: **トレース表**
+
+- 行＝ソースコードの各行（全行固定表示）、列＝変数名のマトリクス表
+- 変数が宣言されるたびに列が右に追加される（動的列追加）
+- 各セルはその行を「最後に実行した時点」での変数値を表示
+- cursor が進むと、変化したセルにフラッシュアニメーション（オレンジ）
+- 関数・クラス値は列に載せない（`isFunctionVal()` でフィルタ）
+- 現在実行行をハイライトしてスクロール追従
+
+**入力**: `builder.getHumanStepList()`, `builder.trace`, `builder.source`, `state.cursor`, `state.event`
+
+> **Note**: `animated-trace/`（ステップごとに行が追記されるアニメーション付きトレース表）は実装済みだが、現在タブには登録されていない。
+
+---
 
 #### V-03: 全ステップ表（TraceTable）✅ 実装済み
 
+タブ名: **全ステップ**
+
 - 全 humanStep を `init()` 時に一括描画
 - `update()` は現在行のハイライト移動とスクロールのみ（O(1)）
+- 列: # | 行 | イベント（phase + nodeType の短縮形） | 値
 
 **入力**: `builder.getHumanStepList()`, `builder.trace`
 
+---
+
 #### V-04: スコープ・変数ビュー（ScopeView）✅ 実装済み
+
+タブ名: **スコープ**
 
 - スコープチェーンをネストした枠で表現
 - 最内側フレーム（実行中スコープ）を強調表示
@@ -166,7 +189,11 @@
 
 **入力**: `state.scopes`, `state.callStack`, `state.changedVars`
 
+---
+
 #### V-05: コールスタックビュー（CallStackView）✅ 実装済み
+
+タブ名: **コールスタック**
 
 - スタックフレームをカード積み上げで表示
 - 関数呼び出し時にカードがスライドイン
@@ -174,43 +201,140 @@
 
 **入力**: `state.callStack`
 
-#### V-06: 棒グラフアニメーション（BarChart）🔧 開発予定
+---
 
-- 指定した数値変数または数値配列を棒グラフで表示
-- 値の変化を棒の高さの CSS アニメーションで表現
+#### V-06: 棒グラフアニメーション（BarChart）✅ 実装済み
 
-#### V-07: 色付き箱アニメーション（ColorBox）🔧 開発予定
+タブ名: **棒グラフ**
 
-- 指定した配列の各要素を番号付き箱で表示
-- アクセス中（オレンジ）・比較対象（青）・確定済み（緑）を色分け
+- 指定した数値変数または数値配列を縦棒グラフで表示
+- 値の変化を棒の高さの CSS transition で滑らかにアニメーション
+- 変数選択チップ UI（配列はデフォルト選択、複数選択可）
+- 棒の色は最大値との比率に応じて青→赤でグラデーション
+- 初期ステップ（変数未定義）には「ステップを進めると棒グラフが現れます」ガイドを表示
 
-#### V-08: 変数の時系列グラフ（Timeline）🔧 開発予定
+**入力**: `state.event.env`, `state.cursor`, `builder.trace`
 
-- 指定した変数の値の推移を折れ線グラフで表示（SVG）
+---
 
-#### V-09: 実行頻度ヒートマップ（Heatmap）🔧 開発予定
+#### V-07: 色付き箱アニメーション（ColorBox）✅ 実装済み
 
-- 各ソース行の実行回数を背景色の濃さで表現
+タブ名: **色付き箱**
 
-#### V-10: 再帰ツリービュー（RecursionTree）🔧 開発予定
+- 指定した配列の各要素をインデックス付き色付き箱で表示
+- 箱の色は値の大きさに応じて青→赤でグラデーション
+- 変数選択チップ（1つの配列を選択する Radio スタイル）
+- ポインタ検出: `[0, arr.length)` 範囲の整数変数を自動検出し、対応インデックスの箱を強調
 
-- `callStack[]` を追跡して再帰呼び出しの木を構築（SVG）
+**入力**: `state.event.env`, `state.cursor`, `builder.trace`
 
-#### V-11: スコープ・ライフタイムタイムライン（Lifetime）🔧 開発予定
+---
 
-- 変数の宣言〜スコープ消滅の期間をガントチャートで表示（SVG）
+#### V-08: 変数の時系列グラフ（Timeline）✅ 実装済み
 
-#### V-12: 制御フロービュー（ControlFlow）🔧 開発予定
+タブ名: **時系列**
 
-- if / for / while をフローチャートに変換（SVG）
+- `init()` 時に全 humanStep を走査して変数の値履歴を構築
+- X 軸＝humanStep インデックス、Y 軸＝変数値
+- 複数変数を色分けした SVG 折れ線グラフで表示
+- `update()` はカーソル縦線の移動のみ（O(log n) の二分探索）
 
-#### V-13: メモリモデルビュー（MemoryView）🔧 開発予定
+**入力**: `builder.getHumanStepList()`, `builder.trace`
 
-- スタック（実行フレーム）とヒープ（オブジェクト・配列）を分離表示
+---
 
-#### V-14: オブジェクトグラフ（ObjectGraph）🔧 開発予定
+#### V-09: 実行頻度ヒートマップ（Heatmap）✅ 実装済み
 
-- `env` 内のオブジェクト・配列の参照関係をノード-エッジグラフで表示（SVG）
+タブ名: **ヒートマップ**
+
+- `init()` で静的に描画。各ソース行の背景色＝実行頻度に比例（橙の透明度）
+- `update()` は現在行のハイライト（アクセントボーダー）付け替えのみ
+
+**入力**: `builder.source`, `builder.buildHeatmap()`, `state.event`
+
+---
+
+#### V-10: 再帰ツリービュー（RecursionTree）✅ 実装済み
+
+タブ名: **再帰ツリー**
+
+- `init()` で SVG ツリーを一括構築
+- ノードの色: 未呼び出し（灰）、実行中（青）、完了（緑）
+- 完了ノードには返り値を `→ 値` 形式で表示
+- `update()` はノード className の付け替えのみ（O(n_nodes)）
+- レイアウト: 再帰的サブツリー幅計算（葉=NODE_W、内部ノード=子の幅の和＋gap）
+
+**入力**: `builder.buildRecursionTree()`, `state.cursor`
+
+`buildRecursionTree()` の仕様:
+- `callDepth` の増減を監視して関数の進入（push）・復帰（pop）を検出
+- ノード: `{ id, funcName, args, returnVal, callStepIdx, returnStepIdx, treeDepth, children[] }`
+- 返り値は復帰イベントの `ev.value` から取得
+
+---
+
+#### V-11: 変数ライフタイム（Lifetime）✅ 実装済み
+
+タブ名: **ライフタイム**
+
+- X 軸＝humanStep インデックス、Y 軸＝変数名の Gantt チャート（SVG）
+- 変数バーの色は `callDepth` 別に色分け（深い関数呼び出しほど異なる色）
+- `update()` はカーソル縦線（破線）の移動のみ
+
+**入力**: `builder.buildLifetime()`, `builder.getHumanStepList()`, `state.cursor`
+
+`buildLifetime()` の仕様:
+- humanStep ごとに `flattenEnv(ev.env)` を走査
+- キー = `callDepth:varName` で区間を追跡（同名変数の異なる呼び出し深さを分離）
+- 戻り値: `{ varName, callDepth, startHi, endHi }[]`（startHi/endHi は humanStep 配列のインデックス）
+
+---
+
+#### V-12: 制御フロービュー（ControlFlow）✅ 実装済み
+
+タブ名: **制御フロー**
+
+- ノード＝実行済みソース行（初出現順に縦配置）
+- 前向きエッジ（右側・青）、後向きエッジ・ループ戻り（左側・橙）
+- ノードの背景色＝実行回数に応じた青→橙のグラデーション
+- 現在ノードをアクセントボーダーで強調
+
+**入力**: `builder.buildControlFlow()`, `state.event`
+
+`buildControlFlow()` の仕様:
+- humanStep の行番号遷移からノード（ユニーク行）とエッジ（行→行）を構築
+- 戻り値: `{ nodes: CFGNode[], edges: CFGEdge[], humanSteps: number[] }`
+- CFGNode: `{ lineNo, text, count, firstSeen }`
+- CFGEdge: `{ from, to, count }`
+
+---
+
+#### V-13: メモリモデルビュー（MemoryView）✅ 実装済み
+
+タブ名: **メモリモデル**
+
+- 左列: スタック（スコープフレームとプリミティブ変数）
+- 右列: ヒープ（オブジェクト・配列を `#N` ID 付きボックスで表示）
+- SVG オーバーレイ: 参照変数セルからヒープオブジェクトへのベジェ曲線矢印
+- `WeakMap` でオブジェクト同一性を追跡し重複ヒープ登録を防止
+- 変化した変数の行は黄色でハイライト
+- 矢印は `requestAnimationFrame` 後に `getBoundingClientRect()` で位置計算
+
+**入力**: `state.scopes`, `state.callStack`, `state.changedVars`
+
+---
+
+#### V-14: オブジェクトグラフ（ObjectGraph）✅ 実装済み
+
+タブ名: **オブジェクト**
+
+- ノード＝オブジェクト・配列（`WeakMap` で循環参照を検出・再帰 6 段まで追跡）
+- エッジ＝プロパティが別オブジェクトを指す参照
+- ルートノード上部に変数名ラベルを表示
+- プリミティブ変数は左上コーナーに一覧表示
+- 力学的レイアウト（Fruchterman-Reingold 簡易版: 80 iteration, 冷却係数 0.92）
+
+**入力**: `state.variables`, `state.scopes`
 
 ---
 
@@ -255,11 +379,12 @@
 | `new JSDebugger(source)` 完了（100 行以内のコード） | 500ms 以内 |
 | ステップ操作のUI更新 | 50ms 以内 |
 | 最大 trace 長 | 100,000 ステップ |
+| `TraceBuilder` 集計メソッドの初回呼び出し | 各ビューの `init()` 完了まで体感しないこと（バックグラウンド処理） |
 
 ### 4.2 互換性
 
 - Chrome / Firefox / Safari 最新版
-- モバイルブラウザは対象外（レスポンシブ対応は Phase 5 以降に検討）
+- モバイルブラウザは対象外（レスポンシブ対応は Phase 6 以降に検討）
 
 ### 4.3 アクセシビリティ
 
@@ -271,6 +396,7 @@
 
 - 各ビューが `init/update/reset/destroy` の共通インターフェースを持つこと
 - ビュー追加・削除がアプリ本体のコードを変更せずできること（`ViewSwitcher.register()` のみ）
+- `TraceBuilder` 集計メソッドはキャッシュ付きで冪等であること（何度呼んでも同じ結果）
 
 ---
 
@@ -281,10 +407,12 @@
 | TraceEvent | JSInterpreter が記録する1ステップ分の情報（phase/nodeType/loc/end/depth/callDepth/callStack/env/value） |
 | cursor | trace 配列の現在位置を示す整数インデックス |
 | humanStep | 人間が紙でトレースする際に記録する「意味のある変化点」（代入・条件判定・ループ更新・関数呼び出し等） |
+| humanStep インデックス (hi) | getHumanStepList() が返す配列の添字（0 始まり）。LifetimeチャートのX軸に使用 |
 | スナップショット | あるステップでの変数・スコープ・コールスタックの状態の複製 |
 | diff / changedVars | 前後スナップショット間で変化した変数名のセット |
 | オムニシェントデバッグ | プログラムを先に最後まで実行して全ステップを記録し、後から任意のステップに移動できるデバッグ方式 |
 | 式ハイライト | TraceEvent の `loc`（start）～ `end` の文字範囲を塗り、現在評価中の式を視覚化すること |
 | 呼び出し元ハイライト | 関数内部を実行中のとき、その関数を呼び出した CallExpression をパープルで着色すること。`callStack[0].loc` と `callSiteEndMap` で位置を特定する |
 | callSiteEndMap | `CallExpression.enter` イベントの `loc` → `end` マッピング。コード実行開始時（`setTrace()`）に trace 全体から構築する |
+| isFunctionVal | `v.__type__ === 'JSFunction'` / `'JSClass'` またはネイティブ関数を検出するヘルパー関数。LineTrace・TraceBuilder・MemoryView・ObjectGraph で共用 |
 | FOUC | Flash of Unstyled Content。ページ読み込み時に一瞬デフォルトスタイルが見える現象。インラインスクリプトで防止する |

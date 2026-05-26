@@ -320,6 +320,32 @@ html, body {
   border-top: 1px solid var(--changed);
   flex-shrink: 0;
   word-break: break-all;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* エラー種別バッジ */
+.error-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: var(--changed);
+  color: #fff;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* 実行時エラーはやや落ち着いた色で */
+.error-msg[data-error-type="runtime"] {
+  background: color-mix(in srgb, var(--changed-bg), var(--surface) 30%);
+}
+.error-msg[data-error-type="runtime"] .error-badge {
+  background: color-mix(in srgb, var(--changed) 80%, var(--text-dim) 20%);
 }
 
 /* ── 右ペイン: デバッグ情報 ───────────────────────────────────── */
@@ -1560,34 +1586,47 @@ html, body {
   font-weight: 600;
 }
 
-/* 未呼び出しノード: グレーアウト */
+/* 状態アイコン（色以外の手がかり: 記号で状態を表現） */
+.rt-state-icon {
+  font-size: 10px;
+  fill: var(--text-muted);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+.rt-node--active .rt-state-icon { fill: var(--accent); }
+.rt-node--done   .rt-state-icon { fill: #4ce884; }
+
+/* 未呼び出しノード: グレーアウト + 破線ボーダー（色以外の手がかり） */
 .rt-node--future .rt-rect {
   fill: var(--bg);
   stroke: var(--border);
-  opacity: 0.55;
+  stroke-dasharray: 5 3;
+  opacity: 0.60;
 }
 .rt-node--future .rt-name,
 .rt-node--future .rt-args,
 .rt-node--future .rt-retval {
   fill: var(--text-muted);
-  opacity: 0.55;
+  opacity: 0.60;
 }
 
-/* 実行中ノード: アクセント青強調 */
+/* 実行中ノード: アクセント青強調 + 太い実線ボーダー */
 .rt-node--active .rt-rect {
   fill: rgba(76, 155, 232, 0.18);
   stroke: var(--accent);
-  stroke-width: 2.5;
+  stroke-width: 3;
+  stroke-dasharray: none;
 }
 .rt-node--active .rt-name {
   fill: var(--accent);
+  font-weight: 700;
 }
 
-/* 完了ノード: 緑 */
+/* 完了ノード: 緑 + 細い実線ボーダー */
 .rt-node--done .rt-rect {
   fill: rgba(76, 232, 132, 0.12);
   stroke: #4ce884;
   stroke-width: 1.5;
+  stroke-dasharray: none;
 }
 .rt-node--done .rt-name {
   fill: var(--text);
@@ -1706,10 +1745,11 @@ html, body {
   stroke-width: 1.5;
 }
 
-/* エッジ（後ろ向き / ループバック） */
+/* エッジ（後ろ向き / ループバック）: 破線で色以外の手がかりも提供 */
 .cf-edge--back {
   stroke: var(--hl-orange, #e86b4c);
-  stroke-width: 1.5;
+  stroke-width: 2;
+  stroke-dasharray: 6 3;
 }
 
 /* 矢印マーカー */

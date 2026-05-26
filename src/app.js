@@ -128,7 +128,8 @@ adapter.addEventListener('ready', (e) => {
 });
 
 adapter.addEventListener('error', (e) => {
-  editor.showError(e.detail.message);
+  const { message, errorType } = e.detail;
+  editor.showError(message, errorType);
 });
 
 adapter.addEventListener('step', (e) => {

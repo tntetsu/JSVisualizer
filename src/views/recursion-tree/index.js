@@ -114,7 +114,7 @@ export class RecursionTree extends BaseView {
   #positions = new Map();
 
   /**
-   * @type {Map<number, {g: SVGGElement, retT: SVGTextElement}>}
+   * @type {Map<number, {g: SVGGElement, retT: SVGTextElement, stateT: SVGTextElement}>}
    * id → SVG 要素参照
    */
   #nodeEls = new Map();
@@ -137,7 +137,7 @@ export class RecursionTree extends BaseView {
       return;
     }
 
-    container.innerHTML = '<div class="rt-wrap"><svg class="rt-svg" xmlns="http://www.w3.org/2000/svg"></svg></div>';
+    container.innerHTML = '<div class="rt-wrap"><svg class="rt-svg" role="img" aria-label="再帰呼び出しツリー" xmlns="http://www.w3.org/2000/svg"></svg></div>';
     this.#svgEl = container.querySelector('.rt-svg');
 
     // 全ノードを id → object に登録
@@ -207,9 +207,15 @@ export class RecursionTree extends BaseView {
       });
       retT.textContent = '';
 
-      g.append(rect, nameT, argsT, retT);
+      // 状態インジケーター（右上角: 色以外の手がかり）
+      const stateT = svgEl('text', {
+        class: 'rt-state-icon', x: NODE_W - 8, y: 14, 'text-anchor': 'end',
+      });
+      stateT.textContent = '…';
+
+      g.append(rect, nameT, argsT, retT, stateT);
       nodesG.appendChild(g);
-      this.#nodeEls.set(node.id, { g, retT });
+      this.#nodeEls.set(node.id, { g, retT, stateT });
     });
   }
 
@@ -218,10 +224,17 @@ export class RecursionTree extends BaseView {
 
     const { cursor } = state;
 
-    for (const [id, { g, retT }] of this.#nodeEls) {
+    for (const [id, { g, retT, stateT }] of this.#nodeEls) {
       const node   = this.#nodeById.get(id);
       const stCls  = nodeStateClass(node, cursor);
       g.className.baseVal = `rt-node ${stCls}`;
+
+      // 状態テキスト（色覚多様性対応: 形・記号でも状態を表現）
+      if (stateT) {
+        stateT.textContent = stCls === 'rt-node--future' ? '…'
+                           : stCls === 'rt-node--active' ? '▶'
+                           : '✓';
+      }
 
       if (node.returnStepIdx !== null && node.returnStepIdx <= cursor) {
         retT.textContent = fmtRet(node.returnVal);
