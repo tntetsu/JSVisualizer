@@ -1,7 +1,7 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 0.6  
+**バージョン**: 0.7  
 **作成日**: 2026-05-25  
 **最終更新**: 2026-05-26  
 **作成者**: Tetsuo Tanaka
@@ -18,6 +18,7 @@
 | 0.4 | 2026-05-26 | Phase 4 実装反映: RecursionTree（再帰ツリー SVG）, Lifetime（変数ライフタイム SVG Gantt）, ControlFlow（制御フロー SVG）。TraceBuilder に buildRecursionTree / buildLifetime / buildControlFlow を追加 |
 | 0.5 | 2026-05-26 | Phase 5 実装反映: MemoryView（スタック/ヒープ + SVG 矢印）, ObjectGraph（力学レイアウト SVG グラフ）。SVG 設計パターンの統合、全ディレクトリ ✅ |
 | 0.6 | 2026-05-26 | Phase 6 仕上げ反映: ViewSwitcher のキーボードタブ切り替え（1〜9）・localStorage 永続化。DebuggerAdapter のエラー種別判定（parse/runtime）。code-editor.js の showError(msg, errorType) とエラーバッジ。RecursionTree 色覚多様性対応（状態アイコン）。サンプルコード 17 種。Jest テスト 37 件。GitHub Actions CI/CD ワークフロー |
+| 0.7 | 2026-05-26 | 修正 1〜8 反映: JSInterpreter assignTo 拡張（分割代入）。PaneResizer 追加。CodeMirror 6 エディタ化（Compartment・MutationObserver）。プログラム名表示。Console 常時パネル（state-view から分離）。LineTrace 改修（ソース列廃止・行高さ統一・スクロール同期・#varMeta 表示管理・D&D 列並び替え）。TraceTable に対象列追加（env diff・CallExpression・ReturnStatement）。テスト 42 件 |
 
 ---
 
@@ -35,13 +36,15 @@
 │  │ components/ │ │ core/              │ │ views/                    │   │
 │  │ ─────────── │ │ ─────────────────  │ │ ─────────────────────     │   │
 │  │ code-editor │ │ debugger-adapter   │ │ code-view        ✅       │   │
-│  │ step-       │ │ step-controller    │ │ state-view       ✅       │   │
-│  │ controls    │ │ trace-builder      │ │ scope-view       ✅       │   │
-│  │ view-       │ └────────┬───────────┘ │ callstack-view   ✅       │   │
-│  │ switcher    │          │             │ line-trace       ✅       │   │
-│  │ settings-   │          │             │ trace-table      ✅       │   │
-│  │ panel       │          │             │ bar-chart        ✅       │   │
-│  └─────────────┘          │             │ color-box        ✅       │   │
+│  │ pane-       │ │ step-controller    │ │ state-view       ✅       │   │
+│  │ resizer     │ │ trace-builder      │ │ scope-view       ✅       │   │
+│  │ step-       │ └────────┬───────────┘ │ callstack-view   ✅       │   │
+│  │ controls    │          │             │ line-trace       ✅       │   │
+│  │ view-       │          │             │ trace-table      ✅       │   │
+│  │ switcher    │          │             │ bar-chart        ✅       │   │
+│  │ settings-   │          │             │ color-box        ✅       │   │
+│  │ panel       │          │             │ ...              ✅       │   │
+│  └─────────────┘          │             │                           │   │
 │                            │             │ timeline         ✅       │   │
 │                            │             │ heatmap          ✅       │   │
 │                            │             │ recursion-tree   ✅       │   │
@@ -452,7 +455,8 @@ update(state) で callStack.length > 0 の場合:
 1. **Current Step** — phase, nodeType, 行番号, 評価値
 2. **変数** — 全スコープをグループ表示。変化した変数に `var-flash` アニメーション
 3. **コールスタック** — フレームとその行番号
-4. **コンソール出力** — `console.log` の出力行
+
+> Console 出力は `#console-panel`（`debug-pane` 下部固定）に分離済み。`app.js` の `updateConsolePanel(state)` が `'ready'`/`'step'` イベントごとに更新する。
 
 ---
 
@@ -495,13 +499,33 @@ update(state) で callStack.length > 0 の場合:
 **構造**: テーブル。行 = ソースコード行、列 = 変数名（登場順に動的追加）、セル = 最新値
 
 **動作**:
-- `init()` でソース行数分の `<tr>` を静的生成（変数列は空）
+- `init()` でソース行数分の `<tr>` を静的生成（変数列は空、ソース列なし）
 - `update()` で `humanSteps[0..cursor]` を走査:
   - 各 humanStep の `flattenEnv(ev.env)` から変数スナップショットを取得
-  - 新規変数が出現したら列を追加（`<th>` + 全行に `<td>` を挿入）
-  - 変化したセルに `.lt-cell--changed` → CSS flash アニメーション
+  - 新規変数が出現したら列を追加（`#rebuildColumns` で `<th>` + 全行に `<td>` を挿入）
+  - 変化したセルに `.lt-flash` → CSS flash アニメーション
 
 **関数・クラス値は列から除外**: `isFunctionVal(val)` で判定
+
+**列メタデータ管理**:
+```js
+/** @type {Array<{name: string, visible: boolean}>} */
+#varMeta = [];
+```
+`visible: false` の列ヘッダー・セルには `.lt-col-hidden`（`display: none`）を付与。
+
+**スクロール同期**:
+- `#setupScrollSync()`: `lt-wrap` ↔ `#code-display` の `scrollTop` を双方向同期
+- `#syncing` フラグで無限ループを防止
+- `destroy()` で `#teardownScrollSync()` を呼び出してリスナーを解除
+
+**行高さ統一**: `.lt-row { height: 24px; }` / `.lt-td { font-size: 13px; line-height: 22px; }` / `.lt-wrap { padding-top: 10px; }`（`.cv-line` / `.cv-lines` に揃える）
+
+**ツールバー（列表示切替）**: `#rebuildToolbar()` でヘッダー上部に `.lt-var-toggle` ボタンを生成。クリックで `#toggleVar(name)` → `#varMeta[i].visible` を切り替え
+
+**ドラッグ&ドロップ列並び替え**:
+- `<th draggable="true">` に `dragstart`/`dragover`/`drop` を設定
+- `drop` 時: `#varMeta` の src/dst インデックスを入れ替え → `#rebuildColumns` を再呼び出し
 
 ---
 
@@ -509,6 +533,33 @@ update(state) で callStack.length > 0 の場合:
 
 - `init()` で `builder.getHumanStepList()` の全行を一括描画
 - `update()` は `tt-row--active` クラスの付け替えとスクロールのみ
+
+**「対象」列の実装**（`#buildRow(humanNum, stepIdx, trace, prevStepIdx)`）:
+
+```js
+switch (ev.nodeType) {
+  case 'VariableDeclaration':
+  case 'AssignmentExpression':
+  case 'UpdateExpression': {
+    // env diff で変化した最初の変数名を取得（関数・クラス値は除外）
+    const prev = flattenEnv(prevEv?.env ?? []);
+    const curr = flattenEnv(ev.env ?? []);
+    target = firstChangedVar(prev, curr);  // BUILTIN_NAMES・isFunctionVal でフィルタ
+    break;
+  }
+  case 'ReturnStatement':
+    target = 'return';
+    break;
+  case 'CallExpression': {
+    const frame = ev.callStack?.[0];
+    if (ev.phase === 'enter') target = `${frame?.name}(${args.join(', ')})`;
+    else                      target = frame?.name ?? '?';
+    break;
+  }
+}
+```
+
+列の CSS: `.tt-col-target { width: 140px; color: var(--accent); font-family: monospace; }`
 
 ---
 
@@ -908,6 +959,30 @@ reset()
 
 ### 4.3 `components/code-editor.js` ✅
 
+**CodeMirror 6 エディタ**:
+
+```js
+import { EditorView, basicSetup } from 'codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { oneDark }    from '@codemirror/theme-one-dark';
+import { Compartment } from '@codemirror/state';
+
+// themeCompartment で動的テーマ切り替え
+const themeCompartment = new Compartment();
+
+// MutationObserver で html[data-theme] 変化を監視 → テーマ再設定
+const obs = new MutationObserver(() => {
+  const isDark = document.documentElement.dataset.theme === 'dark';
+  view.dispatch({ effects: themeCompartment.reconfigure(isDark ? oneDark : lightTheme) });
+});
+obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+```
+
+**主要 API**:
+- `getCode()` → `view.state.doc.toString()`
+- `setRunningMode(running)` → `container.hidden = running`（実行中は CM エディタを非表示）
+- `#programNameEl.textContent` → サンプル選択時にプログラム名を更新（直接入力時はクリア）
+
 **サンプルコード（17 種類）**:
 
 ```js
@@ -943,6 +1018,25 @@ showError(msg, errorType = null) {
 
 - `_esc(str)` — HTML エスケープヘルパー（`&`, `<`, `>`, `"` を実体参照に変換）
 - `data-error-type` 属性で CSS スタイルを切り替え（`"parse"` 時は赤、`"runtime"` 時は橙背景）
+
+---
+
+### 4.4 `components/pane-resizer.js` ✅
+
+**責務**: エディタペインと可視化ペインの境界をドラッグでリサイズする
+
+```js
+class PaneResizer {
+  constructor(divider, mainEl, storageKey = 'jsv-editor-pct')
+  // mousedown → mousemove: 幅を % で計算して CSS 変数更新
+  // clamp: 15% 〜 75%
+  // mouseup: localStorage に保存
+}
+```
+
+**CSS 変数**: `.app-main { --editor-pct: 30; }`  
+`.editor-pane { width: calc(var(--editor-pct) * 1%); }`  
+`JS: mainEl.style.setProperty('--editor-pct', String(clamped));`
 
 ---
 
@@ -1238,7 +1332,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 | ② Clone JSInterpreter | `git clone https://github.com/tntetsu/JSInterpreter.git ../JSInterpreter`（`package.json` の `file:../JSInterpreter` 参照に合わせた配置） |
 | ③ Node.js setup | `actions/setup-node@v4`（Node 20 + npm キャッシュ） |
 | ④ Install deps | `npm ci` |
-| ⑤ Test | `npm test`（Jest 37 テスト） |
+| ⑤ Test | `npm test`（Jest 42 テスト） |
 | ⑥ Build | `npm run build`（esbuild で `web/` に成果物生成） |
 | ⑦ Upload artifact | `actions/upload-pages-artifact@v3`（`web/` ディレクトリ） |
 | ⑧ Deploy | `actions/deploy-pages@v4` |
@@ -1255,15 +1349,15 @@ CSS カスタムプロパティで 2 テーマを管理する。
 
 ## 9. テスト方針
 
-### 9.1 ユニットテスト（Jest / 37 件）
+### 9.1 ユニットテスト（Jest / 42 件）
 
 | 対象 | テストファイル | テスト数 | テスト内容 |
 |------|-------------|---------|-----------|
 | `trace-builder.js` | `tests/core/trace-builder.test.js` | 21 件 | `buildHeatmap`（4件）, `buildHumanIndices`（5件）, `getHumanStepList`（1件）, `buildRecursionTree`（4件）, `buildLifetime`（5件）, `buildControlFlow`（7件） |
 | `debugger-adapter.js` | `tests/core/debugger-adapter.test.js` | - | load/moveTo の副作用、diff 検出 |
-| `step-controller.js` | `tests/core/step-controller.test.js` | - | 粒度別ステップ（expr/stmt/human/call）の cursor 移動 |
+| `step-controller.js` | `tests/core/step-controller.test.js` | 21 件 | 粒度別ステップ（expr/stmt/human/call）の cursor 移動 |
 
-**合計: 37 テスト**（`npm test` で全実行）
+**合計: 42 テスト**（`npm test` で全実行）
 
 ### 9.2 テスト実行コマンド
 

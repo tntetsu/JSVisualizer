@@ -24,11 +24,11 @@ JSVisualizer/
 │   │   └── trace-builder.js      # 全トレースデータの事前集計（6メソッド）
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
 │   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅
-│   │   ├── state-view/           # 変数・コールスタック・コンソール統合パネル        ✅
+│   │   ├── state-view/           # 変数・コールスタック統合パネル（Console は常時パネルへ移動）✅
 │   │   ├── scope-view/           # スコープ・変数ビュー（ネスト枠）                 ✅
 │   │   ├── callstack-view/       # コールスタックビュー                            ✅
-│   │   ├── line-trace/           # トレース表（行=ソース行・列=変数）               ✅  ← タブ「トレース表」
-│   │   ├── trace-table/          # 静的トレース表（全ステップ先読み）               ✅  ← タブ「全ステップ」
+│   │   ├── line-trace/           # トレース表（行=ソース行・列=変数・列表示切替・D&D） ✅  ← タブ「トレース表」
+│   │   ├── trace-table/          # 静的トレース表（全ステップ・対象列付き）          ✅  ← タブ「全ステップ」
 │   │   ├── bar-chart/            # 棒グラフアニメーション（数値・配列変化）         ✅
 │   │   ├── color-box/            # 色付き箱アニメーション（配列・ポインタ）         ✅
 │   │   ├── timeline/             # 変数の時系列グラフ（SVG折れ線）                  ✅
@@ -40,11 +40,12 @@ JSVisualizer/
 │   │   ├── object-graph/         # オブジェクト参照グラフ（SVG 力学的レイアウト）   ✅
 │   │   └── animated-trace/       # アニメーション付きトレース表（実装済み・非アクティブ）
 │   ├── components/
-│   │   ├── code-editor.js        # コードエディタ（17種サンプル・エラーバッジ表示）
+│   │   ├── code-editor.js        # CodeMirror 6 エディタ（17種サンプル・プログラム名・テーマ連動）
+│   │   ├── pane-resizer.js       # ペインリサイザー（ドラッグで editor/viz 幅を変更・localStorage 永続化）
 │   │   ├── step-controls.js      # ステップ操作バー（2行×4列ボタン＋キーボード）
 │   │   ├── view-switcher.js      # ビュー切り替えタブ（1〜9キー・localStorage復元）
 │   │   └── settings-panel.js     # 設定パネル（テーマ切り替え・localStorage 永続化）
-│   └── app.js                    # エントリポイント・全体協調
+│   └── app.js                    # エントリポイント・全体協調（Console 常時パネル更新を含む）
 ├── web/
 │   ├── index.html                # FOUC防止スクリプト・設定パネル HTML を含む
 │   └── style.css                 # ライト/ダークテーマ（CSS カスタムプロパティ）
@@ -210,6 +211,7 @@ class TraceBuilder {
 |------|---------|--------------|
 | `jsv-theme` | ライト/ダークテーマ選択 | `settings-panel.js` |
 | `jsv-active-tab` | アクティブタブ ID | `view-switcher.js` |
+| `jsv-editor-pct` | エディタペイン幅（% 文字列、15〜75 の範囲） | `pane-resizer.js` |
 
 ### キーボードショートカット一覧
 
@@ -269,11 +271,17 @@ class TraceBuilder {
 ## 重要な設計判断
 
 - **ビルドツール**: esbuild（JSInterpreter と同方式）
-- **可視化ライブラリ**: 使用しない（DOM + CSS アニメーション + SVG 手動描画で実装）
+- **コードエディタ**: CodeMirror 6（`codemirror` + `@codemirror/lang-javascript` + `@codemirror/theme-one-dark`）を採用。`Compartment` で動的テーマ切り替え。`MutationObserver` で `html[data-theme]` の変化を検知してダークテーマを自動適用
+- **ペインリサイザー**: `.app-main` の CSS 変数 `--editor-pct` をマウスドラッグで更新。`localStorage('jsv-editor-pct')` に永続化し、15% 〜 75% でクランプ
+- **Console 常時表示**: StateView からは Console カードを取り除き、`debug-pane` 下部に固定の `#console-panel` を配置。`app.js` の `updateConsolePanel()` が `'ready'` / `'step'` イベントごとに更新する
+- **可視化ライブラリ**: 使用しない（DOM + CSS アニメーション + SVG 手動描画で実装）。CodeMirror 6 が唯一の外部 UI ライブラリ
 - **SVG レイアウト**: 再帰ツリーは再帰的幅計算、ObjectGraph は Fruchterman-Reingold 力学的レイアウト
 - **差分検出**: 前後 `env` スナップショットを比較し変化した変数名のセットを生成
 - **オブジェクト同一性**: MemoryView・ObjectGraph では `WeakMap` でオブジェクト参照を追跡し重複ヒープ登録を防ぐ
 - **LineTrace vs AnimatedTrace**: `animated-trace/` ディレクトリは実装済みだが、タブには現在 `line-trace/`（ソース行×変数マトリクス表）を使用
+- **LineTrace のスクロール同期**: `lt-wrap` と `#code-display` の `scrollTop` を双方向同期。`#syncing` フラグで無限ループ防止。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装
+- **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[0].name(args)` 形式、ReturnStatement は `'return'` を表示
+- **分割代入**: JSInterpreter の `assignTo()` が `ArrayExpression` / `ObjectExpression` を処理するよう拡張（`[a,b]=[b,a]` 等）。詳細は [JSInterpreter#interpreter.js](../JSInterpreter/src/interpreter/interpreter.js)
 - **エラー種別判定**: JSInterpreter は `[Parser]` プレフィックスのメッセージでパースエラーを示すため、正規表現で判定する
 - **対象ブラウザ**: モダンブラウザ（Chrome/Firefox/Safari 最新版）
 - **デプロイ**: GitHub Pages、`main` ブランチ push で Actions が JSInterpreter をクローン→ビルド→自動デプロイ
