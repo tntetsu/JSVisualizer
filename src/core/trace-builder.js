@@ -53,8 +53,12 @@ export class TraceBuilder {
    * humanStep で停止するインデックスの Set を返す。
    *
    * 停止条件（JSDebugger._getHumanIndices と同定義）:
-   *   - ExpressionStatement / VariableDeclaration / IfStatement / Loop / Return … の enter
-   *   - AssignmentExpression / UpdateExpression / CallExpression の exit
+   *   enter: ExpressionStatement / IfStatement / LoopStatement / BreakStatement / ContinueStatement
+   *   exit:  VariableDeclaration / AssignmentExpression / UpdateExpression
+   *          / ReturnStatement / ThrowStatement / CallExpression
+   *
+   * VariableDeclaration / ReturnStatement / ThrowStatement は exit を使う。
+   * exit 時点で初めて値が env に確定するため（enter 時点では未確定）。
    *
    * @returns {Set<number>}
    */
@@ -65,21 +69,21 @@ export class TraceBuilder {
 
     const HUMAN_ENTER_TYPES = new Set([
       'ExpressionStatement',
-      'VariableDeclaration',
       'IfStatement',
       'WhileStatement',
       'ForStatement',
       'ForOfStatement',
       'ForInStatement',
-      'ReturnStatement',
-      'ThrowStatement',
       'BreakStatement',
       'ContinueStatement',
     ]);
 
     const HUMAN_EXIT_TYPES = new Set([
+      'VariableDeclaration',
       'AssignmentExpression',
       'UpdateExpression',
+      'ReturnStatement',
+      'ThrowStatement',
       'CallExpression',
     ]);
 

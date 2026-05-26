@@ -69,6 +69,59 @@ describe('TraceBuilder.buildHumanIndices()', () => {
     expect(set.has(1)).toBe(true);
   });
 
+  test('VariableDeclaration の exit を含む（値が確定する exit を使う）', () => {
+    const trace = [
+      ev('enter', 'VariableDeclaration', 1),
+      ev('exit',  'VariableDeclaration', 1),
+    ];
+    const set = new TraceBuilder(trace).buildHumanIndices();
+    // exit (index 1) が humanStep
+    expect(set.has(1)).toBe(true);
+  });
+
+  test('VariableDeclaration の enter は humanStep でない（index 0 ルール除外）', () => {
+    // index 0 の場合は set.add(0) ルールで必ず含まれるため、index 1 以降に配置
+    const trace = [
+      ev('enter', 'ExpressionStatement', 1),       // idx 0: enter ES → human
+      ev('enter', 'VariableDeclaration', 2),        // idx 1: enter VarDecl → NOT human
+      ev('exit',  'VariableDeclaration', 2),        // idx 2: exit  VarDecl → human
+    ];
+    const set = new TraceBuilder(trace).buildHumanIndices();
+    expect(set.has(1)).toBe(false);  // enter は含まない
+    expect(set.has(2)).toBe(true);   // exit は含む
+  });
+
+  test('ReturnStatement の exit を含む', () => {
+    const trace = [
+      ev('enter', 'ReturnStatement', 3),
+      ev('exit',  'ReturnStatement', 3),
+    ];
+    const set = new TraceBuilder(trace).buildHumanIndices();
+    // exit (index 1) が humanStep
+    expect(set.has(1)).toBe(true);
+  });
+
+  test('ThrowStatement の exit を含む', () => {
+    const trace = [
+      ev('enter', 'ExpressionStatement', 1),       // idx 0
+      ev('enter', 'ThrowStatement', 2),             // idx 1: enter → NOT human
+      ev('exit',  'ThrowStatement', 2),             // idx 2: exit  → human
+    ];
+    const set = new TraceBuilder(trace).buildHumanIndices();
+    expect(set.has(1)).toBe(false);  // enter は含まない
+    expect(set.has(2)).toBe(true);   // exit は含む
+  });
+
+  test('CallExpression の exit を含む', () => {
+    const trace = [
+      ev('enter', 'ExpressionStatement', 1),
+      ev('enter', 'CallExpression', 1),
+      ev('exit',  'CallExpression', 1),
+    ];
+    const set = new TraceBuilder(trace).buildHumanIndices();
+    expect(set.has(2)).toBe(true);
+  });
+
   test('Identifier の enter は含まない', () => {
     const trace = [
       ev('enter', 'Identifier', 1),
@@ -87,7 +140,7 @@ describe('TraceBuilder.buildHumanIndices()', () => {
   });
 
   test('キャッシュを返す（同一オブジェクト）', () => {
-    const builder = new TraceBuilder([ev('enter', 'VariableDeclaration', 1)]);
+    const builder = new TraceBuilder([ev('exit', 'VariableDeclaration', 1)]);
     expect(builder.buildHumanIndices()).toBe(builder.buildHumanIndices());
   });
 });
