@@ -3,16 +3,24 @@
  *
  * JSDebugger が記録した trace[] を一度だけ走査して、
  * 各ビューが必要とする集計データを生成する。
- *
- * Phase 1 では buildHumanIndices() のみ実装する。
- * 残りのメソッドは Phase 3〜5 で順次実装する。
  */
+
+import { flattenEnv, BUILTIN_NAMES } from '../utils/format.js';
+
+/** 関数・クラス値か判定（列/変数に載せない対象） */
+function isFunctionVal(v) {
+  if (typeof v === 'function') return true;
+  if (v && typeof v === 'object') {
+    return v.__type__ === 'JSFunction' || v.__type__ === 'JSClass';
+  }
+  return false;
+}
 
 export class TraceBuilder {
   /** @type {Object[]} TraceEvent の配列 */
   #trace;
 
-  /** @type {string} 元ソースコード（Heatmap ビュー用） */
+  /** @type {string} 元ソースコード */
   #source;
 
   /** @type {Set<number>|null} キャッシュ */
@@ -21,9 +29,18 @@ export class TraceBuilder {
   /** @type {Map<number, number>|null} キャッシュ */
   #heatmapCache = null;
 
+  /** @type {Object[]|null} キャッシュ */
+  #recursionTreeCache = null;
+
+  /** @type {Object[]|null} キャッシュ */
+  #lifetimeCache = null;
+
+  /** @type {Object|null} キャッシュ */
+  #controlFlowCache = null;
+
   /**
    * @param {Object[]} trace   JSDebugger.trace
-   * @param {string}  [source] 元ソースコード（Heatmap ビューに渡す）
+   * @param {string}  [source] 元ソースコード
    */
   constructor(trace, source = '') {
     this.#trace  = trace;
@@ -35,19 +52,9 @@ export class TraceBuilder {
   /**
    * humanStep で停止するインデックスの Set を返す。
    *
-   * JSDebugger は内部で同様の計算を行うが、外部から Set として
-   * 参照できないため、同じロジックをここで再実装する。
-   *
    * 停止条件（JSDebugger._getHumanIndices と同定義）:
-   *   - ExpressionStatement の enter
-   *   - VariableDeclaration の enter
-   *   - AssignmentExpression の exit（= 代入が確定した瞬間）
-   *   - UpdateExpression の exit（i++ など）
-   *   - IfStatement の enter（条件評価前）
-   *   - 各ループの test ノードに対応する exit（条件が決まった瞬間）
-   *   - CallExpression の enter（関数を呼ぼうとしている）
-   *   - CallExpression の exit（関数から戻った）
-   *   - ReturnStatement の enter
+   *   - ExpressionStatement / VariableDeclaration / IfStatement / Loop / Return … の enter
+   *   - AssignmentExpression / UpdateExpression / CallExpression の exit
    *
    * @returns {Set<number>}
    */
@@ -55,12 +62,6 @@ export class TraceBuilder {
     if (this.#humanIndicesCache) return this.#humanIndicesCache;
 
     const set = new Set();
-
-    // JSDebugger と同様のロジックで humanStep インデックスを構築する。
-    // 簡易版: JSDebugger インスタンスが humanStep を実行した結果の cursor を
-    // 0 から末尾まで収集する。
-    // ※ TraceBuilder はインスタンスなしで動作する必要があるため、
-    //    trace データだけから判定する。
 
     const HUMAN_ENTER_TYPES = new Set([
       'ExpressionStatement',
@@ -91,7 +92,6 @@ export class TraceBuilder {
       }
     }
 
-    // index 0 は必ず含める（初期状態として表示するため）
     if (this.#trace.length > 0) set.add(0);
 
     this.#humanIndicesCache = set;
@@ -122,21 +122,177 @@ export class TraceBuilder {
   // ── Phase 4 ───────────────────────────────────────────────────────────────
 
   /**
-   * 変数ライフタイム情報を返す（Phase 4 で実装）。
-   * @returns {Array}
+   * 再帰呼び出しツリーのルートノード配列を返す。
+   *
+   * ノード構造:
+   *   { id, funcName, args, returnVal,
+   *     callStepIdx, returnStepIdx, treeDepth, children[] }
+   *
+   * callDepth の増減を監視して関数の進入／復帰を検出する。
+   *
+   * @returns {Object[]} ルートノードの配列
    */
-  buildLifetime() {
-    // TODO: Phase 4 で実装
-    return [];
+  buildRecursionTree() {
+    if (this.#recursionTreeCache !== null) return this.#recursionTreeCache;
+
+    const roots     = [];
+    const nodeStack = []; // 現在開いているノードのスタック
+    let   nodeId    = 0;
+    let   prevDepth = this.#trace[0]?.callDepth ?? 0;
+
+    for (let i = 1; i < this.#trace.length; i++) {
+      const ev    = this.#trace[i];
+      const depth = ev.callDepth ?? 0;
+
+      if (depth > prevDepth) {
+        // 関数進入: callStack[0] が新しいフレーム
+        const frame  = ev.callStack?.[0];
+        const parent = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : null;
+
+        const node = {
+          id:             nodeId++,
+          funcName:       frame?.name ?? '(anonymous)',
+          args:           Array.isArray(frame?.args) ? frame.args.slice() : [],
+          returnVal:      undefined,
+          callStepIdx:    i,
+          returnStepIdx:  null,
+          treeDepth:      nodeStack.length,
+          children:       [],
+        };
+
+        if (parent) {
+          parent.children.push(node);
+        } else {
+          roots.push(node);
+        }
+        nodeStack.push(node);
+
+      } else if (depth < prevDepth) {
+        // 関数復帰（複数レベルを一度に抜ける場合も考慮）
+        const levelsReturned = prevDepth - depth;
+        for (let j = 0; j < levelsReturned && nodeStack.length > 0; j++) {
+          const node = nodeStack.pop();
+          node.returnStepIdx = i;
+          // 最初の復帰レベルだけ return value を取得
+          if (j === 0 && ev.value !== undefined) {
+            node.returnVal = ev.value;
+          }
+        }
+      }
+
+      prevDepth = depth;
+    }
+
+    // 未クローズのノードを閉じる（例: 実行途中で停止）
+    const lastIdx = this.#trace.length - 1;
+    while (nodeStack.length > 0) {
+      const node = nodeStack.pop();
+      if (node.returnStepIdx === null) node.returnStepIdx = lastIdx;
+    }
+
+    this.#recursionTreeCache = roots;
+    return roots;
   }
 
   /**
-   * 再帰ツリーのノード配列を返す（Phase 4 で実装）。
-   * @returns {Array}
+   * 変数ライフタイム情報を返す。
+   *
+   * 各エントリ: { varName, callDepth, startHi, endHi }
+   *   startHi / endHi は getHumanStepList() 配列のインデックス（0始まり）。
+   *
+   * 同名変数が異なる callDepth で現れる場合は別エントリとして記録する。
+   *
+   * @returns {Array<{varName:string, callDepth:number, startHi:number, endHi:number}>}
    */
-  buildRecursionTree() {
-    // TODO: Phase 4 で実装
-    return [];
+  buildLifetime() {
+    if (this.#lifetimeCache !== null) return this.#lifetimeCache;
+
+    const humanSteps = this.getHumanStepList();
+
+    // key = `${callDepth}:${varName}` → { varName, callDepth, startHi, endHi }
+    const varMap = new Map();
+
+    for (let hi = 0; hi < humanSteps.length; hi++) {
+      const si = humanSteps[hi];
+      const ev = this.#trace[si];
+      if (!ev?.env) continue;
+
+      const callDepth = ev.callDepth ?? 0;
+      const vars      = flattenEnv(ev.env);
+
+      for (const [name, val] of vars) {
+        if (BUILTIN_NAMES.has(name)) continue;
+        if (isFunctionVal(val))      continue;
+
+        const key = `${callDepth}:${name}`;
+        if (!varMap.has(key)) {
+          varMap.set(key, { varName: name, callDepth, startHi: hi, endHi: hi });
+        } else {
+          varMap.get(key).endHi = hi;
+        }
+      }
+    }
+
+    this.#lifetimeCache = [...varMap.values()]
+      .sort((a, b) => a.startHi - b.startHi || a.varName.localeCompare(b.varName));
+    return this.#lifetimeCache;
+  }
+
+  /**
+   * 制御フローグラフデータを返す。
+   *
+   * 返り値:
+   *   nodes: CFGNode[]  { lineNo, text, count, firstSeen }
+   *   edges: CFGEdge[]  { from, to, count }
+   *   humanSteps: number[]
+   *
+   * humanStep を順に辿り、行番号の遷移からグラフを構築する。
+   *
+   * @returns {{ nodes: Object[], edges: Object[], humanSteps: number[] }}
+   */
+  buildControlFlow() {
+    if (this.#controlFlowCache !== null) return this.#controlFlowCache;
+
+    const humanSteps  = this.getHumanStepList();
+    const sourceLines = this.#source.split('\n');
+
+    // Map<lineNo, { lineNo, text, count, firstSeen }>
+    const nodeMap = new Map();
+    // Map<`${from}->${to}`, { from, to, count }>
+    const edgeMap = new Map();
+
+    let firstSeenCounter = 0;
+    let prevLine = -1;
+
+    for (const si of humanSteps) {
+      const ev = this.#trace[si];
+      if (!ev?.loc) continue;
+
+      const lineNo = ev.loc.line;
+      const text   = (sourceLines[lineNo - 1] ?? '').trimStart();
+
+      if (!nodeMap.has(lineNo)) {
+        nodeMap.set(lineNo, { lineNo, text, count: 0, firstSeen: firstSeenCounter++ });
+      }
+      nodeMap.get(lineNo).count++;
+
+      if (prevLine !== -1 && prevLine !== lineNo) {
+        const key = `${prevLine}->${lineNo}`;
+        if (!edgeMap.has(key)) {
+          edgeMap.set(key, { from: prevLine, to: lineNo, count: 0 });
+        }
+        edgeMap.get(key).count++;
+      }
+
+      prevLine = lineNo;
+    }
+
+    this.#controlFlowCache = {
+      nodes: [...nodeMap.values()].sort((a, b) => a.firstSeen - b.firstSeen),
+      edges: [...edgeMap.values()],
+      humanSteps,
+    };
+    return this.#controlFlowCache;
   }
 
   // ── ユーティリティ ────────────────────────────────────────────────────────
@@ -149,26 +305,17 @@ export class TraceBuilder {
     return [...this.buildHumanIndices()].sort((a, b) => a - b);
   }
 
-  /**
-   * trace 全体の長さを返す。
-   * @returns {number}
-   */
+  /** trace 全体の長さ */
   get length() {
     return this.#trace.length;
   }
 
-  /**
-   * 生の trace 配列への参照を返す（ビュー側での参照用）。
-   * @returns {Object[]}
-   */
+  /** 生の trace 配列（ビュー側での参照用） */
   get trace() {
     return this.#trace;
   }
 
-  /**
-   * 元ソースコードを返す（Heatmap ビューに渡す）。
-   * @returns {string}
-   */
+  /** 元ソースコード */
   get source() {
     return this.#source;
   }

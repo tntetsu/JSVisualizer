@@ -25,6 +25,9 @@ import { BarChart }         from './views/bar-chart/index.js';
 import { ColorBox }         from './views/color-box/index.js';
 import { Timeline }         from './views/timeline/index.js';
 import { Heatmap }          from './views/heatmap/index.js';
+import { RecursionTree }    from './views/recursion-tree/index.js';
+import { Lifetime }         from './views/lifetime/index.js';
+import { ControlFlow }      from './views/control-flow/index.js';
 
 // ── DOM 参照 ───────────────────────────────────────────────────────────────
 
@@ -67,6 +70,9 @@ switcher.register('bar',       '棒グラフ',         BarChart);
 switcher.register('colorbox',  '色付き箱',         ColorBox);
 switcher.register('timeline',  '時系列',           Timeline);
 switcher.register('heatmap',   'ヒートマップ',     Heatmap);
+switcher.register('recursion', '再帰ツリー',       RecursionTree);
+switcher.register('lifetime',  'ライフタイム',     Lifetime);
+switcher.register('controlflow','制御フロー',       ControlFlow);
 
 // ── UI コンポーネントの初期化 ──────────────────────────────────────────────
 

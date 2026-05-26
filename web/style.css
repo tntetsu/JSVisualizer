@@ -1504,3 +1504,214 @@ html, body {
   color: var(--text-muted);
   padding: 16px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Phase 4: RecursionTree / Lifetime / ControlFlow
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── RecursionTree (.rt-*) ─────────────────────────────────────────────────*/
+
+.rt-wrap {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.rt-svg {
+  display: block;
+  /* SVG width/height は JS で設定 */
+}
+
+/* エッジ線 */
+.rt-edge {
+  stroke: var(--border);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* ノード枠 */
+.rt-rect {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1.5;
+  transition: fill 0.2s, stroke 0.2s;
+}
+
+/* ノードテキスト */
+.rt-name {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text);
+}
+
+.rt-args {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+.rt-retval {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  fill: #4ce884;
+  font-weight: 600;
+}
+
+/* 未呼び出しノード: グレーアウト */
+.rt-node--future .rt-rect {
+  fill: var(--bg);
+  stroke: var(--border);
+  opacity: 0.55;
+}
+.rt-node--future .rt-name,
+.rt-node--future .rt-args,
+.rt-node--future .rt-retval {
+  fill: var(--text-muted);
+  opacity: 0.55;
+}
+
+/* 実行中ノード: アクセント青強調 */
+.rt-node--active .rt-rect {
+  fill: rgba(76, 155, 232, 0.18);
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+.rt-node--active .rt-name {
+  fill: var(--accent);
+}
+
+/* 完了ノード: 緑 */
+.rt-node--done .rt-rect {
+  fill: rgba(76, 232, 132, 0.12);
+  stroke: #4ce884;
+  stroke-width: 1.5;
+}
+.rt-node--done .rt-name {
+  fill: var(--text);
+}
+
+/* ─── ダークモード補正 ─── */
+[data-theme="dark"] .rt-node--active .rt-rect {
+  fill: rgba(76, 155, 232, 0.22);
+}
+[data-theme="dark"] .rt-node--done .rt-rect {
+  fill: rgba(76, 232, 132, 0.16);
+}
+
+/* ── Lifetime (.lf-*) ──────────────────────────────────────────────────────*/
+
+.lf-wrap {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.lf-svg {
+  display: block;
+}
+
+.lf-axis-line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.lf-tick {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.lf-tick-label {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 9px;
+  fill: var(--text-muted);
+}
+
+.lf-label {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  fill: var(--text);
+  white-space: pre; /* インデントを保持 */
+}
+
+.lf-bar {
+  /* fill は JS で直接設定 */
+  rx: 3;
+}
+
+/* カーソル縦線 */
+.lf-cursor {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+  pointer-events: none;
+}
+
+/* ── ControlFlow (.cf-*) ────────────────────────────────────────────────── */
+
+.cf-wrap {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.cf-svg {
+  display: block;
+}
+
+/* ノード枠 */
+.cf-rect {
+  stroke: var(--border);
+  stroke-width: 1;
+  /* fill は JS で直接設定 */
+  transition: stroke 0.15s, stroke-width 0.15s;
+}
+
+/* 現在行ノード */
+.cf-node--active .cf-rect {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+/* 行番号 */
+.cf-lineno {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+/* ソーステキスト */
+.cf-src {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  fill: var(--text);
+}
+
+/* 実行回数 */
+.cf-count {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+/* エッジ（前向き） */
+.cf-edge--fwd {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+/* エッジ（後ろ向き / ループバック） */
+.cf-edge--back {
+  stroke: var(--hl-orange, #e86b4c);
+  stroke-width: 1.5;
+}
+
+/* 矢印マーカー */
+.cf-marker-fwd  { fill: var(--accent); }
+.cf-marker-back { fill: var(--hl-orange, #e86b4c); }
