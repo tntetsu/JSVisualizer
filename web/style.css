@@ -189,6 +189,23 @@ html, body {
   color: var(--text-muted);
 }
 
+.pane-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pane-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── 左ペイン: エディタ ───────────────────────────────────────── */
 .editor-pane {
   width: calc(var(--editor-pct) * 1%);

@@ -85,13 +85,14 @@ switcher.register('objgraph',  'オブジェクト',     ObjectGraph);
 // ── UI コンポーネントの初期化 ──────────────────────────────────────────────
 
 const editor = new CodeEditor({
-  container:    editorCmEl,
-  sampleSelect: sampleSelect,
-  runBtn:       btnRun,
-  resetBtn:     btnReset,
-  errorEl:      errorMsg,
-  onRun:        (code) => runCode(code),
-  onReset:      () => resetAll(),
+  container:      editorCmEl,
+  sampleSelect:   sampleSelect,
+  runBtn:         btnRun,
+  resetBtn:       btnReset,
+  errorEl:        errorMsg,
+  programNameEl:  $('program-name'),
+  onRun:          (code) => runCode(code),
+  onReset:        () => resetAll(),
 });
 
 const stepControls = new StepControls({
