@@ -88,9 +88,73 @@ step-controller.js
 
 ---
 
-## 2. モジュール詳細設計
+## 2. 基本データ型
 
-### 2.1 `src/core/debugger-adapter.js`
+### 2.1 TraceEvent
+
+JSInterpreter が各実行ステップで生成するオブジェクト。`trace[]` 配列の各要素。
+
+```js
+/**
+ * @typedef {Object} TraceEvent
+ * @property {'enter'|'exit'} phase
+ *   'enter': AST ノードへの処理を開始した時点（子ノード未評価・値未確定）
+ *   'exit':  AST ノードの処理が完了した時点（値が ev.value に確定）
+ * @property {string}  nodeType   AST ノード種別（例: 'AssignmentExpression', 'IfStatement'）
+ * @property {{line:number, column:number}} loc   ノード開始位置（1始まり）
+ * @property {{line:number, column:number}} [end] ノード終了位置（式ノードのみ存在、inclusive）
+ * @property {number}  depth      AST ノードの深さ
+ * @property {number}  callDepth  関数呼び出しの深さ（グローバルスコープ = 0）
+ * @property {Array}   callStack  現在のコールスタック。[0] が最内側フレーム
+ *                                  frame: { name, loc, args }
+ *                                  loc = その関数を呼び出した CallExpression の start 位置
+ * @property {Array}   env        スコープチェーン（env[0] が最内側スコープ）
+ * @property {any}     [value]    exit 時に確定した値（enter 時は undefined）
+ * @property {number}  [matchIdx] stepOver() 用の対応 exit ステップのインデックス
+ */
+```
+
+**phase の詳細**:
+
+インタープリタは AST を深さ優先で走査するため、各ノードに「入るとき」（enter）と「出るとき」（exit）の 2 回イベントを発火する。`a = 1 + 2` の実行順序:
+
+```
+enter AssignmentExpression      ← 代入式に入る（値未確定）
+  enter BinaryExpression        ←   1+2 の計算を開始
+    enter Literal(1)
+    exit  Literal(1)  value=1
+    enter Literal(2)
+    exit  Literal(2)  value=2
+  exit  BinaryExpression        value=3
+exit  AssignmentExpression      value=3  ← a=3 が確定
+```
+
+- `ev.value` が存在するのは exit イベントのみ
+- enter では子ノードがまだ評価されていないため、値は常に `undefined`
+
+**全ステップ表 / AnimatedTrace での表示変換**:
+
+```js
+const symbol = ev.phase === 'enter' ? '▶' : '◀';
+// 例: '▶ Assign'（代入式を開始）, '◀ Assign'（代入式が完了し値確定）
+```
+
+**humanStep の判定基準** (`buildHumanIndices()` 内):
+
+人間が紙でトレースする際に「記録する」タイミングを、enter/exit の組み合わせで定義する。
+
+| 条件 | 例 |
+|------|---|
+| 文ノードの **enter** | `ExpressionStatement.enter`、`IfStatement.enter` |
+| 副作用ノードの **exit** | `AssignmentExpression.exit`、`UpdateExpression.exit` |
+
+exit を採用する副作用ノードでは、値確定後（exit）に記録することで、変数の新しい値を表に反映できる。
+
+---
+
+## 3. モジュール詳細設計
+
+### 3.1 `src/core/debugger-adapter.js`
 
 **責務**: JSDebugger のライフサイクル管理・状態の正規化・差分検出
 
@@ -150,7 +214,7 @@ this.dispatchEvent(new CustomEvent('error', {
 
 ---
 
-### 2.2 `src/core/step-controller.js`
+### 3.2 `src/core/step-controller.js`
 
 **責務**: 粒度別ステップ操作を統一インターフェースで提供
 
@@ -196,7 +260,7 @@ class StepController {
 
 ---
 
-### 2.3 `src/core/trace-builder.js`
+### 3.3 `src/core/trace-builder.js`
 
 **責務**: trace 配列を一度だけ走査して各ビューが必要な集計データを生成。すべての結果はキャッシュ済み（2回目以降は O(1)）。
 
@@ -286,7 +350,7 @@ function isFunctionVal(v) {
 
 ---
 
-### 2.4 ビューの共通インターフェース
+### 3.4 ビューの共通インターフェース
 
 全ビューが実装するメソッド:
 
@@ -314,7 +378,7 @@ class BaseView {
 
 ---
 
-### 2.5 SVG ビューの設計パターン
+### 3.5 SVG ビューの設計パターン
 
 Phase 4 / Phase 5 の SVG ビューは共通パターンに従って実装されている。
 
@@ -333,7 +397,7 @@ Phase 4 / Phase 5 の SVG ビューは共通パターンに従って実装され
 
 ---
 
-### 2.6 各ビューの実装詳細
+### 3.6 各ビューの実装詳細
 
 #### `code-view/` — コードハイライト（3層）✅
 
@@ -734,9 +798,9 @@ function forceDirectedLayout(nodes, edges) {
 
 ---
 
-## 3. コンポーネント設計
+## 4. コンポーネント設計
 
-### 3.1 `components/step-controls.js` ✅
+### 4.1 `components/step-controls.js` ✅
 
 **ボタン構成（2行×4列グリッド）**:
 
@@ -767,7 +831,7 @@ switch (e.key) {
 
 ---
 
-### 3.2 `components/view-switcher.js` ✅
+### 4.2 `components/view-switcher.js` ✅
 
 **状態**:
 - `#registry: Map<id, { label, ViewClass, instance }>` — 登録されたビュー
@@ -842,7 +906,7 @@ reset()
 
 ---
 
-### 3.3 `components/code-editor.js` ✅
+### 4.3 `components/code-editor.js` ✅
 
 **サンプルコード（17 種類）**:
 
@@ -882,7 +946,7 @@ showError(msg, errorType = null) {
 
 ---
 
-### 3.5 `components/settings-panel.js` ✅
+### 4.5 `components/settings-panel.js` ✅
 
 **テーマ適用の仕組み**:
 ```
@@ -903,7 +967,7 @@ showError(msg, errorType = null) {
 
 ---
 
-## 4. ディレクトリ構造とファイル一覧
+## 5. ディレクトリ構造とファイル一覧
 
 ```
 JSVisualizer/
@@ -981,9 +1045,9 @@ JSVisualizer/
 
 ---
 
-## 5. CSS 設計方針
+## 6. CSS 設計方針
 
-### 5.1 テーマシステム
+### 6.1 テーマシステム
 
 CSS カスタムプロパティで 2 テーマを管理する。
 
@@ -1038,7 +1102,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 }
 ```
 
-### 5.2 ビュー別 CSS クラス命名
+### 6.2 ビュー別 CSS クラス命名
 
 各ビューは独立した BEM 風の接頭辞でクラスをスコープする。
 
@@ -1060,7 +1124,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 | memory-view | `mv-` | `.mv-frame`, `.mv-arrows` |
 | object-graph | `og-` | `.og-node`, `.og-edge` |
 
-### 5.3 ハイライトオーバーレイ
+### 6.3 ハイライトオーバーレイ
 
 ```css
 .cv-line-code {
@@ -1081,7 +1145,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 .cv-callsite-highlight { background: var(--hl-call); border-bottom: 2px dashed var(--hl-call-bdr); }
 ```
 
-### 5.4 フラッシュアニメーション
+### 6.4 フラッシュアニメーション
 
 ```css
 @keyframes var-flash {
@@ -1091,7 +1155,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 .var-row--changed { animation: var-flash var(--anim-flash) ease-out; }
 ```
 
-### 5.5 エラーバッジ（Phase 6 追加）
+### 6.5 エラーバッジ（Phase 6 追加）
 
 ```css
 .error-msg {
@@ -1114,7 +1178,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 - `data-error-type="parse"` → 赤バッジ（`--changed` カラー）
 - `data-error-type="runtime"` → 橙背景（`--changed-bg` ベース）
 
-### 5.6 RecursionTree 色覚多様性（Phase 6 追加）
+### 6.6 RecursionTree 色覚多様性（Phase 6 追加）
 
 ```css
 /* 未実行: 破線ボーダー + 薄い表示 */
@@ -1133,7 +1197,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 .rt-node--done   .rt-state-icon { fill: #4ce884; }
 ```
 
-### 5.7 ControlFlow 戻りエッジ（Phase 6 確認）
+### 6.7 ControlFlow 戻りエッジ（Phase 6 確認）
 
 ```css
 /* 戻りエッジ（ループバック）: 橙色の破線 */
@@ -1146,7 +1210,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 
 ---
 
-## 6. ビルド設定
+## 7. ビルド設定
 
 ```json
 {
@@ -1164,9 +1228,9 @@ CSS カスタムプロパティで 2 テーマを管理する。
 
 ---
 
-## 7. CI/CD パイプライン
+## 8. CI/CD パイプライン
 
-### 7.1 GitHub Actions ワークフロー (`.github/workflows/deploy.yml`)
+### 8.1 GitHub Actions ワークフロー (`.github/workflows/deploy.yml`)
 
 | ステップ | 内容 |
 |---------|------|
@@ -1189,9 +1253,9 @@ CSS カスタムプロパティで 2 テーマを管理する。
 
 ---
 
-## 8. テスト方針
+## 9. テスト方針
 
-### 8.1 ユニットテスト（Jest / 37 件）
+### 9.1 ユニットテスト（Jest / 37 件）
 
 | 対象 | テストファイル | テスト数 | テスト内容 |
 |------|-------------|---------|-----------|
@@ -1201,7 +1265,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 
 **合計: 37 テスト**（`npm test` で全実行）
 
-### 8.2 テスト実行コマンド
+### 9.2 テスト実行コマンド
 
 ```bash
 npm test               # 全テスト実行
@@ -1210,20 +1274,20 @@ npm run test:watch     # ウォッチモード
 
 > テストは必ず `npm test` 経由で実行すること（`"type": "module"` のため `--experimental-vm-modules` フラグが必要）
 
-### 8.3 `buildRecursionTree` テスト設計
+### 9.3 `buildRecursionTree` テスト設計
 
 `callDepth` の変化でシミュレートするヘルパー `makeCallTrace(calls)` を使用:
 - 1 回の呼び出し → 1 ルートノード
 - 2 回の連続呼び出し → 2 ルートノード
 - ネストした呼び出し → 子ノードとして追加
 
-### 8.4 `buildLifetime` テスト設計
+### 9.4 `buildLifetime` テスト設計
 
 `humanStep` となる `ExpressionStatement.enter` + `env` を持つヘルパーイベント `humanEv(line, envChain, callDepth)` を使用:
 - `BUILTIN_NAMES`（`console` 等）は含まない
 - 異なる `callDepth` の同名変数は別エントリ
 
-### 8.5 `buildControlFlow` テスト設計
+### 9.5 `buildControlFlow` テスト設計
 
 - 通過した行のノード存在確認
 - エッジの from/to ペア確認

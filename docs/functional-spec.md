@@ -131,7 +131,7 @@
 
 | 粒度 | 内部 API | 定義 |
 |------|----------|------|
-| 式評価 | cursor ± 1（`trace[]` を直接移動） | 全 AST ノードの enter/exit イベント |
+| 式評価 | cursor ± 1（`trace[]` を直接移動） | 文・式の実行開始から実行完了までを含む、最も細かい粒度のステップ |
 | 文評価 | `stepOver()` → `matchIdx` | 文ノードのみ（サブ式を内部でスキップ） |
 | 人にやさしい単位 | `humanStep()` / `humanStepBack()` | 代入・条件判定・ループ更新・関数呼び出し等の意味ある変化点 |
 | 関数呼び出し単位 | trace の `callDepth` 変化点まで cursor を移動 | 関数呼び出し・リターンを境界として進退 |
@@ -144,7 +144,7 @@
 
 タブ名: **変数・スタック**
 
-- 現在の TraceEvent（nodeType・phase・行・評価値）を表示
+- 現在実行中の文・式の種別・行番号・確定値を表示
 - 変数パネル: 全スコープの変数値を一覧（変化した変数をフラッシュ）。「スコープ別」チェックボックスでスコープチェーン表示に切り替え可
 - コールスタックパネル: フレームと行番号のリスト
 - コンソール出力パネル: `console.log` の出力履歴
@@ -161,7 +161,7 @@
 - 変数が宣言されるたびに列が右に追加される（動的列追加）
 - 各セルはその行を「最後に実行した時点」での変数値を表示
 - cursor が進むと、変化したセルにフラッシュアニメーション（オレンジ）
-- 関数・クラス値は列に載せない（`isFunctionVal()` でフィルタ）
+- 関数・クラス値は列に載せない
 - 現在実行行をハイライトしてスクロール追従
 
 **入力**: `builder.getHumanStepList()`, `builder.trace`, `builder.source`, `state.cursor`, `state.event`
@@ -176,7 +176,11 @@
 
 - 全 humanStep を `init()` 時に一括描画
 - `update()` は現在行のハイライト移動とスクロールのみ（O(1)）
-- 列: # | 行 | イベント（phase + nodeType の短縮形） | 値
+- 列: # | 行 | イベント | 値
+  - **#**: humanStep の通し番号
+  - **行**: ソースコードの行番号
+  - **イベント**: `▶ 種別`（実行開始）または `◀ 種別`（実行完了）の形式。種別は Assign・If・Call など文・式の種類を表す短縮名
+  - **値**: 実行完了（◀）のステップで値が確定している場合に表示される
 
 **入力**: `builder.getHumanStepList()`, `builder.trace`
 
@@ -438,17 +442,15 @@
 
 | 用語 | 定義 |
 |------|------|
-| TraceEvent | JSInterpreter が記録する1ステップ分の情報（phase/nodeType/loc/end/depth/callDepth/callStack/env/value） |
+| TraceEvent | プログラム実行の1ステップに対応する情報。どの行・列で何の文・式が実行され、確定値がいくらかを記録する |
 | cursor | trace 配列の現在位置を示す整数インデックス |
 | humanStep | 人間が紙でトレースする際に記録する「意味のある変化点」（代入・条件判定・ループ更新・関数呼び出し等） |
 | humanStep インデックス (hi) | getHumanStepList() が返す配列の添字（0 始まり）。LifetimeチャートのX軸に使用 |
 | スナップショット | あるステップでの変数・スコープ・コールスタックの状態の複製 |
 | diff / changedVars | 前後スナップショット間で変化した変数名のセット |
 | オムニシェントデバッグ | プログラムを先に最後まで実行して全ステップを記録し、後から任意のステップに移動できるデバッグ方式 |
-| 式ハイライト | TraceEvent の `loc`（start）～ `end` の文字範囲を塗り、現在評価中の式を視覚化すること |
-| 呼び出し元ハイライト | 関数内部を実行中のとき、その関数を呼び出した CallExpression をパープルで着色すること。`callStack[0].loc` と `callSiteEndMap` で位置を特定する |
-| callSiteEndMap | `CallExpression.enter` イベントの `loc` → `end` マッピング。コード実行開始時（`setTrace()`）に trace 全体から構築する |
-| isFunctionVal | `v.__type__ === 'JSFunction'` / `'JSClass'` またはネイティブ関数を検出するヘルパー関数。LineTrace・TraceBuilder・MemoryView・ObjectGraph で共用 |
+| 式ハイライト | 現在評価中の式の文字範囲をオレンジ（半透明）で着色して視覚化すること |
+| 呼び出し元ハイライト | 関数内部を実行中のとき、その関数を呼び出した式をパープルで着色すること |
 | FOUC | Flash of Unstyled Content。ページ読み込み時に一瞬デフォルトスタイルが見える現象。インラインスクリプトで防止する |
 | jsv-theme | テーマ設定を永続化する localStorage キー。値 `"dark"` でダークテーマが適用される |
 | jsv-active-tab | アクティブタブを永続化する localStorage キー。値はビューの登録 ID 文字列 |
