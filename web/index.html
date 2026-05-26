@@ -68,14 +68,9 @@
         </div>
       </div>
 
-      <!-- 編集モード -->
+      <!-- 編集モード（CodeMirror が mount される） -->
       <div id="editor-area" class="editor-area">
-        <textarea id="source-editor"
-                  spellcheck="false"
-                  autocomplete="off"
-                  autocorrect="off"
-                  autocapitalize="off"
-                  placeholder="JavaScript コードを入力してください…"></textarea>
+        <div id="source-editor-cm" class="cm-host"></div>
       </div>
 
       <!-- 実行モード: コードハイライト表示 -->

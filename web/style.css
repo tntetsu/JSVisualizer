@@ -216,18 +216,17 @@ html, body {
   display: flex;
 }
 
-#source-editor {
+/* CodeMirror ホストコンテナ */
+.cm-host {
   flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.cm-host .cm-editor {
+  flex: 1;
+  height: 100%;
   background: var(--bg);
-  color: var(--text);
-  border: none;
-  outline: none;
-  padding: 10px 12px;
-  font-family: 'Consolas', 'Monaco', 'Cascadia Code', monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  resize: none;
-  tab-size: 2;
 }
 
 /* ── 実行モード: コードハイライト ─────────────────────────────── */

@@ -36,7 +36,7 @@ import { ObjectGraph }      from './views/object-graph/index.js';
 
 const $ = id => document.getElementById(id);
 
-const sourceEditor    = $('source-editor');
+const editorCmEl      = $('source-editor-cm');  // CodeMirror mount 先
 const codeDisplay     = $('code-display');
 const editorArea      = $('editor-area');
 const errorMsg        = $('error-msg');
@@ -85,7 +85,7 @@ switcher.register('objgraph',  'オブジェクト',     ObjectGraph);
 // ── UI コンポーネントの初期化 ──────────────────────────────────────────────
 
 const editor = new CodeEditor({
-  textarea:     sourceEditor,
+  container:    editorCmEl,
   sampleSelect: sampleSelect,
   runBtn:       btnRun,
   resetBtn:     btnReset,

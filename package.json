@@ -12,6 +12,9 @@
     "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch"
   },
   "dependencies": {
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "codemirror": "^6.0.2",
     "js-interpreter": "file:../JSInterpreter"
   },
   "devDependencies": {

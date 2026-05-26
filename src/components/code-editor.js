@@ -1,9 +1,17 @@
 /**
- * code-editor.js — コードエディタコンポーネント
+ * code-editor.js — CodeMirror 6 ベースのコードエディタ
  *
  * 実行前のコード入力エリアを管理する。
+ * CodeMirror 6 で JS シンタックスハイライト・行番号・タブ補完を提供する。
  * サンプルコードの選択と、Run/Reset ボタンのハンドリングを担当。
  */
+
+import { EditorView, basicSetup }    from 'codemirror';
+import { javascript }                from '@codemirror/lang-javascript';
+import { oneDark }                   from '@codemirror/theme-one-dark';
+import { Compartment, EditorState }  from '@codemirror/state';
+import { keymap }                    from '@codemirror/view';
+import { indentWithTab }             from '@codemirror/commands';
 
 /** HTML エスケープ（エラーメッセージ表示用） */
 function _esc(str) {
@@ -297,11 +305,35 @@ toArray(list);`,
   },
 };
 
+// ── カスタム CodeMirror テーマ（ライトモード用） ─────────────────────────────
+
+const lightTheme = EditorView.theme({
+  '&': {
+    background: 'var(--bg)',
+    color:      'var(--text)',
+    height:     '100%',
+  },
+  '.cm-scroller': { fontFamily: "'Consolas', 'Monaco', 'Cascadia Code', monospace", fontSize: '13px', lineHeight: '1.6', overflow: 'auto' },
+  '.cm-content':  { padding: '10px 0' },
+  '.cm-gutters':  { background: 'var(--surface)', borderRight: '1px solid var(--border)', color: 'var(--text-muted)' },
+  '.cm-activeLineGutter': { background: 'transparent' },
+  '.cm-activeLine':       { background: 'transparent' },
+  '.cm-focused':          { outline: 'none' },
+  '.cm-selectionBackground': { background: 'var(--hl-select, rgba(100,150,255,0.25))' },
+  '&.cm-focused .cm-selectionBackground': { background: 'var(--hl-select, rgba(100,150,255,0.35))' },
+}, { dark: false });
+
 // ── CodeEditor ───────────────────────────────────────────────────────────────
 
 export class CodeEditor {
-  /** @type {HTMLTextAreaElement} */
-  #textarea;
+  /** @type {HTMLElement} CodeMirror を mount するコンテナ */
+  #container;
+
+  /** @type {EditorView} */
+  #view;
+
+  /** @type {Compartment} テーマ切り替え用 */
+  #themeCompartment = new Compartment();
 
   /** @type {HTMLSelectElement} */
   #sampleSelect;
@@ -315,43 +347,53 @@ export class CodeEditor {
   /** @type {HTMLElement} */
   #errorEl;
 
+  /** @type {HTMLElement|null} プログラム名表示要素（修正4で使用） */
+  #programNameEl = null;
+
   /** @type {(code: string) => void} */
   #onRun;
 
   /** @type {() => void} */
   #onReset;
 
+  /** @type {MutationObserver|null} テーマ変更監視 */
+  #themeObserver = null;
+
   /**
    * @param {Object} opts
-   * @param {HTMLTextAreaElement} opts.textarea
-   * @param {HTMLSelectElement}   opts.sampleSelect
-   * @param {HTMLButtonElement}   opts.runBtn
-   * @param {HTMLButtonElement}   opts.resetBtn
-   * @param {HTMLElement}         opts.errorEl
+   * @param {HTMLElement}            opts.container     CodeMirror を mount する div
+   * @param {HTMLSelectElement}      opts.sampleSelect
+   * @param {HTMLButtonElement}      opts.runBtn
+   * @param {HTMLButtonElement}      opts.resetBtn
+   * @param {HTMLElement}            opts.errorEl
+   * @param {HTMLElement}           [opts.programNameEl]  プログラム名表示要素
    * @param {(code: string) => void} opts.onRun
-   * @param {() => void}          opts.onReset
+   * @param {() => void}             opts.onReset
    */
-  constructor({ textarea, sampleSelect, runBtn, resetBtn, errorEl, onRun, onReset }) {
-    this.#textarea     = textarea;
+  constructor({ container, sampleSelect, runBtn, resetBtn, errorEl, programNameEl, onRun, onReset }) {
+    this.#container    = container;
     this.#sampleSelect = sampleSelect;
     this.#runBtn       = runBtn;
     this.#resetBtn     = resetBtn;
     this.#errorEl      = errorEl;
+    this.#programNameEl = programNameEl ?? null;
     this.#onRun        = onRun;
     this.#onReset      = onReset;
 
+    this.#createEditor(SAMPLES.fibonacci.code);
     this.#buildSampleOptions();
     this.#bindEvents();
+    this.#watchTheme();
 
-    // デフォルトはフィボナッチ
-    this.#textarea.value = SAMPLES.fibonacci.code;
+    // 初期ラベル
+    if (this.#programNameEl) this.#programNameEl.textContent = SAMPLES.fibonacci.label;
   }
 
   // ── 公開 API ──────────────────────────────────────────────────────────────
 
   /** 現在のエディタ内容を返す */
   getCode() {
-    return this.#textarea.value;
+    return this.#view.state.doc.toString();
   }
 
   /**
@@ -377,7 +419,7 @@ export class CodeEditor {
 
   /** 実行中モード（エディタ非表示・Reset ボタン表示）に切り替える */
   setRunningMode(running) {
-    this.#textarea.disabled  = running;
+    this.#container.hidden    = running;
     this.#runBtn.hidden       = running;
     this.#resetBtn.hidden     = !running;
     this.#sampleSelect.disabled = running;
@@ -385,8 +427,45 @@ export class CodeEditor {
 
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
 
+  /** CodeMirror EditorView を生成してコンテナに mount する */
+  #createEditor(initialCode) {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+
+    this.#view = new EditorView({
+      state: EditorState.create({
+        doc: initialCode,
+        extensions: [
+          basicSetup,
+          javascript(),
+          keymap.of([indentWithTab]),
+          lightTheme,
+          this.#themeCompartment.of(isDark ? oneDark : []),
+        ],
+      }),
+      parent: this.#container,
+    });
+  }
+
+  /** ダーク/ライトテーマを切り替える */
+  #applyTheme(dark) {
+    this.#view.dispatch({
+      effects: this.#themeCompartment.reconfigure(dark ? oneDark : []),
+    });
+  }
+
+  /** html.dataset.theme の変化を MutationObserver で監視する */
+  #watchTheme() {
+    this.#themeObserver = new MutationObserver((records) => {
+      for (const r of records) {
+        if (r.attributeName === 'data-theme') {
+          this.#applyTheme(document.documentElement.dataset.theme === 'dark');
+        }
+      }
+    });
+    this.#themeObserver.observe(document.documentElement, { attributes: true });
+  }
+
   #buildSampleOptions() {
-    // グループごとにオプションを追加
     const groups = [
       { label: '─ 探索 ─',               keys: ['linearSearch', 'binarySearch'] },
       { label: '─ ソート（基本） ─',      keys: ['bubbleSort', 'selectionSort'] },
@@ -414,15 +493,25 @@ export class CodeEditor {
     this.#sampleSelect.addEventListener('change', () => {
       const key = this.#sampleSelect.value;
       if (key && SAMPLES[key]) {
-        this.#textarea.value = SAMPLES[key].code;
+        // エディタの内容をサンプルコードに置き換える
+        const code = SAMPLES[key].code;
+        this.#view.dispatch({
+          changes: { from: 0, to: this.#view.state.doc.length, insert: code },
+        });
         this.#sampleSelect.value = '';  // 再選択可能にリセット
         this.showError(null);
+        if (this.#programNameEl) this.#programNameEl.textContent = SAMPLES[key].label;
       }
+    });
+
+    // テキスト入力でプログラム名をクリア
+    this.#view.dom.addEventListener('keydown', () => {
+      if (this.#programNameEl) this.#programNameEl.textContent = '';
     });
 
     this.#runBtn.addEventListener('click', () => {
       this.showError(null);
-      this.#onRun(this.#textarea.value);
+      this.#onRun(this.getCode());
     });
 
     this.#resetBtn.addEventListener('click', () => {
