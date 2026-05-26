@@ -1715,3 +1715,305 @@ html, body {
 /* 矢印マーカー */
 .cf-marker-fwd  { fill: var(--accent); }
 .cf-marker-back { fill: var(--hl-orange, #e86b4c); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Phase 5: MemoryView / ObjectGraph
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── MemoryView (.mv-*) ────────────────────────────────────────────────────*/
+
+.mv-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  box-sizing: border-box;
+}
+
+.mv-layout {
+  position: relative;
+  display: flex;
+  gap: 0;
+  min-height: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+/* SVG オーバーレイ（矢印用） */
+.mv-arrows {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 10;
+}
+
+.mv-arrow {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  opacity: 0.7;
+}
+
+.mv-arrow-marker {
+  fill: var(--accent);
+}
+
+/* パネル共通 */
+.mv-panel {
+  flex: 1;
+  min-width: 0;
+  padding: 4px;
+}
+
+.mv-panel-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 4px 6px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+
+/* スタックパネル */
+.mv-stack-panel {
+  border-right: 1px solid var(--border);
+  padding-right: 8px;
+  margin-right: 8px;
+}
+
+/* フレームボックス */
+.mv-frame {
+  border: 1.5px solid var(--border);
+  border-radius: 5px;
+  margin-bottom: 6px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.mv-frame--top {
+  border-color: var(--accent);
+}
+
+.mv-frame-name {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mv-frame--top .mv-frame-name {
+  color: var(--accent);
+  background: rgba(76, 155, 232, 0.08);
+}
+
+.mv-frame-vars {
+  padding: 4px 0;
+}
+
+/* 変数行 */
+.mv-var-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  min-height: 20px;
+  transition: background 0.2s;
+}
+
+.mv-var-row:hover {
+  background: rgba(128, 128, 128, 0.08);
+}
+
+.mv-var--changed {
+  background: rgba(232, 200, 76, 0.15) !important;
+}
+
+.mv-var-name {
+  color: var(--text);
+  font-weight: 600;
+  min-width: 60px;
+}
+
+.mv-var-val {
+  color: var(--text-muted);
+  flex: 1;
+}
+
+/* 参照インジケーター（→ #N） */
+.mv-ref-indicator {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  color: var(--accent);
+  background: rgba(76, 155, 232, 0.12);
+  border: 1px solid rgba(76, 155, 232, 0.3);
+  border-radius: 3px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+/* ヒープパネル */
+.mv-heap-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mv-heap-obj {
+  border: 1.5px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.mv-heap-title {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg);
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mv-heap-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 5px 6px;
+}
+
+.mv-heap-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(128, 128, 128, 0.07);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+}
+
+.mv-heap-cell--ref {
+  border-color: rgba(76, 155, 232, 0.3);
+  background: rgba(76, 155, 232, 0.06);
+}
+
+.mv-cell-key {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.mv-cell-sep {
+  color: var(--text-muted);
+}
+
+.mv-cell-val {
+  color: var(--text);
+}
+
+.mv-heap-overflow {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 1px 4px;
+}
+
+/* ── ObjectGraph (.og-*) ────────────────────────────────────────────────── */
+
+.og-wrap {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.og-svg {
+  display: block;
+}
+
+/* ノード枠 */
+.og-rect {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+/* ノードタイトル（Array[N] / Object） */
+.og-title {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--text-muted);
+}
+
+/* 区切り線 */
+.og-divider {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+/* プロパティキー */
+.og-key {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+/* プロパティ値 */
+.og-val {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  fill: var(--text);
+}
+
+.og-val--ref {
+  fill: var(--accent);
+}
+
+/* ルート変数ラベル（ノード上部） */
+.og-root-label {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--accent);
+}
+
+/* エッジ */
+.og-edge {
+  stroke: var(--border);
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+
+.og-edge-label {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 9px;
+  fill: var(--text-muted);
+}
+
+.og-arrow-marker {
+  fill: var(--border);
+}
+
+/* プリミティブ変数ラベル */
+.og-prim-label {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  fill: var(--text-muted);
+}
+
+/* プレースホルダー */
+.og-placeholder {
+  font-size: 13px;
+  fill: var(--text-muted);
+  dominant-baseline: middle;
+}

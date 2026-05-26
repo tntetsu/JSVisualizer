@@ -28,6 +28,8 @@ import { Heatmap }          from './views/heatmap/index.js';
 import { RecursionTree }    from './views/recursion-tree/index.js';
 import { Lifetime }         from './views/lifetime/index.js';
 import { ControlFlow }      from './views/control-flow/index.js';
+import { MemoryView }       from './views/memory-view/index.js';
+import { ObjectGraph }      from './views/object-graph/index.js';
 
 // ── DOM 参照 ───────────────────────────────────────────────────────────────
 
@@ -73,6 +75,8 @@ switcher.register('heatmap',   'ヒートマップ',     Heatmap);
 switcher.register('recursion', '再帰ツリー',       RecursionTree);
 switcher.register('lifetime',  'ライフタイム',     Lifetime);
 switcher.register('controlflow','制御フロー',       ControlFlow);
+switcher.register('memory',    'メモリモデル',     MemoryView);
+switcher.register('objgraph',  'オブジェクト',     ObjectGraph);
 
 // ── UI コンポーネントの初期化 ──────────────────────────────────────────────
 
