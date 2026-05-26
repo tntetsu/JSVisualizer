@@ -1,9 +1,9 @@
 /**
- * state-view/index.js — 変数・コールスタック・コンソール統合ビュー
+ * state-view/index.js — 変数・コールスタック統合ビュー
  *
- * Phase 1 のデバッグパネルを BaseView として独立させた実装。
- * 4 つのカード（Current Step / Variables / Call Stack / Console）を
+ * 3 つのカード（Current Step / Variables / Call Stack）を
  * スクロール可能な縦並びで表示する。
+ * Console は常時表示パネル（app-main 外の #console-panel）に移動済み。
  */
 
 import { BaseView }                        from '../base-view.js';
@@ -15,8 +15,6 @@ export class StateView extends BaseView {
   #currentStepEl   = null;
   #variablesEl     = null;
   #callstackEl     = null;
-  #consoleOutputEl = null;
-  #consoleCountEl  = null;
   #scopeAllCb      = null;
   /** @type {import('../../core/debugger-adapter.js').AppState|null} */
   #lastState       = null;
@@ -58,22 +56,11 @@ export class StateView extends BaseView {
           </div>
         </div>
 
-        <div class="debug-card">
-          <div class="card-header">
-            Console
-            <span class="sv-console-count console-count"></span>
-          </div>
-          <div class="sv-console console-output">
-            <p class="placeholder">—</p>
-          </div>
-        </div>
       </div>`;
 
     this.#currentStepEl   = container.querySelector('.sv-current');
     this.#variablesEl     = container.querySelector('.sv-variables');
     this.#callstackEl     = container.querySelector('.sv-callstack');
-    this.#consoleOutputEl = container.querySelector('.sv-console');
-    this.#consoleCountEl  = container.querySelector('.sv-console-count');
     this.#scopeAllCb      = container.querySelector('.sv-scope-all');
 
     this.#scopeAllCb.addEventListener('change', () => {
@@ -87,17 +74,14 @@ export class StateView extends BaseView {
     this.#renderCurrentStep(state);
     this.#renderVariables(state);
     this.#renderCallStack(state);
-    this.#renderConsole(state);
   }
 
   reset() {
     this.#lastState = null;
     if (!this.#container) return;
-    this.#currentStepEl.innerHTML    = '<p class="placeholder">実行待ち</p>';
-    this.#variablesEl.innerHTML      = '<p class="placeholder">—</p>';
-    this.#callstackEl.innerHTML      = '<p class="placeholder">—</p>';
-    this.#consoleOutputEl.innerHTML  = '<p class="placeholder">—</p>';
-    this.#consoleCountEl.textContent = '';
+    this.#currentStepEl.innerHTML = '<p class="placeholder">実行待ち</p>';
+    this.#variablesEl.innerHTML   = '<p class="placeholder">—</p>';
+    this.#callstackEl.innerHTML   = '<p class="placeholder">—</p>';
     if (this.#scopeAllCb) this.#scopeAllCb.checked = false;
   }
 
@@ -107,8 +91,6 @@ export class StateView extends BaseView {
     this.#currentStepEl   = null;
     this.#variablesEl     = null;
     this.#callstackEl     = null;
-    this.#consoleOutputEl = null;
-    this.#consoleCountEl  = null;
     this.#scopeAllCb      = null;
     this.#lastState       = null;
   }
@@ -208,20 +190,4 @@ export class StateView extends BaseView {
     this.#callstackEl.innerHTML = html;
   }
 
-  #renderConsole(state) {
-    const { consoleOutput } = state;
-    if (!consoleOutput || consoleOutput.length === 0) {
-      this.#consoleOutputEl.innerHTML = '<p class="placeholder">—</p>';
-      this.#consoleCountEl.textContent = '';
-      return;
-    }
-    this.#consoleCountEl.textContent = String(consoleOutput.length);
-    let html = '';
-    for (const log of consoleOutput) {
-      const cls = log.level === 'warn'  ? ' console-line--warn'
-                : log.level === 'error' ? ' console-line--error' : '';
-      html += `<div class="console-line${cls}">${esc(log.text)}</div>`;
-    }
-    this.#consoleOutputEl.innerHTML = html;
-  }
 }

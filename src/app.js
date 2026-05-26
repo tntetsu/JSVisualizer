@@ -16,6 +16,7 @@ import { StepControls }     from './components/step-controls.js';
 import { ViewSwitcher }     from './components/view-switcher.js';
 import { SettingsPanel }    from './components/settings-panel.js';
 import { PaneResizer }      from './components/pane-resizer.js';
+import { esc }              from './utils/format.js';
 import { CodeView }         from './views/code-view/index.js';
 import { StateView }        from './views/state-view/index.js';
 import { LineTrace }        from './views/line-trace/index.js';
@@ -47,6 +48,8 @@ const viewTabsEl      = $('view-tabs');
 const viewContainerEl = $('view-container');
 const btnSettings     = $('btn-settings');
 const settingsPanelEl = $('settings-panel');
+const consolePanelOut = $('console-output');
+const consolePanelCnt = $('console-count');
 
 // ── コアモジュールの初期化 ─────────────────────────────────────────────────
 
@@ -130,6 +133,7 @@ adapter.addEventListener('ready', (e) => {
   editor.setRunningMode(true);
   stepControls.setEnabled(true);
   stepControls.update(state);
+  updateConsolePanel(state);
 });
 
 adapter.addEventListener('error', (e) => {
@@ -142,7 +146,26 @@ adapter.addEventListener('step', (e) => {
   codeView.update(state);
   stepControls.update(state);
   switcher.update(state);
+  updateConsolePanel(state);
 });
+
+// ── 常時コンソールパネルの更新 ───────────────────────────────────────────
+
+function updateConsolePanel(state) {
+  const logs = state?.consoleOutput ?? [];
+  consolePanelCnt.textContent = logs.length > 0 ? String(logs.length) : '';
+  if (logs.length === 0) {
+    consolePanelOut.innerHTML = '<p class="placeholder">—</p>';
+    return;
+  }
+  consolePanelOut.innerHTML = logs.map(log => {
+    const cls = log.level === 'warn'  ? ' console-line--warn'
+              : log.level === 'error' ? ' console-line--error' : '';
+    return `<div class="console-line${cls}">${esc(log.text)}</div>`;
+  }).join('');
+  // 末尾にスクロール
+  consolePanelOut.scrollTop = consolePanelOut.scrollHeight;
+}
 
 // ── 実行・リセット ────────────────────────────────────────────────────────
 
@@ -163,4 +186,5 @@ function resetAll() {
   codeDisplay.classList.add('hidden');
   editor.setRunningMode(false);
   editor.showError(null);
+  updateConsolePanel(null);
 }
