@@ -154,8 +154,9 @@ html, body {
 
 /* ── メインレイアウト ──────────────────────────────────────────── */
 .app-main {
+  --editor-pct: 30;   /* PaneResizer が上書き。デフォルト 30% */
   display: flex;
-  gap: var(--pane-gap);
+  gap: 0;             /* 仕切りで gap を代替するため 0 に */
   padding: var(--pane-gap);
   height: calc(100vh - var(--header-h) - var(--footer-h));
   overflow: hidden;
@@ -190,8 +191,23 @@ html, body {
 
 /* ── 左ペイン: エディタ ───────────────────────────────────────── */
 .editor-pane {
-  width: 48%;
+  width: calc(var(--editor-pct) * 1%);
   flex-shrink: 0;
+}
+
+/* ── ペイン仕切り（ドラッグリサイズ） ──────────────────────────── */
+.pane-divider {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  border-radius: 2px;
+  transition: background 0.15s;
+  margin: var(--pane-gap) 4px;
+}
+.pane-divider:hover,
+.pane-divider.dragging {
+  background: var(--accent);
 }
 
 .editor-area {

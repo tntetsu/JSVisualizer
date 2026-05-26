@@ -58,7 +58,7 @@
   <main class="app-main">
 
     <!-- ── 左ペイン: ソースコード ── -->
-    <section class="pane editor-pane">
+    <section class="pane editor-pane" id="editor-pane">
 
       <div class="pane-header">
         <span class="pane-title">Source</span>
@@ -85,6 +85,9 @@
       <div id="error-msg" class="error-msg" hidden></div>
 
     </section>
+
+    <!-- ── 仕切り（ドラッグでリサイズ） ── -->
+    <div id="pane-divider" class="pane-divider" title="ドラッグしてサイズ変更"></div>
 
     <!-- ── 右ペイン: ビュー切り替えエリア ── -->
     <section class="pane debug-pane">

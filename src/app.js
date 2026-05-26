@@ -15,6 +15,7 @@ import { CodeEditor }       from './components/code-editor.js';
 import { StepControls }     from './components/step-controls.js';
 import { ViewSwitcher }     from './components/view-switcher.js';
 import { SettingsPanel }    from './components/settings-panel.js';
+import { PaneResizer }      from './components/pane-resizer.js';
 import { CodeView }         from './views/code-view/index.js';
 import { StateView }        from './views/state-view/index.js';
 import { LineTrace }        from './views/line-trace/index.js';
@@ -54,6 +55,9 @@ const controller = new StepController(adapter);
 
 // ── 設定パネルの初期化（テーマ切り替えを含む） ────────────────────────────
 new SettingsPanel(btnSettings, settingsPanelEl);
+
+// ── ペインリサイザーの初期化（ドラッグで editor/viz 幅を変更） ───────────
+new PaneResizer($('pane-divider'), document.querySelector('.app-main'));
 
 // ── ビューの初期化 ────────────────────────────────────────────────────────
 
