@@ -1191,6 +1191,19 @@ html, body {
   display: none;
 }
 
+/* 列ドラッグ中 */
+.lt-col-dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+/* ドロップターゲット */
+.lt-col-dragover {
+  background: var(--accent-bg);
+  border-left: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+}
+
 /* ── ヘッダー行 ────────────────────────────────────────────────── */
 
 .lt-thead-row {
@@ -1222,12 +1235,14 @@ html, body {
   min-width: 180px;
 }
 
-/* 変数列ヘッダー */
+/* 変数列ヘッダー（draggable） */
 .lt-th-var {
   color: var(--accent);
   text-align: center;
   min-width: 72px;
   border-left: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
 }
 
 /* ── データ行 ──────────────────────────────────────────────────── */

@@ -296,7 +296,7 @@ export class LineTrace extends BaseView {
     this.#ltScrollHandler   = null;
   }
 
-  // ── 列操作（修正 7 で拡張予定） ───────────────────────────────────────────
+  // ── 列操作 ────────────────────────────────────────────────────────────────
 
   /**
    * ヘッダーと全行の変数セルを作り直す。
@@ -312,12 +312,55 @@ export class LineTrace extends BaseView {
       cells.length = 0;
     }
 
-    // 新しいヘッダーセルを追加
+    // 新しいヘッダーセルを追加（ドラッグ&ドロップ付き）
     for (const meta of newMeta) {
       const th = document.createElement('th');
-      th.className   = `lt-th lt-th-var${meta.visible ? '' : ' lt-col-hidden'}`;
-      th.textContent = meta.name;
-      th.dataset.var = meta.name;
+      th.className    = `lt-th lt-th-var${meta.visible ? '' : ' lt-col-hidden'}`;
+      th.textContent  = meta.name;
+      th.dataset.var  = meta.name;
+      th.draggable    = true;
+      th.title        = `${meta.name}（ドラッグで列移動）`;
+
+      // ドラッグ開始: 変数名をデータとしてセット
+      th.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', meta.name);
+        e.dataTransfer.effectAllowed = 'move';
+        th.classList.add('lt-col-dragging');
+      });
+      th.addEventListener('dragend', () => {
+        th.classList.remove('lt-col-dragging');
+        // 全 th のドロップターゲット表示を解除
+        this.#theadRow.querySelectorAll('.lt-th-var').forEach(
+          el => el.classList.remove('lt-col-dragover')
+        );
+      });
+      // ドロップ先
+      th.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        th.classList.add('lt-col-dragover');
+      });
+      th.addEventListener('dragleave', () => {
+        th.classList.remove('lt-col-dragover');
+      });
+      th.addEventListener('drop', (e) => {
+        e.preventDefault();
+        th.classList.remove('lt-col-dragover');
+        const srcName = e.dataTransfer.getData('text/plain');
+        const dstName = meta.name;
+        if (srcName === dstName) return;
+
+        // varMeta 内で src と dst の位置を交換
+        const srcIdx = this.#varMeta.findIndex(m => m.name === srcName);
+        const dstIdx = this.#varMeta.findIndex(m => m.name === dstName);
+        if (srcIdx < 0 || dstIdx < 0) return;
+
+        const newOrder = [...this.#varMeta];
+        const [moved]  = newOrder.splice(srcIdx, 1);
+        newOrder.splice(dstIdx, 0, moved);
+        this.#rebuildColumns(newOrder);
+      });
+
       this.#theadRow.appendChild(th);
     }
 
@@ -337,7 +380,7 @@ export class LineTrace extends BaseView {
   }
 
   /**
-   * ツールバーの変数トグルボタンを再構築する（修正 7 の準備）。
+   * ツールバーの変数トグルボタンを再構築する。
    */
   #rebuildToolbar() {
     const toolbar = this.#container?.querySelector('#lt-toolbar');
@@ -349,7 +392,7 @@ export class LineTrace extends BaseView {
       btn.className = `lt-var-toggle${meta.visible ? '' : ' lt-var-toggle--hidden'}`;
       btn.textContent = meta.name;
       btn.dataset.var = meta.name;
-      btn.title = `${meta.name} を${meta.visible ? '非表示' : '表示'}`;
+      btn.title = `${meta.name} を${meta.visible ? '非表示' : '表示'}にする`;
       btn.addEventListener('click', () => this.#toggleVar(meta.name));
       toolbar.appendChild(btn);
     }
