@@ -872,10 +872,11 @@ html, body {
 }
 
 /* 列幅 */
-.tt-col-num  { width: 36px; text-align: right; color: var(--text-muted); }
-.tt-col-line { width: 40px; text-align: right; color: var(--text-muted); }
-.tt-col-type { width: 110px; }
-.tt-col-val  { }
+.tt-col-num    { width: 36px;  text-align: right; color: var(--text-muted); }
+.tt-col-line   { width: 40px;  text-align: right; color: var(--text-muted); }
+.tt-col-type   { width: 110px; }
+.tt-col-target { width: 140px; color: var(--accent); font-family: 'Cascadia Code', Consolas, monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+.tt-col-val    { }
 
 /* ── ScopeView ────────────────────────────────────────────────── */
 .scv-scroll {
