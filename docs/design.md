@@ -1,7 +1,7 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 0.5  
+**バージョン**: 0.6  
 **作成日**: 2026-05-25  
 **最終更新**: 2026-05-26  
 **作成者**: Tetsuo Tanaka
@@ -17,6 +17,7 @@
 | 0.3 | 2026-05-26 | Phase 3 実装反映: LineTrace（行×変数トレース表）, BarChart（棒グラフ）, ColorBox（色付き箱）, Timeline（時系列 SVG）, Heatmap（実行頻度マップ）。TraceBuilder に buildHeatmap() 追加 |
 | 0.4 | 2026-05-26 | Phase 4 実装反映: RecursionTree（再帰ツリー SVG）, Lifetime（変数ライフタイム SVG Gantt）, ControlFlow（制御フロー SVG）。TraceBuilder に buildRecursionTree / buildLifetime / buildControlFlow を追加 |
 | 0.5 | 2026-05-26 | Phase 5 実装反映: MemoryView（スタック/ヒープ + SVG 矢印）, ObjectGraph（力学レイアウト SVG グラフ）。SVG 設計パターンの統合、全ディレクトリ ✅ |
+| 0.6 | 2026-05-26 | Phase 6 仕上げ反映: ViewSwitcher のキーボードタブ切り替え（1〜9）・localStorage 永続化。DebuggerAdapter のエラー種別判定（parse/runtime）。code-editor.js の showError(msg, errorType) とエラーバッジ。RecursionTree 色覚多様性対応（状態アイコン）。サンプルコード 17 種。Jest テスト 37 件。GitHub Actions CI/CD ワークフロー |
 
 ---
 
@@ -111,6 +112,7 @@ class DebuggerAdapter extends EventTarget {
   getTrace()  { ... }  // → TraceEvent[]
 }
 
+
 /**
  * @typedef {Object} AppState
  * @property {number}           cursor       現在の cursor 値
@@ -124,6 +126,27 @@ class DebuggerAdapter extends EventTarget {
  * @property {boolean}          done         isDone()
  */
 ```
+
+**エラー種別判定** (`load()` の catch ブロック):
+
+JSInterpreter のパーサーエラーは標準の `SyntaxError` クラスではなく、`[Parser] 1:20: ',' を期待` 形式のメッセージを持つ独自エラーオブジェクトとして投げられる。判定は以下の優先順で行う:
+
+```js
+const isParseError = err instanceof SyntaxError
+  || err?.name === 'SyntaxError'
+  || /^\[Parser\]/i.test(msg)          // JSInterpreter パーサー形式
+  || /^(Unexpected token|Unexpected end of|SyntaxError|Invalid or unexpected)/i.test(msg);
+
+// 'error' イベントの detail に errorType を追加
+this.dispatchEvent(new CustomEvent('error', {
+  detail: {
+    message:   err.message ?? String(err),
+    errorType: isParseError ? 'parse' : 'runtime',
+  },
+}));
+```
+
+`app.js` では `e.detail.errorType` を `editor.showError(message, errorType)` に渡す。
 
 ---
 
@@ -553,7 +576,37 @@ function calcSubtreeWidth(node) {
 | 実行中 | `returnStepIdx === null または > cursor` | `rt-node--active` |
 | 完了 | `returnStepIdx <= cursor` | `rt-node--done` |
 
-**SVG 要素**: ノードごとに `<g class="rt-node rt-node--*">` 内に `<rect class="rt-rect">`, `<text class="rt-name">`, `<text class="rt-args">`, `<text class="rt-return">` を配置。エッジは `<line class="rt-edge">`
+**SVG 要素**: ノードごとに `<g class="rt-node rt-node--*">` 内に `<rect class="rt-rect">`, `<text class="rt-name">`, `<text class="rt-args">`, `<text class="rt-return">`, `<text class="rt-state-icon">` を配置。エッジは `<line class="rt-edge">`
+
+**色覚多様性対応** (Phase 6 追加):
+
+各ノードの右上角（`x=NODE_W-8, y=14`）に状態アイコンテキストを配置し、色に依存しない状態識別を実現する。
+
+```js
+// update() でのアイコン設定
+stateT.textContent = stCls === 'rt-node--future' ? '…'
+                   : stCls === 'rt-node--active' ? '▶'
+                   : '✓';
+```
+
+CSS スタイル（`style.css`):
+
+```css
+/* 未実行: 破線ボーダー + 薄い表示 */
+.rt-node--future .rt-rect { stroke-dasharray: 5 3; opacity: 0.60; }
+
+/* 実行中: 太線ボーダー + 太字テキスト */
+.rt-node--active .rt-rect { stroke-width: 3; stroke-dasharray: none; }
+.rt-node--active .rt-name { font-weight: 700; }
+
+/* 完了: 通常ボーダー */
+.rt-node--done .rt-rect { stroke-dasharray: none; }
+
+/* 状態アイコン */
+.rt-state-icon { font-size: 10px; fill: var(--text-muted); }
+.rt-node--active .rt-state-icon { fill: var(--accent); }
+.rt-node--done   .rt-state-icon { fill: #4ce884; }
+```
 
 ---
 
@@ -721,6 +774,13 @@ switch (e.key) {
 - `#activeId: string | null`
 - `#builder: TraceBuilder | null`
 - `#lastState: AppState | null`
+- `#keyHandler: Function | null` — キーボードイベントハンドラ（解除用に保持）
+
+**localStorage 永続化**:
+
+```js
+const STORAGE_KEY_TAB = 'jsv-active-tab';
+```
 
 **重要メソッド**:
 
@@ -731,17 +791,98 @@ register(id, label, ViewClass)
 onReady(state, builder)
 // アクティブビューを destroy → 再 init する
 // → ビューは常に最新の builder を持つことが保証される
+// → キーボードショートカットを登録（#registerKeyboard）
+// → 初回は localStorage から前回タブを復元、なければ先頭タブを選択
 
 update(state)
 // アクティブビューの update(state) を呼ぶ
 
 reset()
 // 全 instance を destroy して null にする
+// → キーボードショートカットを解除（#unregisterKeyboard）
+```
+
+**キーボードショートカット設計** (`#registerKeyboard` / `#unregisterKeyboard`):
+
+```js
+#registerKeyboard() {
+  if (this.#keyHandler) return;        // 二重登録防止
+  const ids = [...this.#registry.keys()];  // 登録順の ID 配列
+  this.#keyHandler = (e) => {
+    const tag = document.activeElement?.tagName;
+    if (tag === 'TEXTAREA' || tag === 'INPUT') return;  // エディタ無効化
+    const digit = parseInt(e.key, 10);
+    if (digit >= 1 && digit <= 9) {
+      const id = ids[digit - 1];      // 1→ids[0], 2→ids[1], ...
+      if (id) { e.preventDefault(); this.#activate(id); }
+    }
+  };
+  document.addEventListener('keydown', this.#keyHandler);
+}
+
+#unregisterKeyboard() {
+  if (this.#keyHandler) {
+    document.removeEventListener('keydown', this.#keyHandler);
+    this.#keyHandler = null;
+  }
+}
+```
+
+**タブ永続化** (`#activate` 内):
+
+```js
+#activate(id) {
+  if (id === this.#activeId) return;
+  // ... destroy/init 処理 ...
+  this.#activeId = id;
+  try { localStorage.setItem(STORAGE_KEY_TAB, id); } catch { /* quota over 等は無視 */ }
+  // ...
+}
 ```
 
 ---
 
-### 3.3 `components/settings-panel.js` ✅
+### 3.3 `components/code-editor.js` ✅
+
+**サンプルコード（17 種類）**:
+
+```js
+// グループ構成
+{ label: '─ 探索 ─',                  keys: ['linearSearch', 'binarySearch'] },
+{ label: '─ ソート（基本）─',          keys: ['bubbleSort', 'selectionSort'] },
+{ label: '─ ソート（高度）─',          keys: ['quickSort', 'mergeSort'] },
+{ label: '─ ソート（オブジェクト）─',   keys: ['sortByNumKey', 'sortByStrKey'] },
+{ label: '─ 数学・アルゴリズム ─',     keys: ['euclidLoop', 'euclidRecursive', 'factorial', 'fibonacci', 'fibonacciDP'] },
+{ label: '─ データ構造 ─',             keys: ['binaryTree', 'linkedList'] },
+{ label: '─ スコープ・オブジェクト ─', keys: ['closure', 'classExample'] },
+```
+
+**エラー表示 API** (`showError(msg, errorType)`):
+
+```js
+showError(msg, errorType = null) {
+  if (msg) {
+    const typeLabel = errorType === 'parse'   ? '構文エラー'
+                    : errorType === 'runtime' ? '実行エラー'
+                    : null;
+    this.#errorEl.innerHTML = typeLabel
+      ? `<span class="error-badge">${typeLabel}</span> ${_esc(msg)}`
+      : _esc(msg);
+    this.#errorEl.dataset.errorType = errorType ?? '';
+    this.#errorEl.hidden = false;
+  } else {
+    this.#errorEl.innerHTML = '';
+    this.#errorEl.hidden = true;
+  }
+}
+```
+
+- `_esc(str)` — HTML エスケープヘルパー（`&`, `<`, `>`, `"` を実体参照に変換）
+- `data-error-type` 属性で CSS スタイルを切り替え（`"parse"` 時は赤、`"runtime"` 時は橙背景）
+
+---
+
+### 3.5 `components/settings-panel.js` ✅
 
 **テーマ適用の仕組み**:
 ```
@@ -811,8 +952,9 @@ JSVisualizer/
 │   └── components/
 │       ├── code-editor.js             ← コードエディタ
 │       ├── step-controls.js           ← ステップ操作バー（10ボタン）
-│       ├── view-switcher.js           ← ビュー切り替えタブ（14ビュー登録）
-│       └── settings-panel.js          ← テーマ切り替え設定パネル
+│       ├── view-switcher.js           ← ビュー切り替えタブ（14ビュー登録 + keyboard/localStorage）
+│       ├── settings-panel.js          ← テーマ切り替え設定パネル
+│       └── code-editor.js             ← コードエディタ（17サンプル + showError(msg, errorType)）
 ├── web/
 │   ├── index.html                     ← FOUC防止スクリプト含む
 │   ├── style.css                      ← ライト/ダークテーマ CSS（全ビュー含む）
@@ -825,6 +967,9 @@ JSVisualizer/
 │   │   └── trace-builder.test.js
 │   └── views/
 │       └── (各ビューの単体テスト)
+├── .github/
+│   └── workflows/
+│       └── deploy.yml                 ← GitHub Pages 自動デプロイ（CI/CD）
 ├── docs/
 │   ├── functional-spec.md
 │   ├── design.md
@@ -946,6 +1091,59 @@ CSS カスタムプロパティで 2 テーマを管理する。
 .var-row--changed { animation: var-flash var(--anim-flash) ease-out; }
 ```
 
+### 5.5 エラーバッジ（Phase 6 追加）
+
+```css
+.error-msg {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+}
+.error-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--changed);
+  color: #fff;
+}
+.error-msg[data-error-type="runtime"] {
+  background: color-mix(in srgb, var(--changed-bg), var(--surface) 30%);
+}
+```
+
+- `data-error-type="parse"` → 赤バッジ（`--changed` カラー）
+- `data-error-type="runtime"` → 橙背景（`--changed-bg` ベース）
+
+### 5.6 RecursionTree 色覚多様性（Phase 6 追加）
+
+```css
+/* 未実行: 破線ボーダー + 薄い表示 */
+.rt-node--future .rt-rect { stroke-dasharray: 5 3; opacity: 0.60; }
+
+/* 実行中: 太線ボーダー + 太字テキスト */
+.rt-node--active .rt-rect { stroke-width: 3; stroke-dasharray: none; }
+.rt-node--active .rt-name { font-weight: 700; }
+
+/* 完了: 通常ボーダー */
+.rt-node--done .rt-rect { stroke-dasharray: none; }
+
+/* 状態アイコン（右上角: …/▶/✓） */
+.rt-state-icon { font-size: 10px; fill: var(--text-muted); }
+.rt-node--active .rt-state-icon { fill: var(--accent); }
+.rt-node--done   .rt-state-icon { fill: #4ce884; }
+```
+
+### 5.7 ControlFlow 戻りエッジ（Phase 6 確認）
+
+```css
+/* 戻りエッジ（ループバック）: 橙色の破線 */
+.cf-edge--back {
+  stroke: var(--hl-orange, #e86b4c);
+  stroke-width: 2;
+  stroke-dasharray: 6 3;
+}
+```
+
 ---
 
 ## 6. ビルド設定
@@ -966,12 +1164,68 @@ CSS カスタムプロパティで 2 テーマを管理する。
 
 ---
 
-## 7. テスト方針
+## 7. CI/CD パイプライン
 
-| 対象 | 方針 |
-|------|------|
-| `debugger-adapter.js` | load/moveTo の副作用、diff 検出のユニットテスト |
-| `step-controller.js` | 粒度別ステップ（expr/stmt/human/call）の cursor 移動のユニットテスト |
-| `trace-builder.js` | `getHumanStepList()`, `buildHeatmap()`, `buildRecursionTree()`, `buildLifetime()`, `buildControlFlow()` の集計結果のユニットテスト |
-| 各ビュー | jsdom + Jest による DOM 更新のスナップショットテスト（主要ビューのみ） |
-| E2E | Playwright による主要操作フローの自動テスト（Phase 5 完了後） |
+### 7.1 GitHub Actions ワークフロー (`.github/workflows/deploy.yml`)
+
+| ステップ | 内容 |
+|---------|------|
+| ① Checkout | `actions/checkout@v4` で JSVisualizer をチェックアウト |
+| ② Clone JSInterpreter | `git clone https://github.com/tntetsu/JSInterpreter.git ../JSInterpreter`（`package.json` の `file:../JSInterpreter` 参照に合わせた配置） |
+| ③ Node.js setup | `actions/setup-node@v4`（Node 20 + npm キャッシュ） |
+| ④ Install deps | `npm ci` |
+| ⑤ Test | `npm test`（Jest 37 テスト） |
+| ⑥ Build | `npm run build`（esbuild で `web/` に成果物生成） |
+| ⑦ Upload artifact | `actions/upload-pages-artifact@v3`（`web/` ディレクトリ） |
+| ⑧ Deploy | `actions/deploy-pages@v4` |
+
+**トリガー**: `main` ブランチへの push または `workflow_dispatch`（手動実行）
+
+**同時実行制御**: `concurrency: { group: pages, cancel-in-progress: true }`
+
+**権限**: `contents: read`, `pages: write`, `id-token: write`
+
+**デプロイ URL**: `https://tntetsu.github.io/JSVisualizer/`
+
+---
+
+## 8. テスト方針
+
+### 8.1 ユニットテスト（Jest / 37 件）
+
+| 対象 | テストファイル | テスト数 | テスト内容 |
+|------|-------------|---------|-----------|
+| `trace-builder.js` | `tests/core/trace-builder.test.js` | 21 件 | `buildHeatmap`（4件）, `buildHumanIndices`（5件）, `getHumanStepList`（1件）, `buildRecursionTree`（4件）, `buildLifetime`（5件）, `buildControlFlow`（7件） |
+| `debugger-adapter.js` | `tests/core/debugger-adapter.test.js` | - | load/moveTo の副作用、diff 検出 |
+| `step-controller.js` | `tests/core/step-controller.test.js` | - | 粒度別ステップ（expr/stmt/human/call）の cursor 移動 |
+
+**合計: 37 テスト**（`npm test` で全実行）
+
+### 8.2 テスト実行コマンド
+
+```bash
+npm test               # 全テスト実行
+npm run test:watch     # ウォッチモード
+```
+
+> テストは必ず `npm test` 経由で実行すること（`"type": "module"` のため `--experimental-vm-modules` フラグが必要）
+
+### 8.3 `buildRecursionTree` テスト設計
+
+`callDepth` の変化でシミュレートするヘルパー `makeCallTrace(calls)` を使用:
+- 1 回の呼び出し → 1 ルートノード
+- 2 回の連続呼び出し → 2 ルートノード
+- ネストした呼び出し → 子ノードとして追加
+
+### 8.4 `buildLifetime` テスト設計
+
+`humanStep` となる `ExpressionStatement.enter` + `env` を持つヘルパーイベント `humanEv(line, envChain, callDepth)` を使用:
+- `BUILTIN_NAMES`（`console` 等）は含まない
+- 異なる `callDepth` の同名変数は別エントリ
+
+### 8.5 `buildControlFlow` テスト設計
+
+- 通過した行のノード存在確認
+- エッジの from/to ペア確認
+- ループバック（同じ行への繰り返し遷移）でカウント増加確認
+- `firstSeen` 順のソート確認

@@ -5,7 +5,8 @@
 ## プロジェクト概要
 
 **JSVisualizer** は、JavaScript プログラムの実行過程をインタラクティブに可視化する教育用 Web アプリケーションです。  
-[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、14 種類の可視化ビューを提供します。
+[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、14 種類の可視化ビューを提供します。  
+GitHub Pages でホストされ、main ブランチへの push で自動デプロイされます。
 
 対象ユーザーはプログラミング入門〜中級の学習者および教員です。
 
@@ -13,9 +14,12 @@
 
 ```
 JSVisualizer/
+├── .github/
+│   └── workflows/
+│       └── deploy.yml            # main push → GitHub Pages 自動デプロイ
 ├── src/
 │   ├── core/
-│   │   ├── debugger-adapter.js   # JSDebugger ラッパー・差分検出
+│   │   ├── debugger-adapter.js   # JSDebugger ラッパー・差分検出・エラー種別判定
 │   │   ├── step-controller.js    # ステップ粒度の統合管理（4粒度×前後 + start/end）
 │   │   └── trace-builder.js      # 全トレースデータの事前集計（6メソッド）
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
@@ -36,14 +40,18 @@ JSVisualizer/
 │   │   ├── object-graph/         # オブジェクト参照グラフ（SVG 力学的レイアウト）   ✅
 │   │   └── animated-trace/       # アニメーション付きトレース表（実装済み・非アクティブ）
 │   ├── components/
-│   │   ├── code-editor.js        # コードエディタ（実行前）
+│   │   ├── code-editor.js        # コードエディタ（17種サンプル・エラーバッジ表示）
 │   │   ├── step-controls.js      # ステップ操作バー（2行×4列ボタン＋キーボード）
-│   │   ├── view-switcher.js      # ビュー切り替えタブ
+│   │   ├── view-switcher.js      # ビュー切り替えタブ（1〜9キー・localStorage復元）
 │   │   └── settings-panel.js     # 設定パネル（テーマ切り替え・localStorage 永続化）
 │   └── app.js                    # エントリポイント・全体協調
 ├── web/
 │   ├── index.html                # FOUC防止スクリプト・設定パネル HTML を含む
 │   └── style.css                 # ライト/ダークテーマ（CSS カスタムプロパティ）
+├── tests/
+│   └── core/
+│       ├── trace-builder.test.js # TraceBuilder 全6メソッドのユニットテスト（37テスト）
+│       └── step-controller.test.js
 ├── docs/
 │   ├── functional-spec.md        # 機能仕様書
 │   ├── design.md                 # 詳細設計書
@@ -196,6 +204,58 @@ class TraceBuilder {
   （ダーク保存時のみ `<html data-theme="dark">` を即時適用）
 - `settings-panel.js` が `<html>` の `data-theme` 属性を管理
 
+### localStorage 永続化キー一覧
+
+| キー | 保存内容 | 管理モジュール |
+|------|---------|--------------|
+| `jsv-theme` | ライト/ダークテーマ選択 | `settings-panel.js` |
+| `jsv-active-tab` | アクティブタブ ID | `view-switcher.js` |
+
+### キーボードショートカット一覧
+
+**ステップ操作**（実行中・テキスト入力欄以外にフォーカスがある場合）:
+
+| キー | 操作 |
+|------|------|
+| `←` / `b` | 式単位で戻る |
+| `→` / `n` | 式単位で進む |
+| `H` | 人間単位で戻る |
+| `h` | 人間単位で進む |
+| `V` | 文単位で戻る |
+| `v` | 文単位で進む |
+| `F` | 関数単位で戻る |
+| `f` | 関数単位で進む |
+| `Home` | 先頭へ |
+| `End` | 末尾へ |
+
+**タブ切り替え**（実行中のみ有効）:
+
+| キー | 操作 |
+|------|------|
+| `1`〜`9` | 登録順 N 番目のタブへ切り替え |
+
+### エラーハンドリング
+
+`debugger-adapter.js` の `load()` はエラーを 2 種類に分類して dispatch します。
+
+| 種別 | 判定条件 | 表示バッジ |
+|------|---------|----------|
+| 構文エラー | `SyntaxError` クラス / `[Parser]` プレフィックス | 「構文エラー」（赤バッジ） |
+| 実行エラー | それ以外 | 「実行エラー」（オレンジバッジ） |
+
+`CodeEditor.showError(msg, errorType)` が `<span class="error-badge">` を挿入します。
+
+### 色覚多様性対応
+
+色だけに頼らず、形・パターン・テキストによる補助手がかりを提供します。
+
+| ビュー | 状態 | 色以外の手がかり |
+|--------|------|---------------|
+| RecursionTree | 未呼び出し | 破線ボーダー（`stroke-dasharray: 5 3`）＋「…」アイコン |
+| RecursionTree | 実行中 | 太い実線ボーダー（`stroke-width: 3`）＋「▶」アイコン |
+| RecursionTree | 完了 | 細い実線ボーダー＋「✓」アイコン |
+| ControlFlow | 戻りエッジ | 破線（`stroke-dasharray: 6 3`）＋オレンジ色 |
+
 ## コーディング規約
 
 - **言語**: Vanilla JS (ES2022+)、TypeScript は使用しない
@@ -214,7 +274,9 @@ class TraceBuilder {
 - **差分検出**: 前後 `env` スナップショットを比較し変化した変数名のセットを生成
 - **オブジェクト同一性**: MemoryView・ObjectGraph では `WeakMap` でオブジェクト参照を追跡し重複ヒープ登録を防ぐ
 - **LineTrace vs AnimatedTrace**: `animated-trace/` ディレクトリは実装済みだが、タブには現在 `line-trace/`（ソース行×変数マトリクス表）を使用
+- **エラー種別判定**: JSInterpreter は `[Parser]` プレフィックスのメッセージでパースエラーを示すため、正規表現で判定する
 - **対象ブラウザ**: モダンブラウザ（Chrome/Firefox/Safari 最新版）
+- **デプロイ**: GitHub Pages、`main` ブランチ push で Actions が JSInterpreter をクローン→ビルド→自動デプロイ
 
 ## 依存 JSInterpreter の主要 API
 
