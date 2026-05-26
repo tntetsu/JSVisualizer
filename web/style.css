@@ -1126,14 +1126,69 @@ html, body {
   height: 100%;
   overflow: auto;
   box-sizing: border-box;
+  padding-top: 10px; /* .cv-lines padding: 10px 0 に合わせてスクロール同期 */
 }
 
 .lt-table {
   border-collapse: collapse;
   white-space: nowrap;
   font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
-  font-size: 12.5px;
+  font-size: 13px;
   min-width: 100%;
+}
+
+/* ── ツールバー（変数表示/非表示トグル） ──────────────────────────────── */
+
+.lt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  min-height: 0;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.lt-toolbar:empty {
+  display: none;
+}
+
+.lt-var-toggle {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, opacity 0.1s;
+}
+
+.lt-var-toggle:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.lt-var-toggle--hidden {
+  opacity: 0.4;
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.lt-var-toggle--hidden:hover {
+  opacity: 0.8;
+  background: var(--surface2);
+  color: var(--text);
+}
+
+/* 非表示列 */
+.lt-col-hidden {
+  display: none;
 }
 
 /* ── ヘッダー行 ────────────────────────────────────────────────── */
@@ -1178,6 +1233,7 @@ html, body {
 /* ── データ行 ──────────────────────────────────────────────────── */
 
 .lt-row {
+  height: 24px;        /* cv-line の min-height(22px) + padding(1px×2) に合わせる */
   border-bottom: 1px solid var(--surface2);
   transition: background 0.1s;
 }
@@ -1196,7 +1252,8 @@ html, body {
 .lt-td {
   padding: 1px 8px;
   vertical-align: middle;
-  line-height: 1.65;
+  line-height: 22px; /* 行高さ 24px - padding 2px */
+  font-size: 13px;
 }
 
 .lt-td-lineno {
