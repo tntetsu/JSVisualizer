@@ -5,7 +5,7 @@
 ## プロジェクト概要
 
 **JSVisualizer** は、JavaScript プログラムの実行過程をインタラクティブに可視化する教育用 Web アプリケーションです。  
-[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、14 種類の可視化ビューを提供します。  
+[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、15 種類の可視化ビューを提供します。  
 GitHub Pages でホストされ、main ブランチへの push で自動デプロイされます。
 
 対象ユーザーはプログラミング入門〜中級の学習者および教員です。
@@ -27,14 +27,15 @@ JSVisualizer/
 │   │   ├── state-view/           # 変数・コールスタック統合パネル（Console は常時パネルへ移動）✅
 │   │   ├── scope-view/           # スコープ・変数ビュー（ネスト枠）                 ✅
 │   │   ├── callstack-view/       # コールスタックビュー                            ✅
-│   │   ├── line-trace/           # トレース表（行=ソース行・列=変数・列表示切替・D&D） ✅  ← タブ「トレース表」
-│   │   ├── trace-table/          # 静的トレース表（全ステップ・対象列付き）          ✅  ← タブ「全ステップ」
+│   │   ├── line-trace/           # トレース表（2ペイン: ソースパネル+変数表・列表示切替・D&D） ✅  ← タブ「トレース表」
+│   │   ├── trace-table/          # 静的トレース表（全ステップ・対象列付き）               ✅  ← タブ「全ステップ」
 │   │   ├── bar-chart/            # 棒グラフアニメーション（数値・配列変化）         ✅
 │   │   ├── color-box/            # 色付き箱アニメーション（配列・ポインタ）         ✅
 │   │   ├── timeline/             # 変数の時系列グラフ（SVG折れ線）                  ✅
 │   │   ├── heatmap/              # 実行頻度ヒートマップ                             ✅
-│   │   ├── recursion-tree/       # 再帰呼び出しツリー（SVG）                       ✅
-│   │   ├── lifetime/             # 変数ライフタイム Gantt チャート（SVG）           ✅
+│   │   ├── recursion-tree/       # 再帰呼び出しツリー（SVG・引数展開表示）                ✅
+│   │   ├── call-tree/            # 全関数呼び出しツリー（SVG・再帰に限らない）            ✅  ← タブ「呼び出しツリー」
+│   │   ├── lifetime/             # 変数ライフタイム Gantt チャート（SVG）                ✅
 │   │   ├── control-flow/         # 制御フロービュー（SVG フローチャート）           ✅
 │   │   ├── memory-view/          # メモリモデルビュー（スタック/ヒープ + SVG矢印）  ✅
 │   │   ├── object-graph/         # オブジェクト参照グラフ（SVG 力学的レイアウト）   ✅
@@ -51,7 +52,7 @@ JSVisualizer/
 │   └── style.css                 # ライト/ダークテーマ（CSS カスタムプロパティ）
 ├── tests/
 │   └── core/
-│       ├── trace-builder.test.js # TraceBuilder 全6メソッドのユニットテスト（37テスト）
+│       ├── trace-builder.test.js # TraceBuilder 全7メソッドのユニットテスト
 │       └── step-controller.test.js
 ├── docs/
 │   ├── functional-spec.md        # 機能仕様書
@@ -130,6 +131,7 @@ class TraceBuilder {
 
   // Phase 4
   buildRecursionTree()                // → TreeNode[]    再帰ツリーノード配列（callDepth 変化から構築）
+  buildCallTree()                     // → TreeNode[]    全関数呼び出しツリー（buildRecursionTree と同一データ構造）
   buildLifetime()                     // → LifetimeEntry[]  変数ライフタイム区間（startHi/endHi は humanStep インデックス）
   buildControlFlow()                  // → { nodes, edges, humanSteps }  実行フローグラフ
 
@@ -139,7 +141,8 @@ class TraceBuilder {
 }
 ```
 
-`buildRecursionTree()` は `callDepth` の増減から関数進入・復帰を検出。  
+`buildRecursionTree()` は `callDepth` の増減から関数進入・復帰を検出。最内側フレームは `callStack[callStack.length-1]`。  
+`buildCallTree()` は `buildRecursionTree()` と同じデータを返す（独立キャッシュ）。CallTree ビューが使用。  
 `buildLifetime()` は humanStep ごとの env を走査し `callDepth:varName` をキーにして区間を記録。  
 `buildControlFlow()` は humanStep の行番号遷移からノード（ユニーク行）とエッジ（行→行）を構築。  
 すべてキャッシュ付きで、2回目以降の呼び出しは O(1)。
@@ -170,7 +173,7 @@ class TraceBuilder {
 |----|-----------|-----|------|
 | 1. 行ハイライト | `.cv-line--active` | 青（左ボーダー＋背景） | TraceEvent の `loc.line` 全体 |
 | 2. 式ハイライト | `.cv-expr-highlight` | オレンジ（半透明） | `loc` ～ `end` の文字範囲 |
-| 3. 呼び出し元ハイライト | `.cv-callsite-highlight` | パープル＋破線 | 関数内部実行中に `callStack[0].loc` の CallExpression |
+| 3. 呼び出し元ハイライト | `.cv-callsite-highlight` | パープル＋破線 | 関数内部実行中に `callStack[last].loc` の CallExpression |
 
 式ハイライトは `position: absolute; calc(N * 1ch)` によるモノスペース文字単位配置。  
 呼び出し元の end 位置は `setTrace()` 時に `CallExpression.enter` イベントからマップを事前構築
@@ -183,6 +186,7 @@ class TraceBuilder {
 | ビュー | レイアウト方式 | update の方針 |
 |--------|--------------|--------------|
 | RecursionTree | 再帰的サブツリー幅計算（葉=NODE_W、内部=子の和＋gap） | ノードごとの className を cursor で更新 |
+| CallTree | 同上（RecursionTree と同じレイアウトアルゴリズム） | ノードごとの className を cursor で更新 |
 | Lifetime | 線形（X=humanStep, Y=変数行） | カーソル線の x1/x2 を移動 |
 | ControlFlow | first-seen 順の縦並び（前向きエッジ右・後向きエッジ左） | activeNode の className を更新 |
 | MemoryView | 2カラム（stack \| heap）+ SVG オーバーレイ矢印 | DOM 再描画 → rAF で矢印を再計算 |
@@ -212,6 +216,8 @@ class TraceBuilder {
 | `jsv-theme` | ライト/ダークテーマ選択 | `settings-panel.js` |
 | `jsv-active-tab` | アクティブタブ ID | `view-switcher.js` |
 | `jsv-editor-pct` | エディタペイン幅（% 文字列、15〜75 の範囲） | `pane-resizer.js` |
+| `jsv-console-h` | コンソールパネル高さ（px 整数、40〜400 の範囲） | `app.js`（コンソールリサイザー） |
+| `jsv-lt-src-w` | LineTrace ソースパネル幅（px 整数、80〜600 の範囲） | `line-trace/index.js` |
 
 ### キーボードショートカット一覧
 
@@ -273,14 +279,18 @@ class TraceBuilder {
 - **ビルドツール**: esbuild（JSInterpreter と同方式）
 - **コードエディタ**: CodeMirror 6（`codemirror` + `@codemirror/lang-javascript` + `@codemirror/theme-one-dark`）を採用。`Compartment` で動的テーマ切り替え。`MutationObserver` で `html[data-theme]` の変化を検知してダークテーマを自動適用
 - **ペインリサイザー**: `.app-main` の CSS 変数 `--editor-pct` をマウスドラッグで更新。`localStorage('jsv-editor-pct')` に永続化し、15% 〜 75% でクランプ
-- **Console 常時表示**: StateView からは Console カードを取り除き、`debug-pane` 下部に固定の `#console-panel` を配置。`app.js` の `updateConsolePanel()` が `'ready'` / `'step'` イベントごとに更新する
+- **Console 常時表示**: StateView からは Console カードを取り除き、`debug-pane` 下部に固定の `#console-panel` を配置。`app.js` の `updateConsolePanel()` が `'ready'` / `'step'` イベントごとに更新する。上端の `#console-resizer` をドラッグして高さ変更可（40〜400px、`localStorage('jsv-console-h')` に永続化）
 - **可視化ライブラリ**: 使用しない（DOM + CSS アニメーション + SVG 手動描画で実装）。CodeMirror 6 が唯一の外部 UI ライブラリ
 - **SVG レイアウト**: 再帰ツリーは再帰的幅計算、ObjectGraph は Fruchterman-Reingold 力学的レイアウト
 - **差分検出**: 前後 `env` スナップショットを比較し変化した変数名のセットを生成
 - **オブジェクト同一性**: MemoryView・ObjectGraph では `WeakMap` でオブジェクト参照を追跡し重複ヒープ登録を防ぐ
 - **LineTrace vs AnimatedTrace**: `animated-trace/` ディレクトリは実装済みだが、タブには現在 `line-trace/`（ソース行×変数マトリクス表）を使用
-- **LineTrace のスクロール同期**: `lt-wrap` と `#code-display` の `scrollTop` を双方向同期。`#syncing` フラグで無限ループ防止。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装
-- **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[0].name(args)` 形式、ReturnStatement は `'return'` を表示
+- **LineTrace の 2 ペイン構成**: 左ペインにシンタックスハイライト付きソースコードパネル、右ペインに変数テーブル。中央の `lt-src-divider` をドラッグして幅変更可（`localStorage('jsv-lt-src-w')` 永続化）。縦スクロールは `lt-source-scroll` ↔ `lt-table-wrap` 間で双方向同期（`#syncing` フラグで無限ループ防止）。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装
+- **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[callStack.length-1].name(args)` 形式、ReturnStatement は `'return'` を表示
+- **CallTree ビュー**: `buildCallTree()` が返すノード配列（再帰・非再帰を問わず全関数呼び出し）を SVG ツリーとして描画。`RecursionTree` と同じレイアウトアルゴリズムを使用。CSS クラスは `.ct-*`（`RecursionTree` の `.rt-*` に対応）
+- **スコープ統合表示**: `format.js` の `mergeScopesForDisplay(scopes, callStack)` で、各関数の paramScope + blockScope をひとつの表示フレームにマージ。ラベルは `factorial(6)` 形式（`formatFrameLabel(frame)`）。`scope-view` と `state-view` で共通使用
+- **Heatmap の改善**: 実行回数を「N回 (XX%)」形式（count/totalHumanSteps × 100）で表示。各行に時系列ドットを左右配置（各 humanStep を位置 `left: (hi/total)*100%` に配置、幅 120px 固定トラック）
+- **再帰ツリー引数表示改善**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式で表示。NODE_W=160/NODE_H=80 に拡大
 - **分割代入**: JSInterpreter の `assignTo()` が `ArrayExpression` / `ObjectExpression` を処理するよう拡張（`[a,b]=[b,a]` 等）。詳細は [JSInterpreter#interpreter.js](../JSInterpreter/src/interpreter/interpreter.js)
 - **エラー種別判定**: JSInterpreter は `[Parser]` プレフィックスのメッセージでパースエラーを示すため、正規表現で判定する
 - **対象ブラウザ**: モダンブラウザ（Chrome/Firefox/Safari 最新版）
@@ -313,7 +323,9 @@ dbg.cursor              // 現在位置（number）
 // { phase, nodeType, loc, end, depth, callDepth, callStack, env, value?, matchIdx }
 // loc  = { line: number, column: number }  ← 1始まり
 // end  = { line: number, column: number }  ← 式ノードのみ存在、1始まり・inclusive
-// callStack[0] = 最内側フレーム { name, loc, args }
-//   ※ callStack[0].loc = その関数を呼び出した CallExpression の start 位置
+// callStack[0]   = 最外側フレーム { name, loc, args }  ← push 順
+// callStack[last] = 最内側フレーム { name, loc, args }  ← 最も深い呼び出し
+//   ※ frame.loc = その関数を呼び出した CallExpression の start 位置
 //   ※ frame に end プロパティはない（callSiteEndMap で補完）
+//   ※ 最内側フレームの取得: callStack[callStack.length - 1]
 ```

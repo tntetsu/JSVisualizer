@@ -1,9 +1,9 @@
 # 機能仕様書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 0.7  
+**バージョン**: 0.8  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-05-26  
+**最終更新**: 2026-06-02  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -19,6 +19,7 @@
 | 0.5 | 2026-05-26 | Phase 4/5 実装反映: V-10 RecursionTree / V-11 Lifetime / V-12 ControlFlow / V-13 MemoryView / V-14 ObjectGraph を ✅ に更新。TraceBuilder 新メソッドを追記 |
 | 0.6 | 2026-05-26 | Phase 6 仕上げ反映: キーボードタブ切り替え（1〜9）・アクティブタブ永続化・エラーバッジ表示（パース/実行エラー区別）・サンプルコード 17 種に拡充・色覚多様性対応（RecursionTree/ControlFlow）・GitHub Pages デプロイを追記 |
 | 0.7 | 2026-05-26 | 修正 1〜8 反映: 分割代入サポート・ドラッグ可能なペインリサイザー・CodeMirror 6 エディタ・プログラム名表示・Console 常時パネル・LineTrace 改善（ソース列削除・行位置一致・スクロール同期・列表示切替・D&D 並び替え）・TraceTable「対象」列追加 |
+| 0.8 | 2026-06-02 | 修正反映: V-15 CallTree（全関数呼び出しツリー）新規追加・LineTrace 2ペイン化（ソースコードパネル内包・ドラッグリサイズ）・ScopeView/StateView スコープ統合（factorial(6) 形式ラベル）・Heatmap 時系列ドット＋割合表示・RecursionTree 引数展開表示改善・Console パネル高さドラッグ変更・callStack 順序バグ修正（呼び出し元ハイライト・再帰ツリー引数）|
 
 ---
 
@@ -160,13 +161,15 @@
 
 タブ名: **トレース表**
 
+- **2ペインレイアウト**: 左ペインにシンタックスハイライト付きソースコード、右ペインに変数マトリクス表
+  - 中央の仕切りをドラッグして左右幅を変更可（80〜600px、`localStorage('jsv-lt-src-w')` に永続化）
+  - 縦スクロールは左右ペイン間で双方向同期
 - 行＝ソースコードの各行（全行固定表示）、列＝変数名のマトリクス表
 - 変数が宣言されるたびに列が右に追加される（動的列追加）
 - 各セルはその行を「最後に実行した時点」での変数値を表示
 - cursor が進むと、変化したセルにフラッシュアニメーション（オレンジ）
 - 関数・クラス値は列に載せない
-- 現在実行行をハイライトしてスクロール追従
-- **行位置同期**: 行高さを左ペインのコードエディタと統一し、縦スクロールを双方向同期
+- 現在実行行をソースパネル・変数テーブル両方でハイライトしてスクロール追従
 - **列の表示/非表示**: ヘッダー上部のツールバーボタンで各変数列を個別に表示/非表示切り替え可
 - **列の並び替え**: ヘッダー `<th>` をドラッグ＆ドロップで列の順序を変更可
 
@@ -201,8 +204,10 @@
 タブ名: **スコープ**
 
 - スコープチェーンをネストした枠で表現
-- 最内側フレーム（実行中スコープ）を強調表示
+- 最内側フレーム（実行中スコープ）を強調表示（アクセントカラーボーダー）
 - 変化した変数をフラッシュ
+- **スコープ統合表示**: 各関数呼び出しに対して生成される paramScope（引数）と blockScope（本体ブロック）を 1 枠に統合表示
+- **引数付きラベル**: フレームラベルを `factorial(6)` 形式で表示（`formatFrameLabel(frame)`）
 
 **入力**: `state.scopes`, `state.callStack`, `state.changedVars`
 
@@ -265,9 +270,11 @@
 タブ名: **ヒートマップ**
 
 - `init()` で静的に描画。各ソース行の背景色＝実行頻度に比例（橙の透明度）
-- `update()` は現在行のハイライト（アクセントボーダー）付け替えのみ
+- **実行回数表示**: 各行の右端に「N回 (XX%)」形式で表示（XX% = count / 総humanStep数 × 100）
+- **時系列ドット**: 各行の実行タイミングを右端の幅固定トラック（120px）内に点で配置。点の水平位置 = 実行順の相対位置（左=初期、右=末尾）。現在カーソルに対応する点を強調（`.hm-dot--current`）
+- `update()` は現在行のハイライト（アクセントボーダー）付け替えと、現在カーソルに対応するドットの強調
 
-**入力**: `builder.source`, `builder.buildHeatmap()`, `state.event`
+**入力**: `builder.source`, `builder.buildHeatmap()`, `builder.getHumanStepList()`, `builder.trace`, `state.event`, `state.cursor`
 
 ---
 
@@ -279,7 +286,8 @@
 - ノードの色: 未呼び出し（灰）、実行中（青）、完了（緑）
 - 完了ノードには返り値を `→ 値` 形式で表示
 - `update()` はノード className の付け替えのみ（O(n_nodes)）
-- レイアウト: 再帰的サブツリー幅計算（葉=NODE_W、内部ノード=子の幅の和＋gap）
+- レイアウト: 再帰的サブツリー幅計算（葉=NODE_W=160、内部ノード=子の幅の和＋gap）、NODE_H=80
+- **引数表示**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式
 - **色覚多様性対応**: 色だけでなく形状・テキストアイコンで状態を表現
   - 未呼び出し: 破線ボーダー（`stroke-dasharray: 5 3`）＋アイコン「…」
   - 実行中: 太線ボーダー＋アイコン「▶」
@@ -289,8 +297,29 @@
 
 `buildRecursionTree()` の仕様:
 - `callDepth` の増減を監視して関数の進入（push）・復帰（pop）を検出
+- 最内側フレームは `callStack[callStack.length - 1]`（push 順: `[0]`=最外側、`[last]`=最内側）
 - ノード: `{ id, funcName, args, returnVal, callStepIdx, returnStepIdx, treeDepth, children[] }`
 - 返り値は復帰イベントの `ev.value` から取得
+
+---
+
+#### V-10b: 関数呼び出しツリービュー（CallTree）✅ 実装済み
+
+タブ名: **呼び出しツリー**
+
+- 再帰に限らず、全ての関数呼び出しを SVG ツリーとして表示する
+- RecursionTree との違い: 再帰関数でなくても（例: `Math.max`、ヘルパー関数）全呼び出しをノードとして展開
+- ノードラベル: `funcName(args)` 形式（1行、長い場合は省略）
+- ノードの色・状態アイコンは RecursionTree と同じ（未呼び出し/実行中/完了）
+- レイアウト: RecursionTree と同一アルゴリズム（NODE_W=180、NODE_H=56）
+- `update()` はノード className の付け替えのみ
+
+**入力**: `builder.buildCallTree()`, `state.cursor`
+
+`buildCallTree()` の仕様:
+- 内部で `buildRecursionTree()` と同じ処理を行う（独立キャッシュ）
+- 返り値構造は `buildRecursionTree()` と同一
+- CallTree ビュー専用に分離されているが、データ上は「全関数呼び出し」を含む
 
 ---
 
@@ -398,7 +427,7 @@
 
 | 項目 | 仕様 |
 |------|------|
-| 位置 | view-container 下部に固定（高さ 110px、縦スクロール可） |
+| 位置 | view-container 下部に固定（高さ可変：デフォルト 110px、上端ドラッグで 40〜400px に変更可、`localStorage('jsv-console-h')` に永続化） |
 | 内容 | `console.log` / `console.warn` / `console.error` の出力行。ログ件数バッジ付き |
 | 更新タイミング | `adapter.ready` および `adapter.step` イベントのたびに更新 |
 | スタイル | `warn` → 橙色行、`error` → 赤色行 |
@@ -476,4 +505,6 @@
 | jsv-theme | テーマ設定を永続化する localStorage キー。値 `"dark"` でダークテーマが適用される |
 | jsv-active-tab | アクティブタブを永続化する localStorage キー。値はビューの登録 ID 文字列 |
 | jsv-editor-pct | エディタペイン幅（%）を永続化する localStorage キー。`PaneResizer` が管理し 15〜75 の範囲でクランプ |
+| jsv-console-h | コンソールパネル高さ（px）を永続化する localStorage キー。`app.js` が管理し 40〜400 の範囲でクランプ |
+| jsv-lt-src-w | LineTrace ソースパネル幅（px）を永続化する localStorage キー。`line-trace/index.js` が管理し 80〜600 の範囲でクランプ |
 | エラーバッジ | エラー種別を視覚的に示す小型ラベル。「構文エラー」または「実行エラー」のいずれかを表示する |

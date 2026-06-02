@@ -1,9 +1,9 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 0.7  
+**バージョン**: 0.8  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-05-26  
+**最終更新**: 2026-06-02  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -19,6 +19,7 @@
 | 0.5 | 2026-05-26 | Phase 5 実装反映: MemoryView（スタック/ヒープ + SVG 矢印）, ObjectGraph（力学レイアウト SVG グラフ）。SVG 設計パターンの統合、全ディレクトリ ✅ |
 | 0.6 | 2026-05-26 | Phase 6 仕上げ反映: ViewSwitcher のキーボードタブ切り替え（1〜9）・localStorage 永続化。DebuggerAdapter のエラー種別判定（parse/runtime）。code-editor.js の showError(msg, errorType) とエラーバッジ。RecursionTree 色覚多様性対応（状態アイコン）。サンプルコード 17 種。Jest テスト 37 件。GitHub Actions CI/CD ワークフロー |
 | 0.7 | 2026-05-26 | 修正 1〜8 反映: JSInterpreter assignTo 拡張（分割代入）。PaneResizer 追加。CodeMirror 6 エディタ化（Compartment・MutationObserver）。プログラム名表示。Console 常時パネル（state-view から分離）。LineTrace 改修（ソース列廃止・行高さ統一・スクロール同期・#varMeta 表示管理・D&D 列並び替え）。TraceTable に対象列追加（env diff・CallExpression・ReturnStatement）。テスト 42 件 |
+| 0.8 | 2026-06-02 | callStack 順序バグ修正（[0]=最外側・[last]=最内側に訂正）。CallTree ビュー新規追加（src/views/call-tree/）・TraceBuilder に buildCallTree() 追加。LineTrace 2ペイン化（ソースパネル+リサイズ+スクロール同期刷新）。ScopeView/StateView スコープ統合（mergeScopesForDisplay・formatFrameLabel）。Heatmap 時系列ドット+割合表示。RecursionTree 引数展開・NODE_W/H 拡大。Console パネル高さドラッグ変更（jsv-console-h）。localStorage jsv-lt-src-w 追加 |
 
 ---
 
@@ -108,9 +109,10 @@ JSInterpreter が各実行ステップで生成するオブジェクト。`trace
  * @property {{line:number, column:number}} [end] ノード終了位置（式ノードのみ存在、inclusive）
  * @property {number}  depth      AST ノードの深さ
  * @property {number}  callDepth  関数呼び出しの深さ（グローバルスコープ = 0）
- * @property {Array}   callStack  現在のコールスタック。[0] が最内側フレーム
+ * @property {Array}   callStack  現在のコールスタック。push 順: [0]=最外側フレーム、[length-1]=最内側フレーム
  *                                  frame: { name, loc, args }
  *                                  loc = その関数を呼び出した CallExpression の start 位置
+ *                                  最内側フレームの取得: callStack[callStack.length - 1]
  * @property {Array}   env        スコープチェーン（env[0] が最内側スコープ）
  * @property {any}     [value]    exit 時に確定した値（enter 時は undefined）
  * @property {number}  [matchIdx] stepOver() 用の対応 exit ステップのインデックス
@@ -274,6 +276,7 @@ class TraceBuilder {
   #humanIndicesCache   // Set<number> | null
   #heatmapCache        // Map<number, number> | null
   #recursionTreeCache  // Object[] | null
+  #callTreeCache       // Object[] | null
   #lifetimeCache       // Object[] | null
   #controlFlowCache    // Object | null
 
@@ -308,11 +311,19 @@ class TraceBuilder {
   /**
    * 再帰呼び出しツリーのルートノード配列を返す。
    * callDepth の増減で関数進入（push）/ 復帰（pop）を検出。
+   * 最内側フレーム = callStack[callStack.length - 1]（[0]=最外側、[last]=最内側）
    * ノード: { id, funcName, args, returnVal,
    *           callStepIdx, returnStepIdx, treeDepth, children[] }
    * @returns {Object[]} ルートノード配列
    */
   buildRecursionTree()
+
+  /**
+   * 全関数呼び出しツリーのルートノード配列を返す（CallTree ビュー用）。
+   * buildRecursionTree() と同じデータ構造を返すが独立したキャッシュを持つ。
+   * @returns {Object[]} ルートノード配列
+   */
+  buildCallTree()
 
   /**
    * 変数ライフタイム情報を返す（humanStep 単位）。
@@ -441,7 +452,7 @@ setTrace(trace) で CallExpression.enter イベントを走査
   → callSiteEndMap に格納
 
 update(state) で callStack.length > 0 の場合:
-  → topFrame = callStack[0]
+  → topFrame = callStack[callStack.length - 1]  ← 最内側フレーム（[0]=最外側、[last]=最内側）
   → key = "topFrame.loc.line:topFrame.loc.column"
   → end = callSiteEndMap.get(key)
   → setHighlight(topFrame.loc, end, 'cv-callsite-highlight', ...)
@@ -462,14 +473,28 @@ update(state) で callStack.length > 0 の場合:
 
 #### `scope-view/` — スコープ・変数ビュー ✅
 
+**スコープ統合表示** (`mergeScopesForDisplay(scopes, callStack)` in `format.js`):
+
+各関数呼び出しは JSInterpreter 内部で 2 つの Environment を生成する（paramScope + blockScope）。
+これらを 1 つの表示フレームに統合し、ラベルを `factorial(6)` 形式にする。
+
+```
+callStack の順序: [0]=最外側, [N-1]=最内側
+scopes の順序:    [0]=最内側スコープ, [M-1]=グローバル
+
+フレーム i (0=最外側) のスコープ:
+  paramIdx = M - 2 - 2*i  → パラメータスコープ
+  blockIdx = M - 3 - 2*i  → ブロックスコープ
+  最内側フレーム (i=N-1) には余分な内側スコープも全マージ
+```
+
 ```html
 <div class="scv-frame scv-frame--active">
   <div class="scv-frame-header">
-    <span class="scv-frame-name">fib</span>
-    <span class="scv-frame-badge">内側</span>
+    <span class="scv-frame-name">factorial(6)</span>
   </div>
   <div class="scv-vars">
-    <div class="var-row"> n = <span class="v-num">3</span> </div>
+    <div class="var-row"> n = <span class="v-num">6</span> </div>
   </div>
 </div>
 ```
@@ -494,16 +519,42 @@ update(state) で callStack.length > 0 の場合:
 
 ---
 
-#### `line-trace/` — 行×変数トレース表 ✅
+#### `line-trace/` — 行×変数トレース表（2ペイン構成）✅
 
-**構造**: テーブル。行 = ソースコード行、列 = 変数名（登場順に動的追加）、セル = 最新値
+**DOM 構造**:
+```
+.lt-outer (flex row)
+├── .lt-source-panel (左ペイン: width=可変)
+│   └── .lt-source-scroll (縦スクロール領域)
+│       └── .lt-source-lines
+│           └── .lt-src-row[data-line] × ソース行数
+│               ├── .lt-src-lineno
+│               └── .lt-src-code (シンタックスハイライト済み)
+├── .lt-src-divider (ドラッグリサイザー)
+└── .lt-var-area (右ペイン: flex 1)
+    └── .lt-wrap (flex column)
+        ├── .lt-toolbar (列表示切替ボタン群)
+        └── .lt-table-wrap (縦スクロール領域)
+            └── .lt-table
+                ├── thead .lt-thead-row
+                └── tbody .lt-tbody
+```
 
 **動作**:
-- `init()` でソース行数分の `<tr>` を静的生成（変数列は空、ソース列なし）
+- `init()` でソース行のシンタックスハイライト（`highlightSyntax(source)`）と `<tr>` を静的生成
 - `update()` で `humanSteps[0..cursor]` を走査:
   - 各 humanStep の `flattenEnv(ev.env)` から変数スナップショットを取得
   - 新規変数が出現したら列を追加（`#rebuildColumns` で `<th>` + 全行に `<td>` を挿入）
   - 変化したセルに `.lt-flash` → CSS flash アニメーション
+  - ソースパネルの現在行に `.lt-src-row--active` を付与
+
+**ソースパネル幅リサイザー**:
+- `#setupSrcResizer()`: `.lt-src-divider` の mousedown → mousemove で `#srcPanel.style.width` を更新
+- 範囲: 80〜600px、`localStorage('jsv-lt-src-w')` に永続化
+
+**スクロール同期**:
+- `#setupScrollSync()`: `.lt-source-scroll` ↔ `.lt-table-wrap` の `scrollTop` を双方向同期
+- `#syncing` フラグで無限ループを防止
 
 **関数・クラス値は列から除外**: `isFunctionVal(val)` で判定
 
@@ -513,13 +564,6 @@ update(state) で callStack.length > 0 の場合:
 #varMeta = [];
 ```
 `visible: false` の列ヘッダー・セルには `.lt-col-hidden`（`display: none`）を付与。
-
-**スクロール同期**:
-- `#setupScrollSync()`: `lt-wrap` ↔ `#code-display` の `scrollTop` を双方向同期
-- `#syncing` フラグで無限ループを防止
-- `destroy()` で `#teardownScrollSync()` を呼び出してリスナーを解除
-
-**行高さ統一**: `.lt-row { height: 24px; }` / `.lt-td { font-size: 13px; line-height: 22px; }` / `.lt-wrap { padding-top: 10px; }`（`.cv-line` / `.cv-lines` に揃える）
 
 **ツールバー（列表示切替）**: `#rebuildToolbar()` でヘッダー上部に `.lt-var-toggle` ボタンを生成。クリックで `#toggleVar(name)` → `#varMeta[i].visible` を切り替え
 
@@ -551,7 +595,8 @@ switch (ev.nodeType) {
     target = 'return';
     break;
   case 'CallExpression': {
-    const frame = ev.callStack?.[0];
+    const cs    = ev.callStack;
+    const frame = cs?.[cs.length - 1];  // 最内側フレーム（[0]=最外側、[last]=最内側）
     if (ev.phase === 'enter') target = `${frame?.name}(${args.join(', ')})`;
     else                      target = frame?.name ?? '?';
     break;
@@ -662,7 +707,14 @@ const yOf = (val) => PAD.top  + (1 - (val - minVal) / range) * (svgH - PAD.top -
 const alpha = count === 0 ? 0 : 0.08 + (count / maxCnt) * 0.47;
 ```
 
-**update()**: `state.event.loc.line` に対応する行に `.hm-line--active`（青枠）を付与
+**実行回数表示**: 各行の右端に `${count}回 (${pct}%)` を表示（`pct = Math.round((count / totalHumanSteps) * 100)`）
+
+**時系列ドット**: 各行を実行した humanStep インデックスごとに `<span class="hm-dot">` を生成
+- `style="left: ${(hi / total) * 100}%"` で水平位置を決定（幅 120px の相対配置コンテナ内）
+- 表示上限 DOT_MAX=200 個（超過時は先頭を省略）
+- `update()` で現在カーソルに最も近い humanStep に対応する `.hm-dot` に `.hm-dot--current` を付与
+
+**update()**: `state.event.loc.line` に対応する行に `.hm-line--active`（青枠）を付与し、カーソルに対応するドットを強調
 
 ---
 
@@ -672,7 +724,8 @@ const alpha = count === 0 ? 0 : 0.08 + (count / maxCnt) * 0.47;
 
 **レイアウト定数**:
 ```js
-const NODE_W=136, NODE_H=72, COL_GAP=18, ROW_GAP=52, PAD_X=24, PAD_Y=24;
+const NODE_W=160, NODE_H=80, COL_GAP=20, ROW_GAP=52, PAD_X=24, PAD_Y=24;
+// NODE_W/H を拡大して引数の 2 行表示に対応
 ```
 
 **サブツリー幅の計算**（再帰）:
@@ -691,7 +744,17 @@ function calcSubtreeWidth(node) {
 | 実行中 | `returnStepIdx === null または > cursor` | `rt-node--active` |
 | 完了 | `returnStepIdx <= cursor` | `rt-node--done` |
 
-**SVG 要素**: ノードごとに `<g class="rt-node rt-node--*">` 内に `<rect class="rt-rect">`, `<text class="rt-name">`, `<text class="rt-args">`, `<text class="rt-return">`, `<text class="rt-state-icon">` を配置。エッジは `<line class="rt-edge">`
+**引数表示**: `fmtArgsLines(args)` で引数リストを最大 2 行に分割して表示。配列値は要素を展開して `[1,2,3]` 形式で表示。
+
+**SVG 要素**: ノードごとに `<g class="rt-node rt-node--*">` 内に以下の要素を配置:
+- `<rect class="rt-rect">` — ノード枠
+- `<text class="rt-name" y=18>` — 関数名（行 1）
+- `<text class="rt-args" y=35>` — 引数行 1（行 2）
+- `<text class="rt-args" y=50>` — 引数行 2（行 3、長い場合のみ）
+- `<text class="rt-retval" y=65 or 52>` — 戻り値（引数が 1 行なら y=52）
+- `<text class="rt-state-icon" y=14>` — 状態アイコン（右上角）
+
+エッジは `<line class="rt-edge">`
 
 **色覚多様性対応** (Phase 6 追加):
 
@@ -722,6 +785,30 @@ CSS スタイル（`style.css`):
 .rt-node--active .rt-state-icon { fill: var(--accent); }
 .rt-node--done   .rt-state-icon { fill: #4ce884; }
 ```
+
+---
+
+#### `call-tree/` — 全関数呼び出しツリー ✅
+
+**データ取得**: `builder.buildCallTree()` → ルートノード配列（`buildRecursionTree()` と同一構造）
+
+**レイアウト定数**:
+```js
+const NODE_W=180, NODE_H=56, COL_GAP=16, ROW_GAP=44, PAD_X=20, PAD_Y=20;
+// CallTree はラベルを 1行（funcName(args)）で表示するため NODE_H を小さく設定
+```
+
+**ノードラベル**: `fmtNodeLabel(node)` が `funcName(arg1, arg2, ...)` 形式で生成。26 文字を超える場合は省略
+
+**SVG 要素**: ノードごとに `<g class="ct-node ct-node--*">` 内に:
+- `<rect class="ct-rect">` — ノード枠
+- `<text class="ct-label" y=22>` — `funcName(args)` ラベル（行 1）
+- `<text class="ct-retval" y=40>` — 戻り値（行 2、確定後のみ表示）
+- `<text class="ct-state-icon" y=14>` — 状態アイコン（右上角: …/▶/✓）
+
+エッジは `<line class="ct-edge">`
+
+**状態クラス**: `ct-node--future` / `ct-node--active` / `ct-node--done`（RecursionTree の `rt-node--*` と同じ論理）
 
 ---
 
@@ -1072,7 +1159,7 @@ JSVisualizer/
 │   │   ├── step-controller.js         ← 粒度別ステップ操作（10メソッド）
 │   │   └── trace-builder.js           ← humanStepList・buildHeatmap・buildRecursionTree・buildLifetime・buildControlFlow
 │   ├── utils/
-│   │   └── format.js                  ← formatValue / flattenEnv / BUILTIN_NAMES / esc
+│   │   └── format.js                  ← formatValue / flattenEnv / BUILTIN_NAMES / esc / formatFrameLabel / mergeScopesForDisplay
 │   ├── views/
 │   │   ├── base-view.js               ← BaseView 基底クラス
 │   │   ├── code-view/
@@ -1098,7 +1185,9 @@ JSVisualizer/
 │   │   ├── heatmap/
 │   │   │   └── index.js              ✅ 実行頻度ヒートマップ
 │   │   ├── recursion-tree/
-│   │   │   └── index.js              ✅ 再帰ツリー SVG
+│   │   │   └── index.js              ✅ 再帰ツリー SVG（引数展開表示・NODE_W=160/H=80）
+│   │   ├── call-tree/
+│   │   │   └── index.js              ✅ 全関数呼び出しツリー SVG（NODE_W=180/H=56）
 │   │   ├── lifetime/
 │   │   │   └── index.js              ✅ 変数ライフタイム SVG Gantt
 │   │   ├── control-flow/
@@ -1110,7 +1199,7 @@ JSVisualizer/
 │   └── components/
 │       ├── code-editor.js             ← コードエディタ
 │       ├── step-controls.js           ← ステップ操作バー（10ボタン）
-│       ├── view-switcher.js           ← ビュー切り替えタブ（14ビュー登録 + keyboard/localStorage）
+│       ├── view-switcher.js           ← ビュー切り替えタブ（15ビュー登録 + keyboard/localStorage）
 │       ├── settings-panel.js          ← テーマ切り替え設定パネル
 │       └── code-editor.js             ← コードエディタ（17サンプル + showError(msg, errorType)）
 ├── web/
@@ -1213,6 +1302,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 | timeline | `tl-` | `.tl-svg`, `.tl-cursor` |
 | heatmap | `hm-` | `.hm-line`, `.hm-line--active` |
 | recursion-tree | `rt-` | `.rt-node--active`, `.rt-rect` |
+| call-tree | `ct-` | `.ct-node--active`, `.ct-rect`, `.ct-label` |
 | lifetime | `lf-` | `.lf-bar`, `.lf-cursor` |
 | control-flow | `cf-` | `.cf-node--active`, `.cf-edge--back` |
 | memory-view | `mv-` | `.mv-frame`, `.mv-arrows` |
