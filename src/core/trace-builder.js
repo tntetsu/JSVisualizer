@@ -33,6 +33,9 @@ export class TraceBuilder {
   #recursionTreeCache = null;
 
   /** @type {Object[]|null} キャッシュ */
+  #callTreeCache = null;
+
+  /** @type {Object[]|null} キャッシュ */
   #lifetimeCache = null;
 
   /** @type {Object|null} キャッシュ */
@@ -149,8 +152,10 @@ export class TraceBuilder {
       const depth = ev.callDepth ?? 0;
 
       if (depth > prevDepth) {
-        // 関数進入: callStack[0] が新しいフレーム
-        const frame  = ev.callStack?.[0];
+        // 関数進入: callStack[last] が最内側（新しい）フレーム
+        // callStack[0]=最外側, callStack[length-1]=最内側 (push 順)
+        const cs    = ev.callStack;
+        const frame = cs?.[cs.length - 1];
         const parent = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : null;
 
         const node = {
@@ -196,6 +201,21 @@ export class TraceBuilder {
 
     this.#recursionTreeCache = roots;
     return roots;
+  }
+
+  /**
+   * 関数呼び出しツリーのルートノード配列を返す。
+   *
+   * buildRecursionTree() と同じデータ構造を返す。
+   * 再帰に限らず全関数呼び出しを含む（buildRecursionTree も同様だが
+   * こちらは独立したキャッシュを持ち、CallTree ビューが利用する）。
+   *
+   * @returns {Object[]} ルートノードの配列
+   */
+  buildCallTree() {
+    if (this.#callTreeCache !== null) return this.#callTreeCache;
+    this.#callTreeCache = this.buildRecursionTree();
+    return this.#callTreeCache;
   }
 
   /**

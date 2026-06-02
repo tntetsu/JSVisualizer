@@ -28,6 +28,7 @@ import { ColorBox }         from './views/color-box/index.js';
 import { Timeline }         from './views/timeline/index.js';
 import { Heatmap }          from './views/heatmap/index.js';
 import { RecursionTree }    from './views/recursion-tree/index.js';
+import { CallTree }         from './views/call-tree/index.js';
 import { Lifetime }         from './views/lifetime/index.js';
 import { ControlFlow }      from './views/control-flow/index.js';
 import { MemoryView }       from './views/memory-view/index.js';
@@ -50,6 +51,8 @@ const btnSettings     = $('btn-settings');
 const settingsPanelEl = $('settings-panel');
 const consolePanelOut = $('console-output');
 const consolePanelCnt = $('console-count');
+const consolePanelEl  = $('console-panel');
+const consoleResizerEl = $('console-resizer');
 
 // ── コアモジュールの初期化 ─────────────────────────────────────────────────
 
@@ -61,6 +64,43 @@ new SettingsPanel(btnSettings, settingsPanelEl);
 
 // ── ペインリサイザーの初期化（ドラッグで editor/viz 幅を変更） ───────────
 new PaneResizer($('pane-divider'), document.querySelector('.app-main'));
+
+// ── コンソールパネル高さリサイザー ───────────────────────────────────────
+{
+  const STORAGE_KEY = 'jsv-console-h';
+  const MIN_H = 40;
+  const MAX_H = 400;
+
+  const savedH = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+  if (!isNaN(savedH)) {
+    consolePanelEl.style.setProperty('--console-h', `${savedH}px`);
+  }
+
+  let startY = 0;
+  let startH = 0;
+
+  consoleResizerEl.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    startY = e.clientY;
+    startH = consolePanelEl.offsetHeight;
+    consoleResizerEl.classList.add('console-resizer--active');
+
+    function onMove(e) {
+      const delta = startY - e.clientY; // 上にドラッグ → 高さ増加
+      const newH  = Math.min(MAX_H, Math.max(MIN_H, startH + delta));
+      consolePanelEl.style.setProperty('--console-h', `${newH}px`);
+    }
+    function onUp() {
+      consoleResizerEl.classList.remove('console-resizer--active');
+      const h = consolePanelEl.offsetHeight;
+      localStorage.setItem(STORAGE_KEY, String(h));
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+}
 
 // ── ビューの初期化 ────────────────────────────────────────────────────────
 
@@ -80,6 +120,7 @@ switcher.register('colorbox',  '色付き箱',         ColorBox);
 switcher.register('timeline',  '時系列',           Timeline);
 switcher.register('heatmap',   'ヒートマップ',     Heatmap);
 switcher.register('recursion', '再帰ツリー',       RecursionTree);
+switcher.register('calltree',  '呼び出しツリー',   CallTree);
 switcher.register('lifetime',  'ライフタイム',     Lifetime);
 switcher.register('controlflow','制御フロー',       ControlFlow);
 switcher.register('memory',    'メモリモデル',     MemoryView);

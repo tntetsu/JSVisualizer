@@ -231,12 +231,12 @@ describe('TraceBuilder.buildRecursionTree()', () => {
         callDepth: 1,
         callStack: [{ name: 'outer', args: [], loc: { line: 2, column: 0 } }],
       }),
-      // inner 進入
+      // inner 進入 (callStack: [0]=最外側outer, [1]=最内側inner)
       ev('enter', 'CallExpression', 3, {
         callDepth: 2,
         callStack: [
-          { name: 'inner', args: [], loc: { line: 3, column: 0 } },
           { name: 'outer', args: [], loc: { line: 2, column: 0 } },
+          { name: 'inner', args: [], loc: { line: 3, column: 0 } },
         ],
       }),
       // inner 復帰

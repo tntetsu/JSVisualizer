@@ -162,8 +162,8 @@ export class CodeView {
     this.#clearCallSiteHighlight();
     const callStack = state.callStack;
     if (callStack && callStack.length > 0) {
-      // callStack[0] が最内側フレーム（最新の呼び出し）
-      const topFrame = callStack[0];
+      // callStack[last] が最内側フレーム（push 順: [0]=最外側, [last]=最内側）
+      const topFrame = callStack[callStack.length - 1];
       if (topFrame?.loc) {
         const key = `${topFrame.loc.line}:${topFrame.loc.column}`;
         const end = this.#callSiteEndMap.get(key);

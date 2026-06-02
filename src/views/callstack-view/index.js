@@ -7,8 +7,8 @@
  * 戻り時はカードが消える。
  */
 
-import { BaseView } from '../base-view.js';
-import { esc }      from '../../utils/format.js';
+import { BaseView }                        from '../base-view.js';
+import { esc, formatFrameLabel }           from '../../utils/format.js';
 
 export class CallStackView extends BaseView {
   /** @type {HTMLElement|null} */
@@ -42,7 +42,7 @@ export class CallStackView extends BaseView {
       return;
     }
 
-    const frames   = [...callStack].reverse(); // 最内スコープを先頭に
+    const frames    = [...callStack].reverse(); // 最内スコープを先頭に
     const currDepth = frames.length;
     const isDeeper  = currDepth > this.#prevDepth;
 
@@ -50,11 +50,10 @@ export class CallStackView extends BaseView {
     this.#stackEl.innerHTML = frames.map((f, i) => {
       const isTop    = i === 0;
       const entering = isTop && isDeeper ? ' csv-card--enter' : '';
-      const name     = f.name ?? '<anonymous>';
+      const label    = formatFrameLabel(f);
       const loc      = f.loc ? `line ${f.loc.line}` : '';
-      const args     = this.#formatArgs(f.args);
       return `<div class="csv-card${isTop ? ' csv-card--top' : ''}${entering}">
-        <div class="csv-name">${esc(name)}${esc(args)}</div>
+        <div class="csv-name">${esc(label)}</div>
         ${loc ? `<div class="csv-loc">${esc(loc)}</div>` : ''}
       </div>`;
     }).join('');
@@ -82,25 +81,4 @@ export class CallStackView extends BaseView {
     this.#prevDepth = 0;
   }
 
-  // ── 内部ヘルパー ──────────────────────────────────────────────────────────
-
-  /**
-   * 引数オブジェクトを "(a, b, c)" 形式の文字列に変換する。
-   * @param {Object|null|undefined} args
-   * @returns {string}
-   */
-  #formatArgs(args) {
-    if (!args) return '';
-    const vals = Object.values(args);
-    if (!vals.length) return '()';
-    const preview = vals.slice(0, 3).map(v => {
-      if (v === null)      return 'null';
-      if (v === undefined) return 'undefined';
-      if (typeof v === 'string')  return JSON.stringify(v).slice(0, 12);
-      if (typeof v === 'object')  return '{…}';
-      return String(v);
-    });
-    const more = vals.length > 3 ? ', …' : '';
-    return `(${preview.join(', ')}${more})`;
-  }
 }

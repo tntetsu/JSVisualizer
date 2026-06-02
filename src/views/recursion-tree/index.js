@@ -12,10 +12,10 @@
 import { BaseView } from '../base-view.js';
 
 const SVG_NS  = 'http://www.w3.org/2000/svg';
-const NODE_W  = 136;
-const NODE_H  = 72;
-const COL_GAP = 18;   // 兄弟ノード間の水平隙間
-const ROW_GAP = 52;   // 深さレベル間の垂直隙間
+const NODE_W  = 160;   // 引数表示のため幅を拡大
+const NODE_H  = 80;    // 3行 + 余白
+const COL_GAP = 20;
+const ROW_GAP = 52;
 const PAD_X   = 24;
 const PAD_Y   = 24;
 
@@ -28,23 +28,37 @@ function svgEl(tag, attrs = {}) {
   return el;
 }
 
-/** 引数値を短い文字列にフォーマット */
-function fmtArg(v) {
+/** 引数値を読みやすい文字列にフォーマット（配列要素を展開） */
+function fmtArg(v, maxLen = 18) {
   if (v === undefined || v === null) return String(v);
   if (typeof v === 'boolean' || typeof v === 'number') return String(v);
   if (typeof v === 'string') {
     const s = JSON.stringify(v);
-    return s.length > 10 ? s.slice(0, 9) + '…"' : s;
+    return s.length > maxLen ? s.slice(0, maxLen - 1) + '…"' : s;
   }
-  if (Array.isArray(v)) return '[…]';
-  if (typeof v === 'object') return '{…}';
-  return String(v).slice(0, 8);
+  if (Array.isArray(v)) {
+    if (v.length === 0) return '[]';
+    const elems = v.slice(0, 4).map(e => fmtArg(e, 6)).join(', ');
+    return v.length > 4 ? `[${elems}, …]` : `[${elems}]`;
+  }
+  if (typeof v === 'object') {
+    const keys = Object.keys(v).filter(k => !k.startsWith('__'));
+    return keys.length === 0 ? '{}' : `{${keys[0]}:…}`;
+  }
+  return String(v).slice(0, maxLen);
 }
 
-function fmtArgs(args) {
-  if (!args || args.length === 0) return '()';
-  const inner = args.slice(0, 3).map(fmtArg).join(', ') + (args.length > 3 ? ', …' : '');
-  return `(${inner})`;
+/** 引数リストを NODE_W に収まるよう2行に分割して返す（['行1', '行2'] or ['行1']） */
+function fmtArgsLines(args) {
+  if (!args || args.length === 0) return ['()'];
+  const inner = args.map(a => fmtArg(a)).join(', ');
+  const full  = `(${inner})`;
+  if (full.length <= 20) return [full];
+  // 長い場合: args を2行に分割
+  const half  = Math.ceil(args.length / 2);
+  const line1 = `(${args.slice(0, half).map(a => fmtArg(a)).join(', ')}`;
+  const line2 = ` ${args.slice(half).map(a => fmtArg(a)).join(', ')})`;
+  return [line1, line2];
 }
 
 function fmtRet(val) {
@@ -189,31 +203,44 @@ export class RecursionTree extends BaseView {
         width: NODE_W, height: NODE_H, rx: 6,
       });
 
-      // 関数名 + 引数テキスト（2行に折る）
-      const nameStr = node.funcName;
-      const argsStr = fmtArgs(node.args);
+      // 関数名（行1）
       const nameT = svgEl('text', {
-        class: 'rt-name', x: NODE_W / 2, y: 20, 'text-anchor': 'middle',
+        class: 'rt-name', x: NODE_W / 2, y: 18, 'text-anchor': 'middle',
       });
-      nameT.textContent = nameStr;
+      nameT.textContent = node.funcName;
 
+      // 引数（行2, 長ければ行3も使用）
+      const argsLines = fmtArgsLines(node.args);
       const argsT = svgEl('text', {
-        class: 'rt-args', x: NODE_W / 2, y: 38, 'text-anchor': 'middle',
+        class: 'rt-args', x: NODE_W / 2, y: 35, 'text-anchor': 'middle',
       });
-      argsT.textContent = argsStr;
+      argsT.textContent = argsLines[0];
 
+      let argsT2 = null;
+      if (argsLines.length > 1) {
+        argsT2 = svgEl('text', {
+          class: 'rt-args', x: NODE_W / 2, y: 50, 'text-anchor': 'middle',
+        });
+        argsT2.textContent = argsLines[1];
+      }
+
+      // 戻り値（行3 or 行4）
+      const retY = argsLines.length > 1 ? 65 : 52;
       const retT = svgEl('text', {
-        class: 'rt-retval', x: NODE_W / 2, y: 58, 'text-anchor': 'middle',
+        class: 'rt-retval', x: NODE_W / 2, y: retY, 'text-anchor': 'middle',
       });
       retT.textContent = '';
 
-      // 状態インジケーター（右上角: 色以外の手がかり）
+      // 状態インジケーター（右上角）
       const stateT = svgEl('text', {
-        class: 'rt-state-icon', x: NODE_W - 8, y: 14, 'text-anchor': 'end',
+        class: 'rt-state-icon', x: NODE_W - 6, y: 14, 'text-anchor': 'end',
       });
       stateT.textContent = '…';
 
-      g.append(rect, nameT, argsT, retT, stateT);
+      const children = [rect, nameT, argsT];
+      if (argsT2) children.push(argsT2);
+      children.push(retT, stateT);
+      g.append(...children);
       nodesG.appendChild(g);
       this.#nodeEls.set(node.id, { g, retT, stateT });
     });

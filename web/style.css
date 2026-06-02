@@ -723,11 +723,26 @@ html, body {
 /* ── 常時表示コンソールパネル ──────────────────────────────────── */
 .console-panel {
   flex-shrink: 0;
-  height: 110px;
+  height: var(--console-h, 110px);
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+.console-resizer {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 5px;
+  cursor: ns-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background 0.15s;
+}
+.console-resizer:hover,
+.console-resizer--active {
+  background: var(--accent);
+  opacity: 0.4;
 }
 .console-panel-header {
   padding: 3px 10px;
@@ -1123,11 +1138,103 @@ html, body {
    LineTrace — ソース行×変数トレース表  .lt-*
 ═══════════════════════════════════════════════════════════════ */
 
+/* ── 2ペインレイアウト ────────────────────────────────────────────── */
+
+.lt-outer {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 左: ソースコードパネル */
+.lt-source-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+
+.lt-source-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding-top: 10px;
+}
+
+.lt-source-lines {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 13px;
+  line-height: 22px;
+  white-space: pre;
+}
+
+.lt-src-row {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  transition: background 0.1s;
+}
+
+.lt-src-row--active {
+  background: var(--accent-bg);
+  border-left: 2px solid var(--accent);
+  padding-left: 4px;
+}
+
+.lt-src-lineno {
+  width: 28px;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+  user-select: none;
+  padding-right: 8px;
+}
+
+.lt-src-code {
+  flex: 1;
+  position: relative;
+}
+
+/* 仕切り線 */
+.lt-src-divider {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: ew-resize;
+  background: transparent;
+  transition: background 0.15s;
+  z-index: 5;
+}
+
+.lt-src-divider:hover,
+.lt-src-divider--active {
+  background: var(--accent);
+  opacity: 0.4;
+}
+
+/* 右: 変数エリア */
+.lt-var-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .lt-wrap {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lt-table-wrap {
+  flex: 1;
   overflow: auto;
-  box-sizing: border-box;
-  padding-top: 10px; /* .cv-lines padding: 10px 0 に合わせてスクロール同期 */
+  padding-top: 10px;
 }
 
 .lt-table {
@@ -1617,7 +1724,7 @@ html, body {
 
 .hm-line {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0;
   padding: 1px 6px;
   border-radius: 3px;
@@ -1648,14 +1755,53 @@ html, body {
   overflow: hidden;
 }
 
+/* メタ情報エリア（カウント＋ドット列） */
+.hm-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-left: 8px;
+}
+
 .hm-count {
   color: var(--text-muted);
   font-size: 10px;
-  min-width: 4ch;
+  min-width: 8ch;
   text-align: right;
-  flex-shrink: 0;
-  padding-left: 6px;
   user-select: none;
+  white-space: nowrap;
+}
+
+/* 時系列ドット列 */
+.hm-dots {
+  position: relative;
+  width: 120px;
+  height: 10px;
+  flex-shrink: 0;
+  background: var(--surface2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.hm-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--accent);
+  opacity: 0.5;
+  transition: opacity 0.1s;
+}
+
+.hm-dot--current {
+  background: var(--changed);
+  opacity: 1;
+  height: 10px;
+  border-radius: 1px;
+  z-index: 1;
 }
 
 .hm-empty {
@@ -1772,6 +1918,44 @@ html, body {
 [data-theme="dark"] .rt-node--done .rt-rect {
   fill: rgba(76, 232, 132, 0.16);
 }
+
+/* ── CallTree (.ct-*) ──────────────────────────────────────────────────────*/
+
+.ct-wrap { width:100%; height:100%; overflow:auto; padding:8px; box-sizing:border-box; }
+.ct-svg  { display:block; }
+.ct-edge { stroke:var(--border); stroke-width:1.5; fill:none; }
+.ct-rect { fill:var(--surface); stroke:var(--border); stroke-width:1.5; transition:fill 0.2s,stroke 0.2s; }
+.ct-label {
+  font-family: 'Cascadia Code','Fira Code','SF Mono',Consolas,monospace;
+  font-size: 11px; font-weight: 600; fill: var(--text);
+}
+.ct-retval {
+  font-family: 'Cascadia Code','Fira Code','SF Mono',Consolas,monospace;
+  font-size: 10px; fill: #4ce884; font-weight: 600;
+}
+.ct-state-icon {
+  font-size: 10px; fill: var(--text-muted); font-family: 'Segoe UI',system-ui,sans-serif;
+}
+.ct-node--active .ct-state-icon { fill: var(--accent); }
+.ct-node--done   .ct-state-icon { fill: #4ce884; }
+
+.ct-node--future .ct-rect {
+  fill:var(--bg); stroke:var(--border); stroke-dasharray:5 3; opacity:0.60;
+}
+.ct-node--future .ct-label,
+.ct-node--future .ct-retval { fill:var(--text-muted); opacity:0.60; }
+
+.ct-node--active .ct-rect {
+  fill:rgba(76,155,232,0.18); stroke:var(--accent); stroke-width:3; stroke-dasharray:none;
+}
+.ct-node--active .ct-label { fill:var(--accent); font-weight:700; }
+
+.ct-node--done .ct-rect {
+  fill:rgba(76,232,132,0.12); stroke:#4ce884; stroke-width:1.5; stroke-dasharray:none;
+}
+
+[data-theme="dark"] .ct-node--active .ct-rect { fill:rgba(76,155,232,0.22); }
+[data-theme="dark"] .ct-node--done   .ct-rect { fill:rgba(76,232,132,0.16); }
 
 /* ── Lifetime (.lf-*) ──────────────────────────────────────────────────────*/
 

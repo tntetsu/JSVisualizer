@@ -6,8 +6,8 @@
  * 現在の最内スコープ（実行中フレーム）をアクセントカラーで強調する。
  */
 
-import { BaseView }                        from '../base-view.js';
-import { esc, formatValue, BUILTIN_NAMES } from '../../utils/format.js';
+import { BaseView }                                            from '../base-view.js';
+import { esc, formatValue, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
 
 export class ScopeView extends BaseView {
   /** @type {HTMLElement|null} */
@@ -37,19 +37,15 @@ export class ScopeView extends BaseView {
       return;
     }
 
+    const displayScopes = mergeScopesForDisplay(scopes, callStack);
     let html = '';
-    // scopes[0] = 最内スコープ（実行中）、scopes[last] = グローバル
-    for (let i = 0; i < scopes.length; i++) {
-      const scope      = scopes[i] ?? {};
-      const isInnermost = i === 0;
-      const label      = callStack[i]?.name
-                       ?? (i === scopes.length - 1 ? 'global' : `scope[${i}]`);
-      const entries    = Object.entries(scope).filter(([k]) => !BUILTIN_NAMES.has(k));
+
+    for (const { label, vars, isInnermost } of displayScopes) {
+      const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));
 
       html += `<div class="scv-frame${isInnermost ? ' scv-frame--active' : ''}">
         <div class="scv-frame-header">
           <span class="scv-frame-name">${esc(label)}</span>
-          <span class="scv-frame-badge">scope ${i}</span>
         </div>
         <div class="scv-vars">`;
 

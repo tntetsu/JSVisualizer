@@ -5,34 +5,62 @@
  * 列   = 変数名（ステップが進み変数が宣言されるたびに列を追加）
  * セル = その行を最後に実行した時点での変数値
  *
- * ソース列は表示しない（左ペインのコードエディタと重複するため）。
- * 行高さを code-view と統一し、スクロール位置を同期する。
- *
- * update() のたびに humanStep[0..cursor] を走査して
- * ・各行の最新の変数スナップショットをセルに反映
- * ・cursor 直前との差分セルにフラッシュアニメーション
+ * 左側にソースコードパネルを内包し、右側に変数列テーブルを配置する。
+ * 2 ペイン間はドラッグリサイザーで幅変更可能。
+ * ソースと変数テーブルの縦スクロールを同期する。
  */
 
 import { BaseView }                           from '../base-view.js';
-import { flattenEnv, BUILTIN_NAMES, formatValue } from '../../utils/format.js';
+import { flattenEnv, BUILTIN_NAMES, formatValue, esc } from '../../utils/format.js';
 
-/** 配列の内容が等しいか判定 */
+const SRC_WIDTH_KEY = 'jsv-lt-src-w';
+const SRC_W_DEFAULT = 220;
+const SRC_W_MIN     = 80;
+const SRC_W_MAX     = 600;
+
+// ── シンタックスハイライト（code-view と同一ロジック） ─────────────────────
+
+const TOKEN_PATTERNS = [
+  { cls: 'tok-comment', re: /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/g },
+  { cls: 'tok-string',  re: /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g },
+  { cls: 'tok-number',  re: /\b(\d+(?:\.\d+)?)\b/g },
+  { cls: 'tok-keyword', re: /\b(function|return|if|else|while|for|let|const|var|new|class|extends|import|export|break|continue|null|undefined|true|false|this|of|in|typeof|instanceof|throw|try|catch|finally|async|await)\b/g },
+];
+
+function highlightSyntax(source) {
+  const placeholders = [];
+  let s = source;
+  for (const { cls, re } of TOKEN_PATTERNS.slice(0, 2)) {
+    s = s.replace(re, (m) => {
+      const idx = placeholders.length;
+      placeholders.push(`<span class="${cls}">${esc(m)}</span>`);
+      return `\x00${idx}\x00`;
+    });
+  }
+  s = esc(s);
+  for (const { cls, re } of TOKEN_PATTERNS.slice(2)) {
+    s = s.replace(re, (_, g) => {
+      const idx = placeholders.length;
+      placeholders.push(`<span class="${cls}">${g}</span>`);
+      return `\x00${idx}\x00`;
+    });
+  }
+  return s.replace(/\x00(\d+)\x00/g, (_, idx) => placeholders[Number(idx)]);
+}
+
+// ── ヘルパー ──────────────────────────────────────────────────────────────
+
 function arraysEqual(a, b) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
 }
 
-/** 値の JSON 表現が等しいか（変化検出用） */
 function valEqual(a, b) {
   try { return JSON.stringify(a) === JSON.stringify(b); }
   catch { return false; }
 }
 
-/**
- * 関数・クラス値か判定（列に載せない対象）
- * JSInterpreter の内部型 JSFunction / JSClass、およびネイティブ関数を除外する。
- */
 function isFunctionVal(v) {
   if (typeof v === 'function') return true;
   if (v && typeof v === 'object') {
@@ -41,54 +69,24 @@ function isFunctionVal(v) {
   return false;
 }
 
+// ── LineTrace ─────────────────────────────────────────────────────────────
+
 export class LineTrace extends BaseView {
-  /** @type {HTMLElement|null} */
   #container  = null;
-
-  /** @type {import('../../core/trace-builder.js').TraceBuilder|null} */
   #builder    = null;
-
-  /** @type {HTMLTableRowElement|null} thead の <tr> */
   #theadRow   = null;
-
-  /** @type {HTMLTableSectionElement|null} */
   #tbodyEl    = null;
-
-  /** @type {HTMLElement|null} スクロール同期に使う lt-wrap */
-  #wrapEl     = null;
-
-  /** @type {number[]} humanStep カーソル一覧（ソート済み） */
+  #varArea    = null;   // 右ペイン（変数テーブル含む）
+  #srcLines   = null;   // 左ペイン内のソース行コンテナ
+  #srcPanel   = null;   // 左ペイン全体
   #humanSteps = [];
-
-  /** @type {Object[]} 生の trace 配列 */
   #trace      = [];
-
-  /** @type {Map<number, HTMLTableRowElement>}  lineNo → <tr> */
   #rowEls     = new Map();
-
-  /**
-   * @type {Map<number, HTMLTableCellElement[]>}
-   * lineNo → td[] （配列インデックスは #varMeta と対応）
-   */
   #cellEls    = new Map();
-
-  /**
-   * @type {Array<{name: string, visible: boolean}>}
-   * 変数メタデータ（表示順・表示フラグ）
-   */
+  #srcRowEls  = new Map(); // lineNo → source 行 div
   #varMeta    = [];
-
-  /** @type {boolean} スクロール同期の無限ループ防止フラグ */
   #syncing    = false;
-
-  /** @type {HTMLElement|null} code-display 要素（スクロール同期用） */
-  #codeDisplay = null;
-
-  /** @type {Function|null} code-display スクロールリスナー */
-  #codeScrollHandler = null;
-
-  /** @type {Function|null} lt-wrap スクロールリスナー */
-  #ltScrollHandler   = null;
+  #currentActiveLine = 0;
 
   // ── BaseView ──────────────────────────────────────────────────────────────
 
@@ -100,52 +98,85 @@ export class LineTrace extends BaseView {
     this.#varMeta    = [];
     this.#rowEls.clear();
     this.#cellEls.clear();
+    this.#srcRowEls.clear();
+    this.#currentActiveLine = 0;
 
     const source = builder?.source ?? '';
-
     if (!source) {
-      container.innerHTML = '<div class="lt-wrap"><p class="placeholder">ソースコードが利用できません</p></div>';
+      container.innerHTML = '<div class="lt-outer"><p class="placeholder">ソースコードが利用できません</p></div>';
       return;
     }
 
-    const lines = source.split('\n');
+    const lines      = source.split('\n');
+    const highlighted = highlightSyntax(source).split('\n');
+    const savedW     = parseInt(localStorage.getItem(SRC_WIDTH_KEY), 10);
+    const srcW       = isNaN(savedW) ? SRC_W_DEFAULT : Math.min(SRC_W_MAX, Math.max(SRC_W_MIN, savedW));
 
     container.innerHTML = `
-      <div class="lt-wrap">
-        <div class="lt-toolbar" id="lt-toolbar"></div>
-        <table class="lt-table">
-          <thead>
-            <tr class="lt-thead-row">
-              <th class="lt-th lt-th-lineno">#</th>
-            </tr>
-          </thead>
-          <tbody class="lt-tbody"></tbody>
-        </table>
+      <div class="lt-outer">
+        <div class="lt-source-panel" style="width:${srcW}px">
+          <div class="lt-source-scroll">
+            <div class="lt-source-lines"></div>
+          </div>
+        </div>
+        <div class="lt-src-divider" title="ドラッグして幅変更"></div>
+        <div class="lt-var-area">
+          <div class="lt-wrap">
+            <div class="lt-toolbar" id="lt-toolbar"></div>
+            <div class="lt-table-wrap">
+              <table class="lt-table">
+                <thead>
+                  <tr class="lt-thead-row">
+                    <th class="lt-th lt-th-lineno">#</th>
+                  </tr>
+                </thead>
+                <tbody class="lt-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>`;
 
     this.#theadRow = container.querySelector('.lt-thead-row');
     this.#tbodyEl  = container.querySelector('.lt-tbody');
-    this.#wrapEl   = container.querySelector('.lt-wrap');
+    this.#varArea  = container.querySelector('.lt-var-area');
+    this.#srcPanel = container.querySelector('.lt-source-panel');
+    this.#srcLines = container.querySelector('.lt-source-lines');
 
-    // ソース行ごとに <tr> を生成（ソース列なし）
+    // ソース行を生成
+    const srcFrag = document.createDocumentFragment();
     for (let i = 0; i < lines.length; i++) {
       const lineNo = i + 1;
+      const row = document.createElement('div');
+      row.className = 'lt-src-row';
+      row.dataset.line = String(lineNo);
+      row.innerHTML = `<span class="lt-src-lineno">${lineNo}</span><span class="lt-src-code">${highlighted[i] ?? ''}</span>`;
+      srcFrag.appendChild(row);
+      this.#srcRowEls.set(lineNo, row);
+    }
+    this.#srcLines.appendChild(srcFrag);
 
+    // 変数テーブルの行を生成
+    const tbodyFrag = document.createDocumentFragment();
+    for (let i = 0; i < lines.length; i++) {
+      const lineNo = i + 1;
       const tr = document.createElement('tr');
       tr.className = 'lt-row';
-
       const numTd = document.createElement('td');
       numTd.className = 'lt-td lt-td-lineno';
       numTd.textContent = String(lineNo);
-
       tr.append(numTd);
-      this.#tbodyEl.appendChild(tr);
+      tbodyFrag.appendChild(tr);
       this.#rowEls.set(lineNo, tr);
       this.#cellEls.set(lineNo, []);
     }
+    this.#tbodyEl.appendChild(tbodyFrag);
 
-    // スクロール同期設定
+    // スクロール同期（ソースパネル ↔ 変数エリア）
     this.#setupScrollSync();
+
+    // ソースパネルリサイザー
+    this.#setupSrcResizer(container.querySelector('.lt-src-divider'));
   }
 
   update(state) {
@@ -154,13 +185,11 @@ export class LineTrace extends BaseView {
     const { cursor, event } = state;
     const currentLine = event?.loc?.line ?? -1;
 
-    // ── humanStep[0..cursor] をスキャン ────────────────────────────────────
-    /** @type {Map<number, Map<string, any>>}  lineNo → 最新変数スナップショット */
+    // humanStep[0..cursor] をスキャン
     const lineStates  = new Map();
     const newVarNames = [];
     const varSeen     = new Set();
     let   prevVars    = null;
-    /** @type {Set<string>} cursor 直前との差分変数 */
     const changedVars = new Set();
 
     for (const si of this.#humanSteps) {
@@ -171,31 +200,25 @@ export class LineTrace extends BaseView {
       const line = ev.loc.line;
       const vars = flattenEnv(ev.env);
 
-      // 新しい変数を登場順に収集（関数・クラス値は除外）
       for (const [name, val] of vars) {
         if (!BUILTIN_NAMES.has(name) && !varSeen.has(name) && !isFunctionVal(val)) {
           varSeen.add(name);
           newVarNames.push(name);
         }
       }
-
       lineStates.set(line, vars);
 
-      // cursor の直前ステップとの差分を計算
       if (si === cursor && prevVars !== null) {
         for (const name of newVarNames) {
-          if (!valEqual(prevVars.get(name), vars.get(name))) {
-            changedVars.add(name);
-          }
+          if (!valEqual(prevVars.get(name), vars.get(name))) changedVars.add(name);
         }
       }
       prevVars = vars;
     }
 
-    // ── 列が変わった場合のみ再構築 ─────────────────────────────────────────
+    // 列の再構築
     const currentNames = this.#varMeta.map(m => m.name);
     if (!arraysEqual(newVarNames, currentNames)) {
-      // 新しい変数を varMeta に追加（既存の visible フラグは維持）
       const existingMap = new Map(this.#varMeta.map(m => [m.name, m]));
       const newMeta = newVarNames.map(name =>
         existingMap.get(name) ?? { name, visible: true }
@@ -203,7 +226,20 @@ export class LineTrace extends BaseView {
       this.#rebuildColumns(newMeta);
     }
 
-    // ── 各行のセルを更新 ───────────────────────────────────────────────────
+    // ソース行のアクティブクラスを更新
+    if (currentLine !== this.#currentActiveLine) {
+      if (this.#currentActiveLine > 0) {
+        this.#srcRowEls.get(this.#currentActiveLine)?.classList.remove('lt-src-row--active');
+      }
+      this.#currentActiveLine = currentLine;
+      if (currentLine > 0) {
+        const srcRow = this.#srcRowEls.get(currentLine);
+        srcRow?.classList.add('lt-src-row--active');
+        srcRow?.scrollIntoView({ block: 'nearest' });
+      }
+    }
+
+    // 各行のセルを更新
     for (const [lineNo, rowEl] of this.#rowEls) {
       const isActive = lineNo === currentLine;
       rowEl.classList.toggle('lt-row--active', isActive);
@@ -223,96 +259,95 @@ export class LineTrace extends BaseView {
           ? formatValue(val)
           : '<span class="lt-empty">—</span>';
 
-        // フラッシュアニメーション
         cellEl.classList.remove('lt-flash');
-        if (changed) {
-          void cellEl.offsetWidth;   // reflow でアニメーションをリセット
-          cellEl.classList.add('lt-flash');
-        }
+        if (changed) { void cellEl.offsetWidth; cellEl.classList.add('lt-flash'); }
       }
-    }
-
-    // 現在行をスクロールして見える位置に
-    if (currentLine > 0) {
-      this.#rowEls.get(currentLine)?.scrollIntoView({ block: 'nearest' });
     }
   }
 
   reset() {
     if (!this.#tbodyEl) return;
-    for (const rowEl of this.#rowEls.values()) {
-      rowEl.classList.remove('lt-row--active');
+    for (const rowEl of this.#rowEls.values()) rowEl.classList.remove('lt-row--active');
+    if (this.#currentActiveLine > 0) {
+      this.#srcRowEls.get(this.#currentActiveLine)?.classList.remove('lt-src-row--active');
+      this.#currentActiveLine = 0;
     }
   }
 
   destroy() {
-    this.#teardownScrollSync();
     if (this.#container) this.#container.innerHTML = '';
     this.#container  = null;
     this.#builder    = null;
     this.#theadRow   = null;
     this.#tbodyEl    = null;
-    this.#wrapEl     = null;
+    this.#varArea    = null;
+    this.#srcPanel   = null;
+    this.#srcLines   = null;
     this.#rowEls.clear();
     this.#cellEls.clear();
+    this.#srcRowEls.clear();
     this.#varMeta    = [];
     this.#humanSteps = [];
     this.#trace      = [];
   }
 
-  // ── スクロール同期 ──────────────────────────────────────────────────────
+  // ── スクロール同期 ─────────────────────────────────────────────────────────
 
   #setupScrollSync() {
-    this.#codeDisplay = document.getElementById('code-display');
-    if (!this.#codeDisplay || !this.#wrapEl) return;
+    const srcScroll = this.#srcPanel?.querySelector('.lt-source-scroll');
+    const tableWrap = this.#varArea?.querySelector('.lt-table-wrap');
+    if (!srcScroll || !tableWrap) return;
 
-    this.#codeScrollHandler = () => {
+    srcScroll.addEventListener('scroll', () => {
       if (this.#syncing) return;
       this.#syncing = true;
-      this.#wrapEl.scrollTop = this.#codeDisplay.scrollTop;
+      tableWrap.scrollTop = srcScroll.scrollTop;
       this.#syncing = false;
-    };
-
-    this.#ltScrollHandler = () => {
+    });
+    tableWrap.addEventListener('scroll', () => {
       if (this.#syncing) return;
       this.#syncing = true;
-      this.#codeDisplay.scrollTop = this.#wrapEl.scrollTop;
+      srcScroll.scrollTop = tableWrap.scrollTop;
       this.#syncing = false;
-    };
-
-    this.#codeDisplay.addEventListener('scroll', this.#codeScrollHandler);
-    this.#wrapEl.addEventListener('scroll', this.#ltScrollHandler);
+    });
   }
 
-  #teardownScrollSync() {
-    if (this.#codeDisplay && this.#codeScrollHandler) {
-      this.#codeDisplay.removeEventListener('scroll', this.#codeScrollHandler);
-    }
-    if (this.#wrapEl && this.#ltScrollHandler) {
-      this.#wrapEl.removeEventListener('scroll', this.#ltScrollHandler);
-    }
-    this.#codeDisplay      = null;
-    this.#codeScrollHandler = null;
-    this.#ltScrollHandler   = null;
+  // ── ソースパネル幅リサイザー ───────────────────────────────────────────────
+
+  #setupSrcResizer(divider) {
+    if (!divider || !this.#srcPanel) return;
+    let startX = 0, startW = 0;
+
+    divider.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startX = e.clientX;
+      startW = this.#srcPanel.offsetWidth;
+      divider.classList.add('lt-src-divider--active');
+
+      const onMove = (e) => {
+        const newW = Math.min(SRC_W_MAX, Math.max(SRC_W_MIN, startW + e.clientX - startX));
+        this.#srcPanel.style.width = `${newW}px`;
+      };
+      const onUp = () => {
+        divider.classList.remove('lt-src-divider--active');
+        localStorage.setItem(SRC_WIDTH_KEY, String(this.#srcPanel.offsetWidth));
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup',   onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup',   onUp);
+    });
   }
 
   // ── 列操作 ────────────────────────────────────────────────────────────────
 
-  /**
-   * ヘッダーと全行の変数セルを作り直す。
-   * @param {Array<{name: string, visible: boolean}>} newMeta
-   */
   #rebuildColumns(newMeta) {
-    // 既存の変数ヘッダーを削除
     this.#theadRow.querySelectorAll('.lt-th-var').forEach(el => el.remove());
-
-    // 全行の既存変数セルを削除
     for (const cells of this.#cellEls.values()) {
       cells.forEach(td => td.remove());
       cells.length = 0;
     }
 
-    // 新しいヘッダーセルを追加（ドラッグ&ドロップ付き）
     for (const meta of newMeta) {
       const th = document.createElement('th');
       th.className    = `lt-th lt-th-var${meta.visible ? '' : ' lt-col-hidden'}`;
@@ -321,7 +356,6 @@ export class LineTrace extends BaseView {
       th.draggable    = true;
       th.title        = `${meta.name}（ドラッグで列移動）`;
 
-      // ドラッグ開始: 変数名をデータとしてセット
       th.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/plain', meta.name);
         e.dataTransfer.effectAllowed = 'move';
@@ -329,32 +363,24 @@ export class LineTrace extends BaseView {
       });
       th.addEventListener('dragend', () => {
         th.classList.remove('lt-col-dragging');
-        // 全 th のドロップターゲット表示を解除
         this.#theadRow.querySelectorAll('.lt-th-var').forEach(
           el => el.classList.remove('lt-col-dragover')
         );
       });
-      // ドロップ先
       th.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         th.classList.add('lt-col-dragover');
       });
-      th.addEventListener('dragleave', () => {
-        th.classList.remove('lt-col-dragover');
-      });
+      th.addEventListener('dragleave', () => th.classList.remove('lt-col-dragover'));
       th.addEventListener('drop', (e) => {
         e.preventDefault();
         th.classList.remove('lt-col-dragover');
         const srcName = e.dataTransfer.getData('text/plain');
-        const dstName = meta.name;
-        if (srcName === dstName) return;
-
-        // varMeta 内で src と dst の位置を交換
+        if (srcName === meta.name) return;
         const srcIdx = this.#varMeta.findIndex(m => m.name === srcName);
-        const dstIdx = this.#varMeta.findIndex(m => m.name === dstName);
+        const dstIdx = this.#varMeta.findIndex(m => m.name === meta.name);
         if (srcIdx < 0 || dstIdx < 0) return;
-
         const newOrder = [...this.#varMeta];
         const [moved]  = newOrder.splice(srcIdx, 1);
         newOrder.splice(dstIdx, 0, moved);
@@ -364,7 +390,6 @@ export class LineTrace extends BaseView {
       this.#theadRow.appendChild(th);
     }
 
-    // 新しいデータセルを全行に追加
     for (const [lineNo, rowEl] of this.#rowEls) {
       const cells = this.#cellEls.get(lineNo);
       for (let i = 0; i < newMeta.length; i++) {
@@ -379,14 +404,10 @@ export class LineTrace extends BaseView {
     this.#rebuildToolbar();
   }
 
-  /**
-   * ツールバーの変数トグルボタンを再構築する。
-   */
   #rebuildToolbar() {
     const toolbar = this.#container?.querySelector('#lt-toolbar');
     if (!toolbar) return;
     toolbar.innerHTML = '';
-
     for (const meta of this.#varMeta) {
       const btn = document.createElement('button');
       btn.className = `lt-var-toggle${meta.visible ? '' : ' lt-var-toggle--hidden'}`;
@@ -398,28 +419,16 @@ export class LineTrace extends BaseView {
     }
   }
 
-  /**
-   * 指定変数の表示/非表示を切り替える。
-   * @param {string} name
-   */
   #toggleVar(name) {
     const meta = this.#varMeta.find(m => m.name === name);
     if (!meta) return;
     meta.visible = !meta.visible;
-
-    // ヘッダーとセルのクラスを更新
     const varIdx = this.#varMeta.indexOf(meta);
-
-    // ヘッダー
     const th = this.#theadRow.querySelectorAll('.lt-th-var')[varIdx];
     th?.classList.toggle('lt-col-hidden', !meta.visible);
-
-    // 全行のセル
     for (const cells of this.#cellEls.values()) {
       cells[varIdx]?.classList.toggle('lt-col-hidden', !meta.visible);
     }
-
-    // ツールバーボタン
     this.#rebuildToolbar();
   }
 }

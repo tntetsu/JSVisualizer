@@ -6,8 +6,8 @@
  * Console は常時表示パネル（app-main 外の #console-panel）に移動済み。
  */
 
-import { BaseView }                        from '../base-view.js';
-import { esc, formatValue, BUILTIN_NAMES } from '../../utils/format.js';
+import { BaseView }                                            from '../base-view.js';
+import { esc, formatValue, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
 
 export class StateView extends BaseView {
   /** @type {HTMLElement|null} */
@@ -135,11 +135,10 @@ export class StateView extends BaseView {
     let html = '';
 
     if (scopeAll && scopes.length > 0) {
-      scopes.forEach((scope, i) => {
-        const label   = state.callStack[i]?.name
-                      ?? (i === scopes.length - 1 ? 'global' : `scope[${i}]`);
-        const entries = Object.entries(scope ?? {}).filter(([k]) => !BUILTIN_NAMES.has(k));
-        if (!entries.length) return;
+      const displayScopes = mergeScopesForDisplay(scopes, state.callStack);
+      for (const { label, vars } of displayScopes) {
+        const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));
+        if (!entries.length) continue;
         html += `<div class="scope-frame">
           <div class="scope-label">${esc(label)}</div>`;
         for (const [name, val] of entries) {
@@ -151,7 +150,7 @@ export class StateView extends BaseView {
           </div>`;
         }
         html += '</div>';
-      });
+      }
     } else {
       const entries = Object.entries(variables).filter(([k]) => !BUILTIN_NAMES.has(k));
       if (!entries.length) {
@@ -180,10 +179,10 @@ export class StateView extends BaseView {
     let html = '';
     [...callStack].reverse().forEach((frame, i) => {
       const isTop = i === 0;
-      const name  = frame.name ?? '<anonymous>';
+      const label = formatFrameLabel(frame);
       const loc   = frame.loc ? `line ${frame.loc.line}` : '';
       html += `<div class="frame-card${isTop ? ' frame-card--top' : ''}">
-        <span class="frame-name">${esc(name)}</span>
+        <span class="frame-name">${esc(label)}</span>
         <span class="frame-loc">${esc(loc)}</span>
       </div>`;
     });
