@@ -114,15 +114,58 @@ export function formatFrameLabel(frame) {
   return `${name}(${argStr})`;
 }
 
+// ── スコープ再構築ヘルパー ────────────────────────────────────────────────────
+
+/** 全スコープから指定名の JSFunction を検索する */
+function findFunctionInScopes(name, scopes) {
+  if (!name) return null;
+  for (const scope of scopes ?? []) {
+    const val = scope?.[name];
+    if (val && val.__type__ === 'JSFunction') return val;
+  }
+  return null;
+}
+
+/** AST パラメータノードから変数名を取得する */
+function extractParamName(param) {
+  if (!param) return null;
+  if (param.type === 'Identifier')       return param.name;
+  if (param.type === 'AssignmentPattern') return extractParamName(param.left);
+  if (param.type === 'RestElement')       return extractParamName(param.argument);
+  return null;
+}
+
+/**
+ * callStack フレームの引数値から変数マップを再構築する。
+ * JSFunction の params からパラメータ名を取得し、args と対応付ける。
+ * 関数定義が見つからない場合は空オブジェクトを返す。
+ */
+function reconstructFrameVars(frame, scopes) {
+  if (!frame?.args?.length) return {};
+  const fn = findFunctionInScopes(frame.name, scopes);
+  if (!fn?.params) return {};
+  const vars = {};
+  fn.params.forEach((param, i) => {
+    if (i >= frame.args.length) return;
+    const name = extractParamName(param);
+    if (name) vars[name] = frame.args[i];
+  });
+  return vars;
+}
+
 /**
  * env スコープチェーンと callStack フレームをマージして表示用スコープ配列を返す。
  *
  * JavaScript は lexical scoping を採用しており、callFunction は
  * `new Environment(callee.closure)` でスコープを作成する。
- * そのため、同一スコープレベルで定義された関数同士（例: quickSort と partition）が
- * 互いに呼び合っても、相手のスコープは env チェーンに含まれない。
+ * そのため、同一スコープレベルで定義された関数同士（例: quickSort と merge）や
+ * 再帰呼び出し（factorial(3)→factorial(2)）では、外側フレームのスコープが
+ * env チェーンに含まれない。
  *
- * この関数は env チェーン全体を最内側関数にマージして正確に表示する。
+ * アルゴリズム:
+ *   - 最内側フレーム: scopes[0]〜scopes[M-2] を全てマージ（ブロックスコープ含む）
+ *   - 外側フレーム: callStack の args と関数定義の params から引数値を再構築
+ *   - グローバルフレーム: scopes[M-1]
  *
  * env スナップショットの順序:
  *   scopes[0]   = 最内スコープ（最もネストしたブロック or パラメータ）
@@ -153,8 +196,7 @@ export function mergeScopesForDisplay(scopes, callStack) {
 
   const display = [];
 
-  // 最内側関数: scopes[0]〜scopes[M-2] を全てマージ
-  // 外側から内側の順でマージすることで、内側スコープが外側を上書きする
+  // 最内側関数: scopes[0]〜scopes[M-2] を全てマージ（ブロックスコープ含む）
   const innermostVars = {};
   for (let j = M - 2; j >= 0; j--) {
     Object.assign(innermostVars, scopes[j] ?? {});
@@ -165,11 +207,12 @@ export function mergeScopesForDisplay(scopes, callStack) {
     isInnermost: true,
   });
 
-  // 外側関数: lexical scoping のため env チェーンに含まれず変数は不明
+  // 外側フレーム: env チェーンに含まれないため callStack.args から引数値を再構築
+  // （JSFunction.params を参照してパラメータ名を取得）
   for (let i = N - 2; i >= 0; i--) {
     display.push({
       label:       formatFrameLabel(callStack[i]),
-      vars:        {},
+      vars:        reconstructFrameVars(callStack[i], scopes),
       isInnermost: false,
     });
   }
