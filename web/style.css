@@ -1767,16 +1767,16 @@ html, body {
 .hm-count {
   color: var(--text-muted);
   font-size: 10px;
-  min-width: 8ch;
+  min-width: 12ch;
   text-align: right;
   user-select: none;
   white-space: nowrap;
 }
 
-/* 時系列ドット列 */
+/* 時系列ドット列（3倍幅） */
 .hm-dots {
   position: relative;
-  width: 120px;
+  width: 360px;
   height: 10px;
   flex-shrink: 0;
   background: var(--surface2);
@@ -1784,6 +1784,7 @@ html, body {
   overflow: hidden;
 }
 
+/* 未実行ドット（デフォルト） */
 .hm-dot {
   position: absolute;
   top: 50%;
@@ -1791,11 +1792,18 @@ html, body {
   width: 4px;
   height: 6px;
   border-radius: 1px;
-  background: var(--accent);
-  opacity: 0.5;
+  background: var(--text-muted);
+  opacity: 0.25;
   transition: opacity 0.1s;
 }
 
+/* 実行済みドット */
+.hm-dot--past {
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+/* 現在位置ドット */
 .hm-dot--current {
   background: var(--changed);
   opacity: 1;
@@ -1873,6 +1881,12 @@ html, body {
 }
 .rt-node--active .rt-state-icon { fill: var(--accent); }
 .rt-node--done   .rt-state-icon { fill: #4ce884; }
+
+.rt-cost {
+  font-size: 9px;
+  fill: var(--text-muted);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+}
 
 /* 未呼び出しノード: グレーアウト + 破線ボーダー（色以外の手がかり） */
 .rt-node--future .rt-rect {

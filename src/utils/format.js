@@ -117,65 +117,60 @@ export function formatFrameLabel(frame) {
 /**
  * env スコープチェーンと callStack フレームをマージして表示用スコープ配列を返す。
  *
- * 各関数呼び出しは通常 2 つのスコープ（paramScope + blockScope）を生成する。
- * これらをひとつの表示フレームに統合し、ラベルを `funcName(args)` 形式にする。
+ * JavaScript は lexical scoping を採用しており、callFunction は
+ * `new Environment(callee.closure)` でスコープを作成する。
+ * そのため、同一スコープレベルで定義された関数同士（例: quickSort と partition）が
+ * 互いに呼び合っても、相手のスコープは env チェーンに含まれない。
+ *
+ * この関数は env チェーン全体を最内側関数にマージして正確に表示する。
  *
  * env スナップショットの順序:
- *   scopes[0]   = 最内スコープ（block or param）
+ *   scopes[0]   = 最内スコープ（最もネストしたブロック or パラメータ）
  *   scopes[M-1] = グローバルスコープ
  * callStack の順序:
  *   callStack[0]   = 最外側フレーム
- *   callStack[N-1] = 最内側フレーム
+ *   callStack[N-1] = 最内側フレーム（現在実行中）
+ *
+ * 返り値は innermost-first 順（先頭が最内側）。
  *
  * @param {Object[]} scopes     env スコープチェーン（AppState.scopes）
  * @param {Object[]} callStack  コールスタック（AppState.callStack）
  * @returns {Array<{label:string, vars:Object, isInnermost:boolean}>}
  */
 export function mergeScopesForDisplay(scopes, callStack) {
-  const N = callStack ? callStack.length : 0;
-  const M = scopes ? scopes.length : 0;
+  const N = callStack?.length ?? 0;
+  const M = scopes?.length ?? 0;
 
   if (M === 0) return [];
 
-  // N=0: 関数外（グローバルのみ）
+  // N=0: 関数外（グローバルスコープのみ）
+  // for ループ内のブロックスコープなども含め全スコープをマージ
   if (N === 0) {
-    return [{
-      label: 'global',
-      vars:  { ...(scopes[M - 1] ?? {}) },
-      isInnermost: true,
-    }];
+    const merged = {};
+    for (let j = M - 1; j >= 0; j--) Object.assign(merged, scopes[j] ?? {});
+    return [{ label: 'global', vars: merged, isInnermost: true }];
   }
 
   const display = [];
 
-  // 各関数フレーム i (0=最外側) に対応するスコープを収集してマージ
-  // ─ 2スコープ/関数の前提 (param + block) で底から割り当て ─
-  // scopes[M-1] = global
-  // scopes[M-2-2*i] = callStack[i] の param scope
-  // scopes[M-3-2*i] = callStack[i] の block scope
-  // 最内側 (i=N-1) には余分な内側スコープも全部マージ
+  // 最内側関数: scopes[0]〜scopes[M-2] を全てマージ
+  // 外側から内側の順でマージすることで、内側スコープが外側を上書きする
+  const innermostVars = {};
+  for (let j = M - 2; j >= 0; j--) {
+    Object.assign(innermostVars, scopes[j] ?? {});
+  }
+  display.push({
+    label:       formatFrameLabel(callStack[N - 1]),
+    vars:        innermostVars,
+    isInnermost: true,
+  });
 
-  for (let i = 0; i < N; i++) {
-    const frame    = callStack[i];
-    const merged   = {};
-
-    const paramIdx = M - 2 - 2 * i;
-    const blockIdx = M - 3 - 2 * i;
-
-    if (i === N - 1) {
-      // 最内側: index 0 から innermostParamIdx-1 までの余分スコープをマージ
-      const innermostParamIdx = Math.max(0, paramIdx);
-      for (let j = 0; j < innermostParamIdx; j++) {
-        Object.assign(merged, scopes[j] ?? {});
-      }
-    }
-    if (blockIdx >= 0) Object.assign(merged, scopes[blockIdx] ?? {});
-    if (paramIdx >= 0) Object.assign(merged, scopes[paramIdx] ?? {});
-
+  // 外側関数: lexical scoping のため env チェーンに含まれず変数は不明
+  for (let i = N - 2; i >= 0; i--) {
     display.push({
-      label:       formatFrameLabel(frame),
-      vars:        merged,
-      isInnermost: i === N - 1,
+      label:       formatFrameLabel(callStack[i]),
+      vars:        {},
+      isInnermost: false,
     });
   }
 

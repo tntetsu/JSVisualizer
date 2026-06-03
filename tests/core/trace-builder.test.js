@@ -165,30 +165,183 @@ describe('TraceBuilder.getHumanStepList()', () => {
 // ── buildRecursionTree ────────────────────────────────────────────────────
 
 describe('TraceBuilder.buildRecursionTree()', () => {
-  /** callDepth の変化で関数進入/復帰をシミュレートするトレースを作る */
+  /**
+   * fib(3) → fib(2) → fib(1), fib(0)
+   *        → fib(1)
+   * のような再帰呼び出しトレースを作る
+   */
+  function makeRecursiveTrace() {
+    return [
+      ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }),
+      // fib(3) 進入
+      ev('enter', 'CallExpression', 2, {
+        callDepth: 1,
+        callStack: [{ name: 'fib', args: [3], loc: { line: 2, column: 0 } }],
+      }),
+      // fib(2) 進入
+      ev('enter', 'CallExpression', 3, {
+        callDepth: 2,
+        callStack: [
+          { name: 'fib', args: [3], loc: { line: 2, column: 0 } },
+          { name: 'fib', args: [2], loc: { line: 3, column: 0 } },
+        ],
+      }),
+      // fib(1) 進入
+      ev('enter', 'CallExpression', 3, {
+        callDepth: 3,
+        callStack: [
+          { name: 'fib', args: [3], loc: { line: 2, column: 0 } },
+          { name: 'fib', args: [2], loc: { line: 3, column: 0 } },
+          { name: 'fib', args: [1], loc: { line: 3, column: 0 } },
+        ],
+      }),
+      // fib(1) 復帰
+      ev('exit', 'CallExpression', 3, { callDepth: 2, value: 1 }),
+      // fib(0) 進入
+      ev('enter', 'CallExpression', 3, {
+        callDepth: 3,
+        callStack: [
+          { name: 'fib', args: [3], loc: { line: 2, column: 0 } },
+          { name: 'fib', args: [2], loc: { line: 3, column: 0 } },
+          { name: 'fib', args: [0], loc: { line: 3, column: 0 } },
+        ],
+      }),
+      // fib(0) 復帰
+      ev('exit', 'CallExpression', 3, { callDepth: 2, value: 0 }),
+      // fib(2) 復帰
+      ev('exit', 'CallExpression', 3, { callDepth: 1, value: 1 }),
+      // fib(1) 進入 (fib(3) の 2 番目の再帰呼び出し)
+      ev('enter', 'CallExpression', 3, {
+        callDepth: 2,
+        callStack: [
+          { name: 'fib', args: [3], loc: { line: 2, column: 0 } },
+          { name: 'fib', args: [1], loc: { line: 3, column: 0 } },
+        ],
+      }),
+      // fib(1) 復帰
+      ev('exit', 'CallExpression', 3, { callDepth: 1, value: 1 }),
+      // fib(3) 復帰
+      ev('exit', 'CallExpression', 2, { callDepth: 0, value: 2 }),
+    ];
+  }
+
+  test('関数呼び出しのないトレースでは空配列を返す', () => {
+    const trace = [
+      ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }),
+      ev('exit',  'ExpressionStatement', 1, { callDepth: 0 }),
+    ];
+    expect(new TraceBuilder(trace).buildRecursionTree()).toEqual([]);
+  });
+
+  test('非再帰的な呼び出しのみの場合は空配列を返す（outer→inner）', () => {
+    const trace = [
+      ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }),
+      ev('enter', 'CallExpression', 2, {
+        callDepth: 1,
+        callStack: [{ name: 'outer', args: [], loc: { line: 2, column: 0 } }],
+      }),
+      ev('enter', 'CallExpression', 3, {
+        callDepth: 2,
+        callStack: [
+          { name: 'outer', args: [], loc: { line: 2, column: 0 } },
+          { name: 'inner', args: [], loc: { line: 3, column: 0 } },
+        ],
+      }),
+      ev('exit', 'CallExpression', 3, { callDepth: 1, value: 42 }),
+      ev('exit', 'CallExpression', 2, { callDepth: 0, value: 42 }),
+    ];
+    expect(new TraceBuilder(trace).buildRecursionTree()).toEqual([]);
+  });
+
+  test('再帰呼び出しツリーのルートを返す', () => {
+    const roots = new TraceBuilder(makeRecursiveTrace()).buildRecursionTree();
+    expect(roots).toHaveLength(1);
+    expect(roots[0].funcName).toBe('fib');
+    // 子は全て同名
+    for (const c of roots[0].children) {
+      expect(c.funcName).toBe('fib');
+    }
+  });
+
+  test('非再帰的な子は除外される（fib が print も呼ぶ場合）', () => {
+    const trace = [
+      ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }),
+      // fib(2) 進入
+      ev('enter', 'CallExpression', 2, {
+        callDepth: 1,
+        callStack: [{ name: 'fib', args: [2], loc: { line: 2, column: 0 } }],
+      }),
+      // print(2) 進入（非再帰）
+      ev('enter', 'CallExpression', 3, {
+        callDepth: 2,
+        callStack: [
+          { name: 'fib',   args: [2], loc: { line: 2, column: 0 } },
+          { name: 'print', args: [2], loc: { line: 3, column: 0 } },
+        ],
+      }),
+      ev('exit', 'CallExpression', 3, { callDepth: 1, value: undefined }),
+      // fib(1) 進入（再帰）
+      ev('enter', 'CallExpression', 3, {
+        callDepth: 2,
+        callStack: [
+          { name: 'fib', args: [2], loc: { line: 2, column: 0 } },
+          { name: 'fib', args: [1], loc: { line: 3, column: 0 } },
+        ],
+      }),
+      ev('exit', 'CallExpression', 3, { callDepth: 1, value: 1 }),
+      // fib(2) 復帰
+      ev('exit', 'CallExpression', 2, { callDepth: 0, value: 1 }),
+    ];
+    const roots = new TraceBuilder(trace).buildRecursionTree();
+    expect(roots).toHaveLength(1);
+    expect(roots[0].funcName).toBe('fib');
+    // print は除外、fib(1) のみ子に残る
+    expect(roots[0].children).toHaveLength(1);
+    expect(roots[0].children[0].funcName).toBe('fib');
+  });
+
+  test('cost プロパティが設定される（葉=1）', () => {
+    const roots = new TraceBuilder(makeRecursiveTrace()).buildRecursionTree();
+    function findLeaves(node, acc = []) {
+      if (node.children.length === 0) acc.push(node);
+      node.children.forEach(c => findLeaves(c, acc));
+      return acc;
+    }
+    const leaves = findLeaves(roots[0]);
+    expect(leaves.length).toBeGreaterThan(0);
+    leaves.forEach(leaf => expect(leaf.cost).toBe(1));
+  });
+
+  test('cost プロパティが設定される（fib(3) のツリーサイズ=5）', () => {
+    // fib(3): children=[fib(2),fib(1)]
+    // fib(2): children=[fib(1),fib(0)] → cost=1+1+1=3
+    // fib(1): cost=1
+    // fib(3): cost=1+3+1=5
+    const roots = new TraceBuilder(makeRecursiveTrace()).buildRecursionTree();
+    expect(roots[0].cost).toBe(5);
+    const fib2 = roots[0].children[0];
+    expect(fib2.cost).toBe(3);
+  });
+
+  test('キャッシュを返す（同一オブジェクト）', () => {
+    const builder = new TraceBuilder(makeRecursiveTrace());
+    expect(builder.buildRecursionTree()).toBe(builder.buildRecursionTree());
+  });
+});
+
+// ── buildCallTree ─────────────────────────────────────────────────────────
+
+describe('TraceBuilder.buildCallTree()', () => {
   function makeCallTrace(calls) {
-    // calls = [{ name, args, retVal, enterIdx, exitIdx }]
-    // depth=0 のベース trace に対して callDepth を増減させる
-    const steps = [];
-
-    // グローバルスコープの enter（深さ0）
-    steps.push(ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }));
-
+    const steps = [ev('enter', 'ExpressionStatement', 1, { callDepth: 0 })];
     for (const call of calls) {
-      // 関数進入: callDepth が 1 増える
       steps.push(ev('enter', 'CallExpression', 2, {
         callDepth: 1,
         callStack: [{ name: call.name, args: call.args ?? [], loc: { line: 2, column: 0 } }],
       }));
-      // 関数内処理
       steps.push(ev('enter', 'ReturnStatement', 3, { callDepth: 1 }));
-      // 関数復帰: callDepth が 0 に戻る
-      steps.push(ev('exit', 'CallExpression', 2, {
-        callDepth: 0,
-        value: call.retVal,
-      }));
+      steps.push(ev('exit', 'CallExpression', 2, { callDepth: 0, value: call.retVal }));
     }
-
     return steps;
   }
 
@@ -197,13 +350,12 @@ describe('TraceBuilder.buildRecursionTree()', () => {
       ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }),
       ev('exit',  'ExpressionStatement', 1, { callDepth: 0 }),
     ];
-    const builder = new TraceBuilder(trace);
-    expect(builder.buildRecursionTree()).toEqual([]);
+    expect(new TraceBuilder(trace).buildCallTree()).toEqual([]);
   });
 
   test('1 回の関数呼び出しで 1 ルートノードを返す', () => {
     const trace = makeCallTrace([{ name: 'foo', args: [1], retVal: 42 }]);
-    const roots = new TraceBuilder(trace).buildRecursionTree();
+    const roots = new TraceBuilder(trace).buildCallTree();
     expect(roots).toHaveLength(1);
     expect(roots[0].funcName).toBe('foo');
     expect(roots[0].args).toEqual([1]);
@@ -216,22 +368,19 @@ describe('TraceBuilder.buildRecursionTree()', () => {
       { name: 'f', args: [1], retVal: 10 },
       { name: 'g', args: [2], retVal: 20 },
     ]);
-    const roots = new TraceBuilder(trace).buildRecursionTree();
+    const roots = new TraceBuilder(trace).buildCallTree();
     expect(roots).toHaveLength(2);
     expect(roots[0].funcName).toBe('f');
     expect(roots[1].funcName).toBe('g');
   });
 
   test('ネストした呼び出しでは子ノードに追加される', () => {
-    // depth: 0 → 1 → 2 → 1 → 0
     const trace = [
       ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }),
-      // outer 進入
       ev('enter', 'CallExpression', 2, {
         callDepth: 1,
         callStack: [{ name: 'outer', args: [], loc: { line: 2, column: 0 } }],
       }),
-      // inner 進入 (callStack: [0]=最外側outer, [1]=最内側inner)
       ev('enter', 'CallExpression', 3, {
         callDepth: 2,
         callStack: [
@@ -239,12 +388,10 @@ describe('TraceBuilder.buildRecursionTree()', () => {
           { name: 'inner', args: [], loc: { line: 3, column: 0 } },
         ],
       }),
-      // inner 復帰
       ev('exit', 'CallExpression', 3, { callDepth: 1, value: 'inner-ret' }),
-      // outer 復帰
       ev('exit', 'CallExpression', 2, { callDepth: 0, value: 'outer-ret' }),
     ];
-    const roots = new TraceBuilder(trace).buildRecursionTree();
+    const roots = new TraceBuilder(trace).buildCallTree();
     expect(roots).toHaveLength(1);
     expect(roots[0].funcName).toBe('outer');
     expect(roots[0].children).toHaveLength(1);
@@ -255,7 +402,7 @@ describe('TraceBuilder.buildRecursionTree()', () => {
   test('キャッシュを返す（同一オブジェクト）', () => {
     const trace = makeCallTrace([{ name: 'f', args: [], retVal: 1 }]);
     const builder = new TraceBuilder(trace);
-    expect(builder.buildRecursionTree()).toBe(builder.buildRecursionTree());
+    expect(builder.buildCallTree()).toBe(builder.buildCallTree());
   });
 });
 

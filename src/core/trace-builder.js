@@ -29,10 +29,13 @@ export class TraceBuilder {
   /** @type {Map<number, number>|null} キャッシュ */
   #heatmapCache = null;
 
-  /** @type {Object[]|null} キャッシュ */
+  /** @type {Object[]|null} キャッシュ（全関数呼び出し） */
+  #fullCallTreeCache = null;
+
+  /** @type {Object[]|null} キャッシュ（再帰呼び出しのみ） */
   #recursionTreeCache = null;
 
-  /** @type {Object[]|null} キャッシュ */
+  /** @type {Object[]|null} キャッシュ（全関数呼び出しツリー公開用） */
   #callTreeCache = null;
 
   /** @type {Object[]|null} キャッシュ */
@@ -129,7 +132,7 @@ export class TraceBuilder {
   // ── Phase 4 ───────────────────────────────────────────────────────────────
 
   /**
-   * 再帰呼び出しツリーのルートノード配列を返す。
+   * 全関数呼び出しツリーを構築する（内部メソッド）。
    *
    * ノード構造:
    *   { id, funcName, args, returnVal,
@@ -139,11 +142,11 @@ export class TraceBuilder {
    *
    * @returns {Object[]} ルートノードの配列
    */
-  buildRecursionTree() {
-    if (this.#recursionTreeCache !== null) return this.#recursionTreeCache;
+  #buildFullCallTree() {
+    if (this.#fullCallTreeCache !== null) return this.#fullCallTreeCache;
 
     const roots     = [];
-    const nodeStack = []; // 現在開いているノードのスタック
+    const nodeStack = [];
     let   nodeId    = 0;
     let   prevDepth = this.#trace[0]?.callDepth ?? 0;
 
@@ -153,7 +156,6 @@ export class TraceBuilder {
 
       if (depth > prevDepth) {
         // 関数進入: callStack[last] が最内側（新しい）フレーム
-        // callStack[0]=最外側, callStack[length-1]=最内側 (push 順)
         const cs    = ev.callStack;
         const frame = cs?.[cs.length - 1];
         const parent = nodeStack.length > 0 ? nodeStack[nodeStack.length - 1] : null;
@@ -182,7 +184,6 @@ export class TraceBuilder {
         for (let j = 0; j < levelsReturned && nodeStack.length > 0; j++) {
           const node = nodeStack.pop();
           node.returnStepIdx = i;
-          // 最初の復帰レベルだけ return value を取得
           if (j === 0 && ev.value !== undefined) {
             node.returnVal = ev.value;
           }
@@ -199,22 +200,59 @@ export class TraceBuilder {
       if (node.returnStepIdx === null) node.returnStepIdx = lastIdx;
     }
 
-    this.#recursionTreeCache = roots;
+    this.#fullCallTreeCache = roots;
     return roots;
   }
 
   /**
-   * 関数呼び出しツリーのルートノード配列を返す。
+   * 再帰呼び出しのみを含むツリーを返す。
    *
-   * buildRecursionTree() と同じデータ構造を返す。
-   * 再帰に限らず全関数呼び出しを含む（buildRecursionTree も同様だが
-   * こちらは独立したキャッシュを持ち、CallTree ビューが利用する）。
+   * 全呼び出しツリーから「子の funcName === 親の funcName」となる
+   * 再帰的な呼び出しのみを再帰的にフィルタリングする。
+   * 再帰ノードが存在する場合は cost プロパティも付与する（葉=1、親=1+子の合計）。
+   *
+   * @returns {Object[]} ルートノードの配列（再帰呼び出しがない場合は空配列）
+   */
+  buildRecursionTree() {
+    if (this.#recursionTreeCache !== null) return this.#recursionTreeCache;
+
+    const fullRoots = this.#buildFullCallTree();
+
+    // 再帰的フィルタリング: 同名関数の子のみ保持
+    function filterRecursive(node) {
+      const recursiveChildren = node.children
+        .filter(c => c.funcName === node.funcName)
+        .map(c => filterRecursive(c));
+      return { ...node, children: recursiveChildren };
+    }
+
+    // コスト計算: subtree サイズ（葉=1、内部ノード=1+子の合計）
+    function computeCost(node) {
+      node.cost = 1 + node.children.reduce((s, c) => s + computeCost(c), 0);
+      return node.cost;
+    }
+
+    // 再帰的な子を持つルートのみ保持
+    const filtered = fullRoots
+      .map(r => filterRecursive(r))
+      .filter(r => r.children.length > 0);
+
+    filtered.forEach(r => computeCost(r));
+
+    this.#recursionTreeCache = filtered;
+    return filtered;
+  }
+
+  /**
+   * 全関数呼び出しツリーのルートノード配列を返す。
+   *
+   * 再帰に限らず全関数呼び出しを含む。CallTree ビューが利用する。
    *
    * @returns {Object[]} ルートノードの配列
    */
   buildCallTree() {
     if (this.#callTreeCache !== null) return this.#callTreeCache;
-    this.#callTreeCache = this.buildRecursionTree();
+    this.#callTreeCache = this.#buildFullCallTree();
     return this.#callTreeCache;
   }
 

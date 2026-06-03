@@ -7,7 +7,7 @@
  */
 
 import { BaseView }                                            from '../base-view.js';
-import { esc, formatValue, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
+import { esc, formatValue, BUILTIN_NAMES, mergeScopesForDisplay, formatFrameLabel } from '../../utils/format.js';
 
 export class StateView extends BaseView {
   /** @type {HTMLElement|null} */
@@ -171,22 +171,36 @@ export class StateView extends BaseView {
   }
 
   #renderCallStack(state) {
-    const { callStack } = state;
+    const { scopes, callStack, changedVars } = state;
     if (!callStack || callStack.length === 0) {
       this.#callstackEl.innerHTML = '<p class="placeholder">—</p>';
       return;
     }
+    const changed = new Set(changedVars);
+    const displayScopes = mergeScopesForDisplay(scopes, callStack);
     let html = '';
-    [...callStack].reverse().forEach((frame, i) => {
-      const isTop = i === 0;
-      const label = formatFrameLabel(frame);
-      const loc   = frame.loc ? `line ${frame.loc.line}` : '';
-      html += `<div class="frame-card${isTop ? ' frame-card--top' : ''}">
-        <span class="frame-name">${esc(label)}</span>
-        <span class="frame-loc">${esc(loc)}</span>
-      </div>`;
-    });
-    this.#callstackEl.innerHTML = html;
+    for (const { label, vars, isInnermost } of displayScopes) {
+      const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));
+      html += `<div class="scv-frame${isInnermost ? ' scv-frame--active' : ''}">
+        <div class="scv-frame-header">
+          <span class="scv-frame-name">${esc(label)}</span>
+        </div>
+        <div class="scv-vars">`;
+      if (!entries.length) {
+        html += '<span class="scv-empty">（変数なし）</span>';
+      } else {
+        for (const [name, val] of entries) {
+          const flash = changed.has(name) ? ' var-row--changed' : '';
+          html += `<div class="var-row${flash}">
+            <span class="var-name">${esc(name)}</span>
+            <span class="var-eq">=</span>
+            ${formatValue(val)}
+          </div>`;
+        }
+      }
+      html += '</div></div>';
+    }
+    this.#callstackEl.innerHTML = html || '<p class="placeholder">—</p>';
   }
 
 }

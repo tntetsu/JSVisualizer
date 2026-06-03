@@ -146,7 +146,7 @@ export class RecursionTree extends BaseView {
     this.#nodeById.clear();
 
     if (this.#roots.length === 0) {
-      container.innerHTML = '<div class="rt-wrap"><p class="placeholder">関数呼び出しがありません</p></div>';
+      container.innerHTML = '<div class="rt-wrap"><p class="placeholder">再帰呼び出しがありません</p></div>';
       this.#svgEl = null;
       return;
     }
@@ -237,9 +237,15 @@ export class RecursionTree extends BaseView {
       });
       stateT.textContent = '…';
 
+      // コスト（左下角、サブツリーサイズ）
+      const costT = svgEl('text', {
+        class: 'rt-cost', x: 6, y: NODE_H - 6, 'text-anchor': 'start',
+      });
+      costT.textContent = node.cost !== undefined ? `cost:${node.cost}` : '';
+
       const children = [rect, nameT, argsT];
       if (argsT2) children.push(argsT2);
-      children.push(retT, stateT);
+      children.push(retT, stateT, costT);
       g.append(...children);
       nodesG.appendChild(g);
       this.#nodeEls.set(node.id, { g, retT, stateT });

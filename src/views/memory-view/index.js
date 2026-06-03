@@ -9,7 +9,7 @@
  */
 
 import { BaseView }                      from '../base-view.js';
-import { formatValue, BUILTIN_NAMES, esc } from '../../utils/format.js';
+import { formatValue, BUILTIN_NAMES, esc, mergeScopesForDisplay } from '../../utils/format.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -178,9 +178,10 @@ export class MemoryView extends BaseView {
   // ── レンダリング ──────────────────────────────────────────────────────────
 
   /**
-   * スタックパネルを更新する
-   * @param {Object[]} scopes      env[0] = 最内スコープ
-   * @param {Object[]} callStack   callStack[0] = 最内フレーム
+   * スタックパネルを更新する。
+   * mergeScopesForDisplay を使い scope-view と同じラベルで表示する。
+   * @param {Object[]} scopes      env スコープチェーン
+   * @param {Object[]} callStack   コールスタック
    * @param {Set<string>} changed
    * @param {WeakMap}     refMap
    * @param {Object[]}    heap
@@ -188,20 +189,16 @@ export class MemoryView extends BaseView {
   #renderStack(scopes, callStack, changed, refMap, heap) {
     let html = '';
 
-    // scopes[0] = 最内スコープ = スタックの最上位に表示
-    for (let i = 0; i < scopes.length; i++) {
-      const scope   = scopes[i] ?? {};
-      const frame   = callStack[i];
-      const isGlobal = i === scopes.length - 1 && !frame;
-      const title   = frame?.name
-        ? `${frame.name}()`
-        : isGlobal ? '(グローバル)' : `(スコープ ${i})`;
+    const displayScopes = mergeScopesForDisplay(scopes, callStack ?? []);
 
-      const entries = Object.entries(scope).filter(([k]) => !BUILTIN_NAMES.has(k));
-      if (entries.length === 0 && !isGlobal) continue;
+    for (const { label, vars, isInnermost } of displayScopes) {
+      const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));
 
-      html += `<div class="mv-frame${i === 0 ? ' mv-frame--top' : ''}">
-        <div class="mv-frame-name">${esc(title)}</div>
+      // 変数なし かつ グローバルでもない外側フレームはスキップ
+      if (entries.length === 0 && label !== 'global') continue;
+
+      html += `<div class="mv-frame${isInnermost ? ' mv-frame--top' : ''}">
+        <div class="mv-frame-name">${esc(label)}</div>
         <div class="mv-frame-vars">`;
 
       for (const [name, val] of entries) {
