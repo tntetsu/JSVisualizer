@@ -1,9 +1,9 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 0.8  
+**バージョン**: 0.9  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-02  
+**最終更新**: 2026-06-03  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -20,6 +20,7 @@
 | 0.6 | 2026-05-26 | Phase 6 仕上げ反映: ViewSwitcher のキーボードタブ切り替え（1〜9）・localStorage 永続化。DebuggerAdapter のエラー種別判定（parse/runtime）。code-editor.js の showError(msg, errorType) とエラーバッジ。RecursionTree 色覚多様性対応（状態アイコン）。サンプルコード 17 種。Jest テスト 37 件。GitHub Actions CI/CD ワークフロー |
 | 0.7 | 2026-05-26 | 修正 1〜8 反映: JSInterpreter assignTo 拡張（分割代入）。PaneResizer 追加。CodeMirror 6 エディタ化（Compartment・MutationObserver）。プログラム名表示。Console 常時パネル（state-view から分離）。LineTrace 改修（ソース列廃止・行高さ統一・スクロール同期・#varMeta 表示管理・D&D 列並び替え）。TraceTable に対象列追加（env diff・CallExpression・ReturnStatement）。テスト 42 件 |
 | 0.8 | 2026-06-02 | callStack 順序バグ修正（[0]=最外側・[last]=最内側に訂正）。CallTree ビュー新規追加（src/views/call-tree/）・TraceBuilder に buildCallTree() 追加。LineTrace 2ペイン化（ソースパネル+リサイズ+スクロール同期刷新）。ScopeView/StateView スコープ統合（mergeScopesForDisplay・formatFrameLabel）。Heatmap 時系列ドット+割合表示。RecursionTree 引数展開・NODE_W/H 拡大。Console パネル高さドラッグ変更（jsv-console-h）。localStorage jsv-lt-src-w 追加 |
+| 0.9 | 2026-06-03 | mergeScopesForDisplay を lexical scope 対応に刷新（旧: 2スコープ/関数仮定 → 新: 最内側関数が全 env チェーンをマージ）。StateView CALL STACK: formatFrameLabel 未インポートバグ修正＋スコープフレーム表示に変更。buildRecursionTree: 再帰呼び出しのみフィルタリング＋cost プロパティ付与。buildCallTree: #buildFullCallTree() を内部共有メソッドとして独立化。RecursionTree: cost 表示追加（左下角 cost:N）＋「再帰呼び出しがありません」メッセージ。Heatmap: 動的背景色（ステップ別更新）・ドット幅 3 倍（360px）・実行済み/未実行色分け・N回/M回 表示。MemoryView: mergeScopesForDisplay で正しいフレームラベル表示。テスト 49 件（buildCallTree テスト追加、buildRecursionTree テスト刷新）|
 
 ---
 
@@ -309,18 +310,21 @@ class TraceBuilder {
   // ── Phase 4 ─────────────────────────────────────────────────────────────
 
   /**
-   * 再帰呼び出しツリーのルートノード配列を返す。
-   * callDepth の増減で関数進入（push）/ 復帰（pop）を検出。
-   * 最内側フレーム = callStack[callStack.length - 1]（[0]=最外側、[last]=最内側）
+   * 再帰呼び出しのみを含むツリーのルートノード配列を返す。
+   * #buildFullCallTree() で全呼び出しツリーを構築後、
+   * child.funcName === parent.funcName の子のみ保持（再帰フィルタリング）。
+   * 再帰的な子を持たないルートは除外（非再帰プログラムでは空配列）。
+   * cost プロパティ: node.cost = 1 + Σ(子のcost)（サブツリーサイズ）。
    * ノード: { id, funcName, args, returnVal,
-   *           callStepIdx, returnStepIdx, treeDepth, children[] }
+   *           callStepIdx, returnStepIdx, treeDepth, children[], cost }
    * @returns {Object[]} ルートノード配列
    */
   buildRecursionTree()
 
   /**
    * 全関数呼び出しツリーのルートノード配列を返す（CallTree ビュー用）。
-   * buildRecursionTree() と同じデータ構造を返すが独立したキャッシュを持つ。
+   * 内部の #buildFullCallTree() を利用（buildRecursionTree() とは完全に独立）。
+   * cost プロパティは付与しない。
    * @returns {Object[]} ルートノード配列
    */
   buildCallTree()
@@ -475,17 +479,20 @@ update(state) で callStack.length > 0 の場合:
 
 **スコープ統合表示** (`mergeScopesForDisplay(scopes, callStack)` in `format.js`):
 
-各関数呼び出しは JSInterpreter 内部で 2 つの Environment を生成する（paramScope + blockScope）。
-これらを 1 つの表示フレームに統合し、ラベルを `factorial(6)` 形式にする。
+JavaScript は lexical scoping を採用しており、JSInterpreter の `callFunction` は
+`new Environment(callee.closure)` でスコープを作成する（呼び出し元スコープではなく定義元スコープが親）。
+このため同一スコープレベルで定義された関数間（例: quickSort と partition）では、
+相手のスコープは env チェーンに含まれない。
 
 ```
-callStack の順序: [0]=最外側, [N-1]=最内側
+callStack の順序: [0]=最外側, [N-1]=最内側（現在実行中）
 scopes の順序:    [0]=最内側スコープ, [M-1]=グローバル
 
-フレーム i (0=最外側) のスコープ:
-  paramIdx = M - 2 - 2*i  → パラメータスコープ
-  blockIdx = M - 3 - 2*i  → ブロックスコープ
-  最内側フレーム (i=N-1) には余分な内側スコープも全マージ
+アルゴリズム（v0.9 以降）:
+  最内側関数: scopes[0]〜scopes[M-2] を外→内の順でマージ（内側が外側を上書き）
+  外側関数: vars: {} （env チェーンに含まれないため変数不明）
+  グローバル: scopes[M-1]
+  表示順: innermost-first（最内側が先頭）
 ```
 
 ```html
@@ -700,21 +707,27 @@ const yOf = (val) => PAD.top  + (1 - (val - minVal) / range) * (svgH - PAD.top -
 
 #### `heatmap/` — 実行頻度ヒートマップ ✅
 
-**初期化**: `builder.buildHeatmap()` から行ごとの実行回数を取得し、透明度 α を計算して `style="background: rgba(255,140,0,α)"` で背景色を設定
+**初期化**: ドット配置のみ静的に生成。背景色は `update()` で動的更新。
+`lineTimeline`: `Map<lineNo, number[]>` — 各行が実行された humanStep インデックスの配列を事前計算。
 
+**動的背景色** (`update()` で毎ステップ更新):
 ```js
-// α: 実行なし=0、最大実行=0.55 のオレンジ背景
-const alpha = count === 0 ? 0 : 0.08 + (count / maxCnt) * 0.47;
+// バイナリサーチで現在ステップまでの実行回数を算出
+const alpha = currentCount === 0 ? 0 : 0.08 + (currentCount / maxTotal) * 0.47;
+el.style.background = `rgba(255,140,0,${alpha.toFixed(3)})`;
 ```
 
-**実行回数表示**: 各行の右端に `${count}回 (${pct}%)` を表示（`pct = Math.round((count / totalHumanSteps) * 100)`）
+**実行回数表示**: 各行の右端に `${currentCount}回 / ${totalCount}回` を表示（currentCount = 現在ステップまでの回数、totalCount = 全体での総回数）。ステップごとに更新。
 
 **時系列ドット**: 各行を実行した humanStep インデックスごとに `<span class="hm-dot">` を生成
-- `style="left: ${(hi / total) * 100}%"` で水平位置を決定（幅 120px の相対配置コンテナ内）
+- `style="left: ${(hi / total) * 100}%"` で水平位置を決定（幅 360px の相対配置コンテナ内）
 - 表示上限 DOT_MAX=200 個（超過時は先頭を省略）
-- `update()` で現在カーソルに最も近い humanStep に対応する `.hm-dot` に `.hm-dot--current` を付与
+- クラス分類 (`update()` 毎に全ドットを更新):
+  - `hi < cursor_hi` → `.hm-dot--past`（アクセントカラー、実行済み）
+  - `hi === cursor_hi` → `.hm-dot--current`（強調表示）
+  - それ以外 → デフォルト（薄いグレー、未実行）
 
-**update()**: `state.event.loc.line` に対応する行に `.hm-line--active`（青枠）を付与し、カーソルに対応するドットを強調
+**update()**: 全行の背景色・カウントテキスト・ドットクラスを更新し、アクティブ行に `.hm-line--active` を付与
 
 ---
 

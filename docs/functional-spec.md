@@ -1,9 +1,9 @@
 # 機能仕様書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 0.8  
+**バージョン**: 0.9  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-02  
+**最終更新**: 2026-06-03  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -20,6 +20,7 @@
 | 0.6 | 2026-05-26 | Phase 6 仕上げ反映: キーボードタブ切り替え（1〜9）・アクティブタブ永続化・エラーバッジ表示（パース/実行エラー区別）・サンプルコード 17 種に拡充・色覚多様性対応（RecursionTree/ControlFlow）・GitHub Pages デプロイを追記 |
 | 0.7 | 2026-05-26 | 修正 1〜8 反映: 分割代入サポート・ドラッグ可能なペインリサイザー・CodeMirror 6 エディタ・プログラム名表示・Console 常時パネル・LineTrace 改善（ソース列削除・行位置一致・スクロール同期・列表示切替・D&D 並び替え）・TraceTable「対象」列追加 |
 | 0.8 | 2026-06-02 | 修正反映: V-15 CallTree（全関数呼び出しツリー）新規追加・LineTrace 2ペイン化（ソースコードパネル内包・ドラッグリサイズ）・ScopeView/StateView スコープ統合（factorial(6) 形式ラベル）・Heatmap 時系列ドット＋割合表示・RecursionTree 引数展開表示改善・Console パネル高さドラッグ変更・callStack 順序バグ修正（呼び出し元ハイライト・再帰ツリー引数）|
+| 0.9 | 2026-06-03 | 修正 1〜7 反映: スコープ表示アルゴリズム刷新（lexical scope 対応 mergeScopesForDisplay）・StateView CALL STACK 表示修正（formatFrameLabel 未インポートバグ修正 + スコープフレーム表示）・buildRecursionTree を再帰呼び出しのみにフィルタリング＋cost 付与・buildCallTree を完全独立化・RecursionTree に cost 表示追加・Heatmap 動的背景色（ステップ別更新）＋ドット 3 倍幅＋実行済み/未実行色分け＋N回/M回 形式・MemoryView スコープ名修正 |
 
 ---
 
@@ -269,10 +270,11 @@
 
 タブ名: **ヒートマップ**
 
-- `init()` で静的に描画。各ソース行の背景色＝実行頻度に比例（橙の透明度）
-- **実行回数表示**: 各行の右端に「N回 (XX%)」形式で表示（XX% = count / 総humanStep数 × 100）
-- **時系列ドット**: 各行の実行タイミングを右端の幅固定トラック（120px）内に点で配置。点の水平位置 = 実行順の相対位置（左=初期、右=末尾）。現在カーソルに対応する点を強調（`.hm-dot--current`）
-- `update()` は現在行のハイライト（アクセントボーダー）付け替えと、現在カーソルに対応するドットの強調
+- `init()` でソース行を描画。ドット列（lineTimeline）を事前計算
+- **背景色**: 現在ステップまでの実行回数に応じて橙の透明度を `update()` で動的に更新（静的ではない）
+- **実行回数表示**: 各行の右端に「N回 / M回」形式で表示（N=現在ステップまでの回数、M=全ステップでの総回数）。ステップごとに更新
+- **時系列ドット**: 各行の実行タイミングを右端の幅固定トラック（360px）内に点で配置。水平位置 = humanStep インデックスの相対位置。実行済みドット（`.hm-dot--past`、アクセントカラー）と未実行ドット（グレー）で色分け。現在位置ドット（`.hm-dot--current`）は強調表示
+- `update()` で背景色・カウントテキスト・ドットの状態クラスを全行更新
 
 **入力**: `builder.source`, `builder.buildHeatmap()`, `builder.getHumanStepList()`, `builder.trace`, `state.event`, `state.cursor`
 
@@ -288,6 +290,8 @@
 - `update()` はノード className の付け替えのみ（O(n_nodes)）
 - レイアウト: 再帰的サブツリー幅計算（葉=NODE_W=160、内部ノード=子の幅の和＋gap）、NODE_H=80
 - **引数表示**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式
+- **cost 表示**: 各ノード左下に「cost:N」（N = サブツリーサイズ、葉=1、親=1+子の合計）を小フォントで表示
+- **再帰なし時のメッセージ**: 再帰呼び出しが存在しない場合は「再帰呼び出しがありません」を表示
 - **色覚多様性対応**: 色だけでなく形状・テキストアイコンで状態を表現
   - 未呼び出し: 破線ボーダー（`stroke-dasharray: 5 3`）＋アイコン「…」
   - 実行中: 太線ボーダー＋アイコン「▶」
@@ -296,10 +300,11 @@
 **入力**: `builder.buildRecursionTree()`, `state.cursor`
 
 `buildRecursionTree()` の仕様:
-- `callDepth` の増減を監視して関数の進入（push）・復帰（pop）を検出
-- 最内側フレームは `callStack[callStack.length - 1]`（push 順: `[0]`=最外側、`[last]`=最内側）
-- ノード: `{ id, funcName, args, returnVal, callStepIdx, returnStepIdx, treeDepth, children[] }`
-- 返り値は復帰イベントの `ev.value` から取得
+- `#buildFullCallTree()` で全呼び出しツリーを構築後、再帰的にフィルタリング
+- **フィルタリング**: `child.funcName === parent.funcName` の子のみ保持（再帰呼び出しのみ）
+- 再帰的な子を 1 つも持たないルートは除外 → 非再帰プログラムでは空配列
+- **cost プロパティ**: `node.cost = 1 + Σ(子のcost)` でサブツリーサイズを計算して付与
+- ノード: `{ id, funcName, args, returnVal, callStepIdx, returnStepIdx, treeDepth, children[], cost }`
 
 ---
 
@@ -317,9 +322,9 @@
 **入力**: `builder.buildCallTree()`, `state.cursor`
 
 `buildCallTree()` の仕様:
-- 内部で `buildRecursionTree()` と同じ処理を行う（独立キャッシュ）
-- 返り値構造は `buildRecursionTree()` と同一
-- CallTree ビュー専用に分離されているが、データ上は「全関数呼び出し」を含む
+- 内部の `#buildFullCallTree()` を呼び出す（`buildRecursionTree()` とは完全に独立）
+- 返り値構造は `buildRecursionTree()` と同一だが cost プロパティは付与しない
+- 全関数呼び出し（再帰・非再帰を問わず）を含む
 
 ---
 

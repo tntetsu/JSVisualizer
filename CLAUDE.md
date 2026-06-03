@@ -130,8 +130,8 @@ class TraceBuilder {
   buildHeatmap()                      // → Map<lineNo, count>  行ごとの実行回数
 
   // Phase 4
-  buildRecursionTree()                // → TreeNode[]    再帰ツリーノード配列（callDepth 変化から構築）
-  buildCallTree()                     // → TreeNode[]    全関数呼び出しツリー（buildRecursionTree と同一データ構造）
+  buildRecursionTree()                // → TreeNode[]    再帰呼び出しのみのツリー（cost プロパティ付き）
+  buildCallTree()                     // → TreeNode[]    全関数呼び出しツリー（#buildFullCallTree と独立キャッシュ）
   buildLifetime()                     // → LifetimeEntry[]  変数ライフタイム区間（startHi/endHi は humanStep インデックス）
   buildControlFlow()                  // → { nodes, edges, humanSteps }  実行フローグラフ
 
@@ -141,8 +141,8 @@ class TraceBuilder {
 }
 ```
 
-`buildRecursionTree()` は `callDepth` の増減から関数進入・復帰を検出。最内側フレームは `callStack[callStack.length-1]`。  
-`buildCallTree()` は `buildRecursionTree()` と同じデータを返す（独立キャッシュ）。CallTree ビューが使用。  
+`buildRecursionTree()` は `#buildFullCallTree()` の結果から `child.funcName === parent.funcName` の子のみを残し、`cost = 1 + Σ子のcost` を付与。再帰なしなら空配列。  
+`buildCallTree()` は `#buildFullCallTree()` を使用（`buildRecursionTree()` とは完全に独立）。CallTree ビューが使用。  
 `buildLifetime()` は humanStep ごとの env を走査し `callDepth:varName` をキーにして区間を記録。  
 `buildControlFlow()` は humanStep の行番号遷移からノード（ユニーク行）とエッジ（行→行）を構築。  
 すべてキャッシュ付きで、2回目以降の呼び出しは O(1)。
@@ -288,9 +288,9 @@ class TraceBuilder {
 - **LineTrace の 2 ペイン構成**: 左ペインにシンタックスハイライト付きソースコードパネル、右ペインに変数テーブル。中央の `lt-src-divider` をドラッグして幅変更可（`localStorage('jsv-lt-src-w')` 永続化）。縦スクロールは `lt-source-scroll` ↔ `lt-table-wrap` 間で双方向同期（`#syncing` フラグで無限ループ防止）。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装
 - **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[callStack.length-1].name(args)` 形式、ReturnStatement は `'return'` を表示
 - **CallTree ビュー**: `buildCallTree()` が返すノード配列（再帰・非再帰を問わず全関数呼び出し）を SVG ツリーとして描画。`RecursionTree` と同じレイアウトアルゴリズムを使用。CSS クラスは `.ct-*`（`RecursionTree` の `.rt-*` に対応）
-- **スコープ統合表示**: `format.js` の `mergeScopesForDisplay(scopes, callStack)` で、各関数の paramScope + blockScope をひとつの表示フレームにマージ。ラベルは `factorial(6)` 形式（`formatFrameLabel(frame)`）。`scope-view` と `state-view` で共通使用
-- **Heatmap の改善**: 実行回数を「N回 (XX%)」形式（count/totalHumanSteps × 100）で表示。各行に時系列ドットを左右配置（各 humanStep を位置 `left: (hi/total)*100%` に配置、幅 120px 固定トラック）
-- **再帰ツリー引数表示改善**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式で表示。NODE_W=160/NODE_H=80 に拡大
+- **スコープ統合表示**: `format.js` の `mergeScopesForDisplay(scopes, callStack)` で環境チェーン全体を最内側関数フレームにマージ。JavaScript lexical scoping により同一スコープレベルの外側関数は env チェーンに含まれないため、外側フレームは `vars: {}` になる。ラベルは `factorial(6)` 形式（`formatFrameLabel(frame)`）。`scope-view`・`state-view`・`memory-view` で共通使用。表示順は innermost-first
+- **Heatmap の改善**: 背景色を `update()` ごとに現在ステップまでの実行回数で動的更新（`lineTimeline` + バイナリサーチ）。カウントを「N回 / M回」形式で表示。ドット幅 360px（3倍）。実行済みドット（`.hm-dot--past`）と未実行ドット（デフォルトグレー）を色分け
+- **再帰ツリー引数表示改善**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式で表示。NODE_W=160/NODE_H=80 に拡大。cost プロパティ（subtree サイズ）を左下角に `cost:N` 形式で表示。再帰呼び出しがない場合は「再帰呼び出しがありません」を表示
 - **分割代入**: JSInterpreter の `assignTo()` が `ArrayExpression` / `ObjectExpression` を処理するよう拡張（`[a,b]=[b,a]` 等）。詳細は [JSInterpreter#interpreter.js](../JSInterpreter/src/interpreter/interpreter.js)
 - **エラー種別判定**: JSInterpreter は `[Parser]` プレフィックスのメッセージでパースエラーを示すため、正規表現で判定する
 - **対象ブラウザ**: モダンブラウザ（Chrome/Firefox/Safari 最新版）
