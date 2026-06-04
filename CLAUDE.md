@@ -5,7 +5,7 @@
 ## プロジェクト概要
 
 **JSVisualizer** は、JavaScript プログラムの実行過程をインタラクティブに可視化する教育用 Web アプリケーションです。  
-[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、15 種類の可視化ビューを提供します。  
+[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、13 種類の可視化ビューを提供します。  
 GitHub Pages でホストされ、main ブランチへの push で自動デプロイされます。
 
 対象ユーザーはプログラミング入門〜中級の学習者および教員です。
@@ -25,14 +25,14 @@ JSVisualizer/
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
 │   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅
 │   │   ├── state-view/           # 変数・コールスタック統合パネル（Console は常時パネルへ移動）✅
-│   │   ├── scope-view/           # スコープ・変数ビュー（ネスト枠）                 ✅
-│   │   ├── callstack-view/       # コールスタックビュー                            ✅
-│   │   ├── line-trace/           # トレース表（2ペイン: ソースパネル+変数表・列表示切替・D&D） ✅  ← タブ「トレース表」
+│   │   ├── scope-view/           # スコープ・変数ビュー（ネスト枠）  ← タブ登録なし（非アクティブ）
+│   │   ├── callstack-view/       # コールスタックビュー              ← タブ登録なし（非アクティブ）
+│   │   ├── line-trace/           # トレース表（行番号+スニペット列+変数表・列表示切替・D&D）  ✅  ← タブ「トレース表」
 │   │   ├── trace-table/          # 静的トレース表（全ステップ・対象列付き）               ✅  ← タブ「全ステップ」
 │   │   ├── bar-chart/            # 棒グラフアニメーション（数値・配列変化）         ✅
-│   │   ├── color-box/            # 色付き箱アニメーション（配列・ポインタ）         ✅
-│   │   ├── timeline/             # 変数の時系列グラフ（SVG折れ線）                  ✅
-│   │   ├── heatmap/              # 実行頻度ヒートマップ                             ✅
+│   │   ├── color-box/            # 配列アニメーション（複数配列同時表示・ポインタ別行）✅  ← タブ「配列」
+│   │   ├── timeline/             # 変数の時系列グラフ（SVG折れ線・変数選択時Y軸動的更新）✅
+│   │   ├── heatmap/              # 実行頻度ヒートマップ（連結線トグル付き）          ✅
 │   │   ├── recursion-tree/       # 再帰呼び出しツリー（SVG・引数展開表示）                ✅
 │   │   ├── call-tree/            # 全関数呼び出しツリー（SVG・再帰に限らない）            ✅  ← タブ「呼び出しツリー」
 │   │   ├── lifetime/             # 変数ライフタイム Gantt チャート（SVG）                ✅
@@ -53,7 +53,8 @@ JSVisualizer/
 ├── tests/
 │   └── core/
 │       ├── trace-builder.test.js # TraceBuilder 全7メソッドのユニットテスト
-│       └── step-controller.test.js
+│       ├── step-controller.test.js
+│       └── samples.test.js       # 17サンプルコード全エラーなし・trace ≥ 1 確認
 ├── docs/
 │   ├── functional-spec.md        # 機能仕様書
 │   ├── design.md                 # 詳細設計書
@@ -217,7 +218,6 @@ class TraceBuilder {
 | `jsv-active-tab` | アクティブタブ ID | `view-switcher.js` |
 | `jsv-editor-pct` | エディタペイン幅（% 文字列、15〜75 の範囲） | `pane-resizer.js` |
 | `jsv-console-h` | コンソールパネル高さ（px 整数、40〜400 の範囲） | `app.js`（コンソールリサイザー） |
-| `jsv-lt-src-w` | LineTrace ソースパネル幅（px 整数、80〜600 の範囲） | `line-trace/index.js` |
 
 ### キーボードショートカット一覧
 
@@ -285,11 +285,14 @@ class TraceBuilder {
 - **差分検出**: 前後 `env` スナップショットを比較し変化した変数名のセットを生成
 - **オブジェクト同一性**: MemoryView・ObjectGraph では `WeakMap` でオブジェクト参照を追跡し重複ヒープ登録を防ぐ
 - **LineTrace vs AnimatedTrace**: `animated-trace/` ディレクトリは実装済みだが、タブには現在 `line-trace/`（ソース行×変数マトリクス表）を使用
-- **LineTrace の 2 ペイン構成**: 左ペインにシンタックスハイライト付きソースコードパネル、右ペインに変数テーブル。中央の `lt-src-divider` をドラッグして幅変更可（`localStorage('jsv-lt-src-w')` 永続化）。縦スクロールは `lt-source-scroll` ↔ `lt-table-wrap` 間で双方向同期（`#syncing` フラグで無限ループ防止）。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装
+- **LineTrace の構成**: 行番号列に `lt-lineno-num`（数字）+ `lt-lineno-snippet`（先頭15文字スニペット）を表示、右側に変数テーブル。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装。（以前の2ペイン構成・ソースパネル・リサイザーは削除済み）
 - **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[callStack.length-1].name(args)` 形式、ReturnStatement は `'return'` を表示
 - **CallTree ビュー**: `buildCallTree()` が返すノード配列（再帰・非再帰を問わず全関数呼び出し）を SVG ツリーとして描画。`RecursionTree` と同じレイアウトアルゴリズムを使用。CSS クラスは `.ct-*`（`RecursionTree` の `.rt-*` に対応）
 - **スコープ統合表示**: `format.js` の `mergeScopesForDisplay(scopes, callStack)` でフレームごとに表示変数を決定。最内側フレームは scopes[0]〜scopes[M-2] を全マージ（ブロックスコープ含む）。外側フレームは env チェーンに含まれないため callStack[i].args + JSFunction.params から引数値を再構築（`reconstructFrameVars`）。ラベルは `factorial(6)` 形式（`formatFrameLabel(frame)`）。`scope-view`・`state-view`・`memory-view` で共通使用。表示順は innermost-first
-- **Heatmap の改善**: 背景色を `update()` ごとに現在ステップまでの実行回数で動的更新（`lineTimeline` + バイナリサーチ）。カウントを「N回 / M回」形式で表示。ドット幅 360px（3倍）。実行済みドット（`.hm-dot--past`）と未実行ドット（デフォルトグレー）を色分け
+- **Heatmap の改善**: 背景色を `update()` ごとに現在ステップまでの実行回数で動的更新（`lineTimeline` + バイナリサーチ）。カウントを「N回 / M回」形式で表示。ドット幅 360px（3倍）。実行済みドット（`.hm-dot--past`）と未実行ドット（デフォルトグレー）を色分け。「連結線」ボタンで連続実行ドット間に SVG polyline を表示（`.hm-connect-svg`）
+- **ColorBox（配列ビュー）**: タブ名「配列」。複数配列を同時選択して縦に並べて表示。ポインタ変数は変数ごとに個別の行として表示。文字列値は切り詰めなしで表示
+- **Timeline**: 変数チップ選択変更時に選択変数の値のみで Y 軸 min/max を動的再計算（`#renderSVG()` 内で dynMin/dynMax を計算）
+- **super() バグ修正**: JSInterpreter の `CallExpression` ハンドラで callee.type === 'Super' を検出し、親クラス constructor を現在の `this` に対して直接実行することで継承コンストラクターを正しく処理
 - **再帰ツリー引数表示改善**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式で表示。NODE_W=160/NODE_H=80 に拡大。cost プロパティ（subtree サイズ）を左下角に `cost:N` 形式で表示。再帰呼び出しがない場合は「再帰呼び出しがありません」を表示
 - **分割代入**: JSInterpreter の `assignTo()` が `ArrayExpression` / `ObjectExpression` を処理するよう拡張（`[a,b]=[b,a]` 等）。詳細は [JSInterpreter#interpreter.js](../JSInterpreter/src/interpreter/interpreter.js)
 - **エラー種別判定**: JSInterpreter は `[Parser]` プレフィックスのメッセージでパースエラーを示すため、正規表現で判定する
