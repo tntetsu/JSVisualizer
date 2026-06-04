@@ -34,7 +34,7 @@ function highlightSyntax(source) {
     s = s.replace(re, (m) => {
       const idx = placeholders.length;
       placeholders.push(`<span class="${cls}">${esc(m)}</span>`);
-      return `\x00${idx}\x00`;
+      return `\x00x${idx}\x00`;
     });
   }
   s = esc(s);
@@ -42,10 +42,10 @@ function highlightSyntax(source) {
     s = s.replace(re, (_, g) => {
       const idx = placeholders.length;
       placeholders.push(`<span class="${cls}">${g}</span>`);
-      return `\x00${idx}\x00`;
+      return `\x00x${idx}\x00`;
     });
   }
-  return s.replace(/\x00(\d+)\x00/g, (_, idx) => placeholders[Number(idx)]);
+  return s.replace(/\x00x(\d+)\x00/g, (_, idx) => placeholders[Number(idx)]);
 }
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────
