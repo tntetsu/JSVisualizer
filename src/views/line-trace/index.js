@@ -2,10 +2,12 @@
  * line-trace/index.js — ソース行×変数トレース表
  *
  * 行   = ソースコードの各行（全行固定表示）
- * 列   = 変数名（ステップが進み変数が宣言されるたびに列を追加）
- * セル = その行を最後に実行した時点での変数値
+ * 列   = 行番号+スニペット | 変数（動的追加） | 条件式（init時に固定）
+ * セル = その行を最後に実行した時点での変数値 / 条件評価結果
  *
- * 行番号列にはコードスニペット（先頭15文字）を表示する。
+ * 条件列は init() で全 humanStep を走査して一意な条件式テキストを収集し、
+ * 変数列の右に固定列として配置する。
+ * #rebuildColumns() は変数列を条件列の直前に insertBefore で挿入する。
  */
 
 import { BaseView }                           from '../base-view.js';
@@ -62,18 +64,68 @@ function isFunctionVal(v) {
   return false;
 }
 
+// ── 条件式ヘルパー ────────────────────────────────────────────────────────
+
+const CONDITION_NODES = new Set([
+  'IfStatement', 'WhileStatement', 'DoWhileStatement',
+  'ForStatement', 'ForInStatement', 'ForOfStatement',
+  'ConditionalExpression',
+]);
+
+/**
+ * loc/end からソーステキストを切り出す。
+ * loc.column / end.column は 1始まり・end は inclusive。
+ */
+function extractCondText(lines, loc, end) {
+  if (!loc || !end) return null;
+  const lineText = lines[loc.line - 1] ?? '';
+  if (loc.line === end.line) {
+    const text = lineText.slice(loc.column - 1, end.column).trim();
+    return text || null;
+  }
+  return (lineText.slice(loc.column - 1).trim() + '…') || null;
+}
+
+/**
+ * si が条件文 enter の場合、matchIdx までの範囲を走査して
+ * AST 深さ D+1 の最初のブール exit の条件テキストと値を返す。
+ * ForStatement は init のあとにテスト式が来るため nextSi ではなく
+ * matchIdx を上限にすることで正しく検出できる。
+ */
+function buildCondInfo(trace, si, lines) {
+  const ev = trace[si];
+  if (!ev || ev.phase !== 'enter' || !CONDITION_NODES.has(ev.nodeType)) return null;
+  const D        = ev.depth;
+  const endBound = ev.matchIdx != null ? ev.matchIdx + 1 : trace.length;
+  for (let i = si + 1; i < endBound; i++) {
+    const t = trace[i];
+    if (!t || t.depth < D) break;
+    if (t.phase === 'exit' && t.depth === D + 1 && typeof t.value === 'boolean') {
+      const text = extractCondText(lines, t.loc, t.end);
+      if (text) return { text, value: t.value };
+      return null;
+    }
+  }
+  return null;
+}
+
 // ── LineTrace ─────────────────────────────────────────────────────────────
 
 export class LineTrace extends BaseView {
-  #container  = null;
-  #builder    = null;
-  #theadRow   = null;
-  #tbodyEl    = null;
-  #humanSteps = [];
-  #trace      = [];
-  #rowEls     = new Map();
-  #cellEls    = new Map();
-  #varMeta    = [];
+  #container   = null;
+  #builder     = null;
+  #theadRow    = null;
+  #tbodyEl     = null;
+  #humanSteps  = [];
+  #trace       = [];
+  #rowEls      = new Map();   // lineNo → <tr>
+  #cellEls     = new Map();   // lineNo → TD[]（変数列）
+  #varMeta     = [];          // {name, visible}[]
+
+  // 条件列（init で固定、変数列の右に配置）
+  #condMeta    = [];          // string[]（条件式テキスト、出現順）
+  #hiCondMap   = new Map();   // hi → {text, value}
+  #condCellEls = new Map();   // lineNo → TD[]（条件列）
 
   // ── BaseView ──────────────────────────────────────────────────────────────
 
@@ -83,8 +135,11 @@ export class LineTrace extends BaseView {
     this.#humanSteps = builder ? builder.getHumanStepList() : [];
     this.#trace      = builder ? builder.trace : [];
     this.#varMeta    = [];
+    this.#condMeta   = [];
+    this.#hiCondMap  = new Map();
     this.#rowEls.clear();
     this.#cellEls.clear();
+    this.#condCellEls.clear();
 
     const source = builder?.source ?? '';
     if (!source) {
@@ -114,22 +169,60 @@ export class LineTrace extends BaseView {
     this.#theadRow = container.querySelector('.lt-thead-row');
     this.#tbodyEl  = container.querySelector('.lt-tbody');
 
-    // 変数テーブルの行を生成
+    // ソース行の <tr> を生成
     const tbodyFrag = document.createDocumentFragment();
     for (let i = 0; i < lines.length; i++) {
-      const lineNo = i + 1;
+      const lineNo  = i + 1;
       const snippet = lines[i].trim().slice(0, 15);
-      const tr = document.createElement('tr');
-      tr.className = 'lt-row';
-      const numTd = document.createElement('td');
+      const tr      = document.createElement('tr');
+      tr.className  = 'lt-row';
+      const numTd   = document.createElement('td');
       numTd.className = 'lt-td lt-td-lineno';
       numTd.innerHTML = `<span class="lt-lineno-num">${lineNo}</span><span class="lt-lineno-snippet">${esc(snippet)}</span>`;
       tr.append(numTd);
       tbodyFrag.appendChild(tr);
       this.#rowEls.set(lineNo, tr);
       this.#cellEls.set(lineNo, []);
+      this.#condCellEls.set(lineNo, []);
     }
     this.#tbodyEl.appendChild(tbodyFrag);
+
+    // 条件列を init で事前計算（全 humanStep を走査）
+    const condSet  = new Set();
+    const condMeta = [];
+    const hiCondMap = new Map();
+    for (let hi = 0; hi < this.#humanSteps.length; hi++) {
+      const si   = this.#humanSteps[hi];
+      const info = buildCondInfo(this.#trace, si, lines);
+      if (info) {
+        hiCondMap.set(hi, info);
+        if (!condSet.has(info.text)) {
+          condSet.add(info.text);
+          condMeta.push(info.text);
+        }
+      }
+    }
+    this.#hiCondMap = hiCondMap;
+    this.#condMeta  = condMeta;
+
+    // 条件列の TH を thead に追加
+    for (const condText of condMeta) {
+      const th = document.createElement('th');
+      th.className   = 'lt-th lt-th-cond';
+      th.textContent = condText;
+      this.#theadRow.appendChild(th);
+    }
+
+    // 条件列の TD を各行に追加
+    for (const [lineNo, rowEl] of this.#rowEls) {
+      const condCells = this.#condCellEls.get(lineNo);
+      for (let ci = 0; ci < condMeta.length; ci++) {
+        const td = document.createElement('td');
+        td.className = 'lt-td lt-td-cond';
+        rowEl.appendChild(td);
+        condCells.push(td);
+      }
+    }
   }
 
   update(state) {
@@ -138,38 +231,48 @@ export class LineTrace extends BaseView {
     const { cursor, event } = state;
     const currentLine = event?.loc?.line ?? -1;
 
-    // humanStep[0..cursor] をスキャン
-    const lineStates  = new Map();
-    const newVarNames = [];
-    const varSeen     = new Set();
-    let   prevVars    = null;
-    const changedVars = new Set();
+    // humanStep[0..cursor] をスキャン（変数・条件を同時収集）
+    const lineStates     = new Map();
+    const lineCondStates = new Map();  // lineNo → Map<condText, boolean>
+    const newVarNames    = [];
+    const varSeen        = new Set();
+    let   prevVars       = null;
+    const changedVars    = new Set();
+    let   hi             = 0;
 
     for (const si of this.#humanSteps) {
       if (si > cursor) break;
       const ev = this.#trace[si];
-      if (!ev?.env || !ev.loc) continue;
+      if (ev?.env && ev.loc) {
+        const line = ev.loc.line;
+        const vars = flattenEnv(ev.env);
 
-      const line = ev.loc.line;
-      const vars = flattenEnv(ev.env);
-
-      for (const [name, val] of vars) {
-        if (!BUILTIN_NAMES.has(name) && !varSeen.has(name) && !isFunctionVal(val)) {
-          varSeen.add(name);
-          newVarNames.push(name);
+        for (const [name, val] of vars) {
+          if (!BUILTIN_NAMES.has(name) && !varSeen.has(name) && !isFunctionVal(val)) {
+            varSeen.add(name);
+            newVarNames.push(name);
+          }
         }
-      }
-      lineStates.set(line, vars);
+        lineStates.set(line, vars);
 
-      if (si === cursor && prevVars !== null) {
-        for (const name of newVarNames) {
-          if (!valEqual(prevVars.get(name), vars.get(name))) changedVars.add(name);
+        // 条件値を収集
+        const condInfo = this.#hiCondMap.get(hi);
+        if (condInfo) {
+          if (!lineCondStates.has(line)) lineCondStates.set(line, new Map());
+          lineCondStates.get(line).set(condInfo.text, condInfo.value);
         }
+
+        if (si === cursor && prevVars !== null) {
+          for (const name of newVarNames) {
+            if (!valEqual(prevVars.get(name), vars.get(name))) changedVars.add(name);
+          }
+        }
+        prevVars = vars;
       }
-      prevVars = vars;
+      hi++;
     }
 
-    // 列の再構築
+    // 変数列の再構築
     const currentNames = this.#varMeta.map(m => m.name);
     if (!arraysEqual(newVarNames, currentNames)) {
       const existingMap = new Map(this.#varMeta.map(m => [m.name, m]));
@@ -184,23 +287,32 @@ export class LineTrace extends BaseView {
       const isActive = lineNo === currentLine;
       rowEl.classList.toggle('lt-row--active', isActive);
 
+      // 変数セル
       const vars  = lineStates.get(lineNo);
       const cells = this.#cellEls.get(lineNo);
-
       for (let i = 0; i < this.#varMeta.length; i++) {
         const cellEl = cells[i];
         if (!cellEl) continue;
-
         const name    = this.#varMeta[i].name;
         const val     = vars?.get(name);
         const changed = isActive && changedVars.has(name);
-
         cellEl.innerHTML = val !== undefined
           ? formatValue(val)
           : '<span class="lt-empty">—</span>';
-
         cellEl.classList.remove('lt-flash');
         if (changed) { void cellEl.offsetWidth; cellEl.classList.add('lt-flash'); }
+      }
+
+      // 条件セル
+      const condState  = lineCondStates.get(lineNo);
+      const condCells  = this.#condCellEls.get(lineNo);
+      for (let ci = 0; ci < this.#condMeta.length; ci++) {
+        const condCellEl = condCells?.[ci];
+        if (!condCellEl) continue;
+        const val = condState?.get(this.#condMeta[ci]);
+        condCellEl.innerHTML = val === undefined
+          ? ''
+          : `<span class="v-bool">${val}</span>`;
       }
     }
   }
@@ -212,25 +324,35 @@ export class LineTrace extends BaseView {
 
   destroy() {
     if (this.#container) this.#container.innerHTML = '';
-    this.#container  = null;
-    this.#builder    = null;
-    this.#theadRow   = null;
-    this.#tbodyEl    = null;
+    this.#container   = null;
+    this.#builder     = null;
+    this.#theadRow    = null;
+    this.#tbodyEl     = null;
     this.#rowEls.clear();
     this.#cellEls.clear();
-    this.#varMeta    = [];
-    this.#humanSteps = [];
-    this.#trace      = [];
+    this.#condCellEls.clear();
+    this.#varMeta     = [];
+    this.#condMeta    = [];
+    this.#hiCondMap   = new Map();
+    this.#humanSteps  = [];
+    this.#trace       = [];
   }
 
   // ── 列操作 ────────────────────────────────────────────────────────────────
 
+  /**
+   * 変数列を再構築する。条件列（.lt-th-cond / .lt-td-cond）は変えない。
+   * insertBefore で変数列を条件列の直前に配置する。
+   */
   #rebuildColumns(newMeta) {
     this.#theadRow.querySelectorAll('.lt-th-var').forEach(el => el.remove());
     for (const cells of this.#cellEls.values()) {
       cells.forEach(td => td.remove());
       cells.length = 0;
     }
+
+    // 条件 TH の先頭（挿入基準点）
+    const condTh = this.#theadRow.querySelector('.lt-th-cond') ?? null;
 
     for (const meta of newMeta) {
       const th = document.createElement('th');
@@ -271,15 +393,19 @@ export class LineTrace extends BaseView {
         this.#rebuildColumns(newOrder);
       });
 
-      this.#theadRow.appendChild(th);
+      // 条件列の前に挿入（なければ末尾に append）
+      this.#theadRow.insertBefore(th, condTh);
     }
 
     for (const [lineNo, rowEl] of this.#rowEls) {
-      const cells = this.#cellEls.get(lineNo);
+      const cells       = this.#cellEls.get(lineNo);
+      // 条件 TD の先頭（挿入基準点）
+      const firstCondTd = this.#condCellEls.get(lineNo)?.[0] ?? null;
+
       for (let i = 0; i < newMeta.length; i++) {
         const td = document.createElement('td');
         td.className = `lt-td lt-td-var${newMeta[i].visible ? '' : ' lt-col-hidden'}`;
-        rowEl.appendChild(td);
+        rowEl.insertBefore(td, firstCondTd);
         cells.push(td);
       }
     }
@@ -294,10 +420,10 @@ export class LineTrace extends BaseView {
     toolbar.innerHTML = '';
     for (const meta of this.#varMeta) {
       const btn = document.createElement('button');
-      btn.className = `lt-var-toggle${meta.visible ? '' : ' lt-var-toggle--hidden'}`;
+      btn.className   = `lt-var-toggle${meta.visible ? '' : ' lt-var-toggle--hidden'}`;
       btn.textContent = meta.name;
       btn.dataset.var = meta.name;
-      btn.title = `${meta.name} を${meta.visible ? '非表示' : '表示'}にする`;
+      btn.title       = `${meta.name} を${meta.visible ? '非表示' : '表示'}にする`;
       btn.addEventListener('click', () => this.#toggleVar(meta.name));
       toolbar.appendChild(btn);
     }
