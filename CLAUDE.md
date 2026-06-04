@@ -28,11 +28,12 @@ JSVisualizer/
 │   │   ├── scope-view/           # スコープ・変数ビュー（ネスト枠）  ← タブ登録なし（非アクティブ）
 │   │   ├── callstack-view/       # コールスタックビュー              ← タブ登録なし（非アクティブ）
 │   │   ├── line-trace/           # トレース表（行番号+スニペット列+変数表・列表示切替・D&D）  ✅  ← タブ「トレース表」
+│   │   ├── exec-trace/           # 実行順トレース表（humanStep 順・変数列+条件列）          ✅  ← タブ「実行トレース」
 │   │   ├── trace-table/          # 静的トレース表（全ステップ・対象列付き）               ✅  ← タブ「全ステップ」
 │   │   ├── bar-chart/            # 棒グラフアニメーション（数値・配列変化）         ✅
 │   │   ├── color-box/            # 配列アニメーション（複数配列同時表示・ポインタ別行）✅  ← タブ「配列」
 │   │   ├── timeline/             # 変数の時系列グラフ（SVG折れ線・変数選択時Y軸動的更新）✅
-│   │   ├── heatmap/              # 実行頻度ヒートマップ（連結線トグル付き）          ✅
+│   │   ├── heatmap/              # 実行頻度ヒートマップ（連結線常時表示）            ✅
 │   │   ├── recursion-tree/       # 再帰呼び出しツリー（SVG・引数展開表示）                ✅
 │   │   ├── call-tree/            # 全関数呼び出しツリー（SVG・再帰に限らない）            ✅  ← タブ「呼び出しツリー」
 │   │   ├── lifetime/             # 変数ライフタイム Gantt チャート（SVG）                ✅
@@ -161,7 +162,7 @@ class TraceBuilder {
 |--------|------|-----|------|
 | 式評価 | `b`/`←`、`n`/`→` | `cursor ± 1` | 全 AST ノードの enter/exit |
 | 文評価 | `V`/`v` | `stepOver()` → matchIdx | サブ式をスキップ、文単位 |
-| 人にやさしい単位 | `H`/`h` | `humanStepBack()`/`humanStep()` | 代入・条件・ループ更新など意味ある変化点 |
+| 人にやさしい単位 | `H`/`h` | `humanStepBack()`/`humanStep()` | 代入・条件判定・while/for 条件式評価（イテレーションごと）・ループ更新・関数呼び出し等の意味ある変化点 |
 | 関数呼び出し単位 | `F`/`f` | callDepth 変化まで cursor 移動 | 関数呼び出し・リターンをひとまとまりに |
 
 ボタン色: 細粒度（式・人）= アクセントブルー、粗粒度（文・関数）= グレー
@@ -289,8 +290,11 @@ class TraceBuilder {
 - **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[callStack.length-1].name(args)` 形式、ReturnStatement は `'return'` を表示
 - **CallTree ビュー**: `buildCallTree()` が返すノード配列（再帰・非再帰を問わず全関数呼び出し）を SVG ツリーとして描画。`RecursionTree` と同じレイアウトアルゴリズムを使用。CSS クラスは `.ct-*`（`RecursionTree` の `.rt-*` に対応）
 - **スコープ統合表示**: `format.js` の `mergeScopesForDisplay(scopes, callStack)` でフレームごとに表示変数を決定。最内側フレームは scopes[0]〜scopes[M-2] を全マージ（ブロックスコープ含む）。外側フレームは env チェーンに含まれないため callStack[i].args + JSFunction.params から引数値を再構築（`reconstructFrameVars`）。ラベルは `factorial(6)` 形式（`formatFrameLabel(frame)`）。`scope-view`・`state-view`・`memory-view` で共通使用。表示順は innermost-first
-- **Heatmap の改善**: 背景色を `update()` ごとに現在ステップまでの実行回数で動的更新（`lineTimeline` + バイナリサーチ）。カウントを「N回 / M回」形式で表示。ドット幅 360px（3倍）。実行済みドット（`.hm-dot--past`）と未実行ドット（デフォルトグレー）を色分け。「連結線」ボタンで連続実行ドット間に SVG polyline を表示（`.hm-connect-svg`）
-- **ColorBox（配列ビュー）**: タブ名「配列」。複数配列を同時選択して縦に並べて表示。ポインタ変数は変数ごとに個別の行として表示。文字列値は切り詰めなしで表示
+- **Heatmap の改善**: 背景色を `update()` ごとに現在ステップまでの実行回数で動的更新（`lineTimeline` + バイナリサーチ）。カウントを「N回 / M回」形式で表示。ドット幅 360px（3倍）。実行済みドット（`.hm-dot--past`）と未実行ドット（デフォルトグレー）を色分け。異なる行に遷移する連続 humanStep のドット間を `.hm-overlay-svg` 上の `<line class="hm-vline">` で常時表示（`init()` 時に `requestAnimationFrame` で描画）。`.hm-lines` は `position: relative`、オーバーレイ SVG は `position: absolute`。トグルボタンは廃止
+- **ColorBox（配列ビュー）**: タブ名「配列」。複数配列を同時選択して表示（折り返しあり）。各配列ブロックを枠線（`border: 1px solid var(--border)`）＋背景色（`var(--surface2)`）で区切り表示。`#scanTrace()` の 2 パス走査で配列ごとの `maxWidth`（最大グリッド幅）と `maxGridHeight`（最大グリッド高）を事前計算。`#render()` で `.cb-grid` に `min-width`/`min-height` を設定し、配列長やポインタ行数が変化しても各ブロックの占有領域が動かないよう固定。空配列時も `.cb-grid` を描画して占有領域を確保。ポインタ変数は変数ごとに個別の行として表示。文字列値は切り詰めなしで表示
+- **ExecTrace（実行トレース）**: `init()` で humanStep 順の行をすべて一括描画。列 = # | 行 | コード | 変数値（出現順）| 条件式（出現順）。`update()` は現在行ハイライト移動と scrollIntoView のみ（O(n)）。条件式列は `buildConditionExitSet` + `buildCondInfo` で while/for の各イテレーション条件値を正確に表示
+- **console.log 配列内文字列クォート**: JSInterpreter `formatLogArg(v, depth=0)` に `depth` 引数を追加。`depth > 0`（配列・オブジェクトの要素）の文字列は `'str'` 形式（シングルクォート付き）で表示し、Node.js の挙動と一致させる。トップレベル文字列（depth=0）はクォートなし
+- **while/for 条件式の humanStep 追加**: `TraceBuilder.buildHumanIndices()` で WhileStatement/DoWhileStatement の条件式 exit（深さ D+1）をイテレーションごとに humanStep として追加（`matchIdx` で範囲を限定）。ForStatement は条件式 exit と更新式 exit も同様に追加。WhileStatement/ForStatement の enter 自体は humanStep から除外（条件式評価で代替）。LineTrace・ExecTrace の `buildConditionExitSet` も同ロジックで while/for 条件列を正しく表示
 - **Timeline**: 変数チップ選択変更時に選択変数の値のみで Y 軸 min/max を動的再計算（`#renderSVG()` 内で dynMin/dynMax を計算）
 - **super() バグ修正**: JSInterpreter の `CallExpression` ハンドラで callee.type === 'Super' を検出し、親クラス constructor を現在の `this` に対して直接実行することで継承コンストラクターを正しく処理
 - **再帰ツリー引数表示改善**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式で表示。NODE_W=160/NODE_H=80 に拡大。cost プロパティ（subtree サイズ）を左下角に `cost:N` 形式で表示。再帰呼び出しがない場合は「再帰呼び出しがありません」を表示

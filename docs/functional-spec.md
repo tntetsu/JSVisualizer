@@ -23,6 +23,7 @@
 | 0.9 | 2026-06-03 | 修正 1〜7 反映: スコープ表示アルゴリズム刷新（lexical scope 対応 mergeScopesForDisplay）・StateView CALL STACK 表示修正（formatFrameLabel 未インポートバグ修正 + スコープフレーム表示）・buildRecursionTree を再帰呼び出しのみにフィルタリング＋cost 付与・buildCallTree を完全独立化・RecursionTree に cost 表示追加・Heatmap 動的背景色（ステップ別更新）＋ドット 3 倍幅＋実行済み/未実行色分け＋N回/M回 形式・MemoryView スコープ名修正 |
 | 1.0 | 2026-06-04 | スタックフレーム変数の正確化: JSInterpreter に `Environment.snapshotOwn()` + `Recorder.frameEnvStack` を追加し、各 TraceEvent に `frameEnvs`（各フレームの callEnv スナップショット、外→内順）を記録。外側フレームにローカル変数・デフォルト引数を正確表示（`mergeScopesForDisplay` の第 3 引数 `frameEnvs` を利用）。V-01/V-04/V-13 が `frameEnvs` を使用。sv-scroll の flex→block 化によるスクロールバー修正 |
 | 1.1 | 2026-06-04 | ScopeView（V-04）・CallStackView（V-05）をタブ非登録（非アクティブ）に変更。LineTrace（V-02）を 2 ペイン構成から単一ペイン＋行番号スニペット構成に刷新（jsv-lt-src-w 削除）。ColorBox（V-07）をタブ名「配列」に変更・複数配列同時選択・ポインタ変数を変数ごと個別行表示・文字列の切り詰めなし表示に変更。Timeline（V-08）でチップ選択変数のみの Y 軸動的スケール計算を追加。Heatmap（V-09）に「連結線」トグルボタン（ドット間 SVG polyline）を追加。JSInterpreter の `super()` 呼び出しバグを修正（CallExpression ハンドラで Super を直接処理）。サンプルコード全 17 種を網羅する回帰テスト（samples.test.js）を追加。テスト総数 49 → 66 件 |
+| 1.2 | 2026-06-04 | while/for 条件式の評価を humanStep に追加（TraceBuilder.buildHumanIndices）。LineTrace・ExecTrace の条件式列で while/for 各イテレーションの条件値を正確に表示。ExecTrace（V-02b）をタブ「実行トレース」として文書化。タブ登録順を「実行トレース」→「全ステップ」に変更。Heatmap の連結線をトグルボタン廃止・常時表示に変更（オーバーレイ SVG + rAF）。ColorBox に最大サイズ事前計算（`maxWidth`/`maxGridHeight`）・空配列時も占有領域確保・幅超過時の折り返し（flex-wrap）・配列ブロックの枠線＋背景色を追加。JSInterpreter `formatLogArg` に `depth` 引数を追加し配列・オブジェクト内の文字列をシングルクォート付きで表示（Node.js 互換）|
 
 ---
 
@@ -139,7 +140,7 @@
 |------|----------|------|
 | 式評価 | cursor ± 1（`trace[]` を直接移動） | 文・式の実行開始から実行完了までを含む、最も細かい粒度のステップ |
 | 文評価 | `stepOver()` → `matchIdx` | 文ノードのみ（サブ式を内部でスキップ） |
-| 人にやさしい単位 | `humanStep()` / `humanStepBack()` | 代入・条件判定・ループ更新・関数呼び出し等の意味ある変化点 |
+| 人にやさしい単位 | `humanStep()` / `humanStepBack()` | 代入・条件判定・while/do-while/for の条件式評価（イテレーションごと）・for の更新式評価・関数呼び出し等の意味ある変化点 |
 | 関数呼び出し単位 | trace の `callDepth` 変化点まで cursor を移動 | 関数呼び出し・リターンを境界として進退 |
 
 ---
@@ -178,6 +179,24 @@
 **入力**: `builder.getHumanStepList()`, `builder.trace`, `builder.source`, `state.cursor`, `state.event`
 
 > **Note**: `animated-trace/`（ステップごとに行が追記されるアニメーション付きトレース表）は実装済みだが、現在タブには登録されていない。
+
+---
+
+#### V-02b: 実行順トレース表（ExecTrace）✅ 実装済み
+
+タブ名: **実行トレース**（タブ登録順: トレース表の次、全ステップの前）
+
+- 行 = humanStep ごとの実行ステップ（実行順）
+- `init()` 時に全 humanStep を一括描画
+- `update()` は現在行のハイライト移動と scrollIntoView のみ（O(n)）
+- 列構成: # | 行 | コード（先頭 30 文字）| 変数値列（出現順）| 条件式列（出現順）
+  - **変数値列**: 各 humanStep 時点の変数値を `flattenEnv` で取得して表示
+  - **条件式列**: `buildConditionExitSet` でループ条件式の exit を事前収集し、`buildCondInfo` で以下の 2 ケースを判定
+    - Case 1（while/do-while/for の条件式 exit）: イベント自体が条件式評価結果。値を直接取得
+    - Case 2（IfStatement/ConditionalExpression の enter）: 直後の boolean exit を探して値を取得
+  - while/for ループはイテレーションごとに条件値が更新され、ループ終了時の `false` も正確に表示
+
+**入力**: `builder.getHumanStepList()`, `builder.trace`, `builder.source`, `state.cursor`
 
 ---
 
@@ -245,12 +264,14 @@
 
 タブ名: **配列**
 
-- 複数の配列を同時選択して縦に並べて表示
-- 各配列は `.cb-array-block` としてラベル付きで表示
+- 複数の配列を同時選択して表示（`.cb-box-area` は `flex-wrap: wrap` で幅不足時に次行へ折り返し）
+- 各配列は `.cb-array-block`（枠線 `border: 1px solid var(--border)` ＋背景色 `var(--surface2)` ＋`border-radius: 6px`）としてラベル付きで表示
 - 箱の色は値の大きさに応じて青→赤でグラデーション
 - 変数選択チップ（複数選択可。最後の 1 つは選択解除不可）
 - ポインタ検出: `[0, arr.length)` 範囲の整数変数を自動検出し、対応インデックスの箱を強調。ポインタ変数は変数ごとに個別行として表示
 - 文字列値は切り詰めなしで全文表示
+- **最大サイズ事前計算**: `#scanTrace()` の第 2 パスで全 humanStep を走査し、配列ごとの `maxWidth`（`len * CELL` の最大値）と `maxGridHeight`（インデックス行＋値行＋最大ポインタ行数 × 高さ の最大値）を計算。`#render()` で `.cb-grid` に `min-width`/`min-height` として設定し、ステップ間で各配列ブロックの占有領域が動かないよう固定
+- **空配列時の占有確保**: `arr.length === 0` のときも `.cb-grid` に `min-width`/`min-height` を設定し、「配列が空です」メッセージを内包する。占有領域は最大サイズを維持
 
 **入力**: `state.event.env`, `state.cursor`, `builder.trace`
 
@@ -278,7 +299,7 @@
 - **背景色**: 現在ステップまでの実行回数に応じて橙の透明度を `update()` で動的に更新（静的ではない）
 - **実行回数表示**: 各行の右端に「N回 / M回」形式で表示（N=現在ステップまでの回数、M=全ステップでの総回数）。ステップごとに更新
 - **時系列ドット**: 各行の実行タイミングを右端の幅固定トラック（360px）内に点で配置。水平位置 = humanStep インデックスの相対位置。実行済みドット（`.hm-dot--past`、アクセントカラー）と未実行ドット（グレー）で色分け。現在位置ドット（`.hm-dot--current`）は強調表示
-- **連結線トグル**: ツールバーの「連結線」ボタンをクリックすると、各行のドット間を SVG polyline（`.hm-connect-line`）で結ぶ。再クリックで非表示。状態は `.hm-show-lines` クラスで管理
+- **連結線（常時表示）**: 異なる行に遷移する連続 humanStep のドット間を、`.hm-lines` 内のオーバーレイ SVG（`.hm-overlay-svg`、`position: absolute`）上の `<line class="hm-vline">` で常時表示。`init()` 時に `requestAnimationFrame` で `#drawConnectLines()` を呼び出して描画。座標は `getBoundingClientRect()` ＋ `scrollTop` で算出。トグルボタン（`.hm-btn-lines`）は廃止
 - `update()` で背景色・カウントテキスト・ドットの状態クラスを全行更新
 
 **入力**: `builder.source`, `builder.buildHeatmap()`, `builder.getHumanStepList()`, `builder.trace`, `state.event`, `state.cursor`

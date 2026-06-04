@@ -22,7 +22,8 @@
 | 0.8 | 2026-06-02 | callStack 順序バグ修正（[0]=最外側・[last]=最内側に訂正）。CallTree ビュー新規追加（src/views/call-tree/）・TraceBuilder に buildCallTree() 追加。LineTrace 2ペイン化（ソースパネル+リサイズ+スクロール同期刷新）。ScopeView/StateView スコープ統合（mergeScopesForDisplay・formatFrameLabel）。Heatmap 時系列ドット+割合表示。RecursionTree 引数展開・NODE_W/H 拡大。Console パネル高さドラッグ変更（jsv-console-h）。localStorage jsv-lt-src-w 追加 |
 | 0.9 | 2026-06-03 | mergeScopesForDisplay を lexical scope 対応に刷新（旧: 2スコープ/関数仮定 → 新: 最内側関数が全 env チェーンをマージ）。StateView CALL STACK: formatFrameLabel 未インポートバグ修正＋スコープフレーム表示に変更。buildRecursionTree: 再帰呼び出しのみフィルタリング＋cost プロパティ付与。buildCallTree: #buildFullCallTree() を内部共有メソッドとして独立化。RecursionTree: cost 表示追加（左下角 cost:N）＋「再帰呼び出しがありません」メッセージ。Heatmap: 動的背景色（ステップ別更新）・ドット幅 3 倍（360px）・実行済み/未実行色分け・N回/M回 表示。MemoryView: mergeScopesForDisplay で正しいフレームラベル表示。テスト 49 件（buildCallTree テスト追加、buildRecursionTree テスト刷新）|
 | 1.0 | 2026-06-04 | JSInterpreter に `Environment.snapshotOwn()` メソッドと `Recorder.frameEnvStack`（アクティブフレームの live Environment 参照スタック）を追加。各 TraceEvent に `frameEnvs: Object[]`（外→内の callEnv スナップショット配列）を記録。`mergeScopesForDisplay(scopes, callStack, frameEnvs)` の第 3 引数を追加し、外側フレームの表示を `reconstructFrameVars`（args ベース）から `frameEnvs[i]`（callEnv スナップショット）に変更。params・デフォルト引数・function-body 変数を正確に表示。V-01/V-04/V-13 が `state.frameEnvs` を参照するよう更新。AppState に `frameEnvs` フィールド追加。sv-scroll を flex→block 化（`overflow-y: auto` のスクロールバー修正）|
-| 1.1 | 2026-06-04 | ScopeView・CallStackView をタブ非登録（非アクティブ）に変更。LineTrace を 2 ペイン構成から単一ペイン＋行番号スニペット（`lt-lineno-num` + `lt-lineno-snippet`、先頭 15 文字）構成に刷新（`#srcPanel`・`#srcLines`・`#setupScrollSync`・`#setupSrcResizer` および jsv-lt-src-w を削除）。ColorBox: タブ名「配列」・複数配列同時選択（`#selectedArrays: Set<string>`）・ポインタ変数を変数ごと個別行表示・文字列切り詰めなし。Timeline: `#renderSVG()` 内で選択変数のみの `dynMin`/`dynMax` を計算して Y 軸を動的スケール化。Heatmap: `#buildDots()` で SVG polyline を含む `.hm-connect-svg` を生成し「連結線」ボタン（`.hm-btn-lines`）で `.hm-show-lines` クラスをトグル。JSInterpreter `super()` 呼び出しバグ修正（`CallExpression` ハンドラに `node.callee.type === 'Super'` の早期リターンを追加）。`tests/core/samples.test.js` 新規追加（17 サンプル全エラーなし・trace ≥ 1 を確認）。テスト総数 49 → 66 件。view-switcher 登録ビュー数 15 → 13 |
+| 1.1 | 2026-06-04 | ScopeView・CallStackView をタブ非登録（非アクティブ）に変更。LineTrace を 2 ペイン構成から単一ペイン＋行番号スニペット（`lt-lineno-num` + `lt-lineno-snippet`、先頭 15 文字）構成に刷新（`#srcPanel`・`#srcLines`・`#setupScrollSync`・`#setupSrcResizer` および jsv-lt-src-w を削除）。ColorBox: タブ名「配列」・複数配列同時選択（`#selectedArrays: Set<string>`）・ポインタ変数を変数ごと個別行表示・文字列切り詰めなし。Timeline: `#renderSVG()` 内で選択変数のみの `dynMin`/`dynMax` を計算して Y 軸を動的スケール化。Heatmap: `#buildDots()` で SVG polyline を含む `.hm-connect-svg` を生成し「連結線」ボタン（`.hm-btn-lines`）で `.hm-show-lines` クラスをトグル。JSInterpreter `super()` 呼び出しバグ修正（`CallExpression` ハンドラに `node.callee.type === 'Super'` の早期リターンを追加）。`tests/core/samples.test.js` 新規追加（17 サンプル全エラーなし・trace ≥ 1 を確認）。テスト総数 49 → 66 件。view-switcher 登録ビュー数 15 → 13（ScopeView・CallStackView 非登録）|
+| 1.2 | 2026-06-04 | `buildHumanIndices()` に while/do-while/for 条件式・更新式 exit をイテレーションごと追加（`matchIdx` 範囲内の深さ D+1 exit を走査）。WhileStatement/ForStatement enter は humanStep から除外。LineTrace・ExecTrace に `buildConditionExitSet()` + 改訂 `buildCondInfo()` を追加し条件列を正確表示。ExecTrace（実行トレースタブ）を設計文書化。タブ登録順: 実行トレース → 全ステップ（app.js で入れ替え）。Heatmap: `.hm-btn-lines` トグルボタン廃止。`#drawConnectLines()` を `init()` 内で rAF 経由で呼び出し常時表示へ変更。`.hm-overlay-svg`（position:absolute）＋ `<line class="hm-vline">` で異なる行間を縦線表示。ColorBox: `#scanTrace()` を 2 パス化し配列ごとの `maxWidth`/`maxGridHeight` を事前計算。`#render()` で `.cb-grid` に `min-width`/`min-height` を設定（空配列時も同様）。`.cb-box-area` を `flex-wrap:wrap` 化・`.cb-array-block` に枠線＋背景色・`.cb-grid` の `min-width:100%` 削除。JSInterpreter `formatLogArg(v, depth=0)`: `depth > 0` の文字列を `'str'` 形式で表示（Node.js 互換）|
 
 ---
 
@@ -187,10 +188,15 @@ const symbol = ev.phase === 'enter' ? '▶' : '◀';
 
 人間が紙でトレースする際に「記録する」タイミングを、enter/exit の組み合わせで定義する。
 
-| 条件 | 例 |
+| 条件 | 対象ノード種別 |
 |------|---|
-| 文ノードの **enter** | `ExpressionStatement.enter`、`IfStatement.enter` |
-| 副作用ノードの **exit** | `AssignmentExpression.exit`、`UpdateExpression.exit` |
+| 文ノードの **enter** | `ExpressionStatement`, `IfStatement`, `ForOfStatement`, `ForInStatement`, `BreakStatement`, `ContinueStatement` |
+| 副作用ノードの **exit** | `VariableDeclaration`, `AssignmentExpression`, `UpdateExpression`, `ReturnStatement`, `ThrowStatement`, `CallExpression` |
+| while/do-while 条件式の **exit**（イテレーションごと） | `WhileStatement`/`DoWhileStatement` enter の `matchIdx` 範囲内で、深さ D+1・`BlockStatement` 以外の exit |
+| for 条件式・更新式の **exit**（イテレーションごと） | `ForStatement` enter の `matchIdx` 範囲内で、深さ D+1・`VariableDeclaration`・`BlockStatement` 以外の exit |
+
+> `WhileStatement`/`ForStatement` の enter 自体は humanStep に含まない（各イテレーションの条件式 exit で代替）。  
+> `matchIdx` でループ範囲を限定することで、ネストしたループに誤検出しない。
 
 exit を採用する副作用ノードでは、値確定後（exit）に記録することで、変数の新しい値を表に反映できる。
 
@@ -643,6 +649,34 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
 
 ---
 
+#### `exec-trace/` — 実行順トレース表 ✅
+
+タブ名: **実行トレース**
+
+- `init()` で全 humanStep を実行順（humanStep インデックス順）に一括描画
+- `update()` は `et-row--active` クラスの付け替えと scrollIntoView のみ（O(n)）
+
+**列構成**: # | 行 | コード（先頭 30 文字）| 変数値列（出現順）| 条件式列（出現順）
+
+**条件式列の実装**（LineTrace と共通ロジック）:
+
+```js
+// 事前計算: while/do-while/for の条件式 exit インデックスを Set に収集
+function buildConditionExitSet(trace) { ... }
+
+// 各 humanStep で条件式情報を取得
+function buildCondInfo(trace, si, lines, conditionExitSet) {
+  // Case 1: while/for 条件式 exit → イベント自体の value を使用
+  if (conditionExitSet.has(si)) { return { text: extractCondText(...), value: ev.value }; }
+  // Case 2: IfStatement/ConditionalExpression enter → 直後 boolean exit を探索
+  if (ev.phase === 'enter' && CONDITION_NODES.has(ev.nodeType)) { ... }
+}
+```
+
+`extractCondText(lines, loc, end)` は loc・end の 1-based column を使って `lineText.slice(col-1, end.column)` でソーステキストを抽出する。
+
+---
+
 #### `trace-table/` — 全ステップ表 ✅
 
 - `init()` で `builder.getHumanStepList()` の全行を一括描画
@@ -727,29 +761,31 @@ switch (ev.nodeType) {
 
 **文字列値**: 切り詰めなしで全文表示
 
+**最大サイズ事前計算** (`#scanTrace()` 第 2 パス):
+```js
+// 各 humanStep で len × CELL・IDX_H・PTR_H を計算して最大値を記録
+m.maxWidth      = Math.max(m.maxWidth,      len * CELL);
+m.maxGridHeight = Math.max(m.maxGridHeight, IDX_H + CELL + ptrCount * PTR_H);
+```
+`#render()` で `.cb-grid` に `min-width: ${maxWidth}px; min-height: ${maxGridHeight}px` を inline style で設定する。空配列時（`arr.length === 0`）も同じ min-width/min-height を設定し、「配列が空です」メッセージを内包する。
+
+**折り返しレイアウト**: `.cb-box-area` が `display: flex; flex-wrap: wrap; align-content: flex-start; align-items: flex-start` で、幅不足時に次の行へ折り返す。
+
+**枠線・背景色**: `.cb-array-block` に `border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); margin: 4px` を設定し、配列ブロックの境界を視覚化する。
+
 **DOM 構造**:
 ```html
 <div class="cb-wrap">
   <div class="cb-chips">...</div>
-  <div class="cb-arrays-area">
-    <!-- 選択配列ごとに1ブロック -->
+  <div class="cb-box-area">  <!-- flex-wrap: wrap -->
+    <!-- 選択配列ごとに1ブロック（枠線・背景付き） -->
     <div class="cb-array-block">
       <div class="cb-array-name">arr</div>
-      <div class="cb-box-area">
-        <div class="cb-row">
-          <span class="cb-box cb-box--ptr" style="background: hsl(...)">
-            <span class="cb-idx">0</span>
-            <span class="cb-val">3</span>
-          </span>
-          ...
-        </div>
+      <div class="cb-grid" style="min-width:Npx;min-height:Npx">
+        <div class="cb-row cb-idx-row">...</div>
+        <div class="cb-row cb-val-row">...</div>
         <!-- ポインタ変数ごとに個別行 -->
-        <div class="cb-ptr-row">
-          <span class="cb-ptr-label" style="left: ...">i↑</span>
-        </div>
-        <div class="cb-ptr-row">
-          <span class="cb-ptr-label" style="left: ...">j↑</span>
-        </div>
+        <div class="cb-row cb-ptr-row">...</div>
       </div>
     </div>
   </div>
@@ -816,7 +852,17 @@ el.style.background = `rgba(255,140,0,${alpha.toFixed(3)})`;
   - `hi === cursor_hi` → `.hm-dot--current`（強調表示）
   - それ以外 → デフォルト（薄いグレー、未実行）
 
-**連結線（SVG polyline）**: `#buildDots(indices, total)` が各行の `.hm-dots` 内に `<span class="hm-dot">` と `<svg class="hm-connect-svg">` を生成。`.hm-connect-svg` はデフォルト非表示（`display: none`）。ツールバーの「連結線」ボタン（`.hm-btn-lines`）クリックで `.hm-lines` に `.hm-show-lines` クラスをトグルし、CSS で `.hm-show-lines .hm-connect-svg { display: block }` に切り替える。SVG の `<polyline class="hm-connect-line">` は水平位置 = `(hi / (total-1)) * 360px` で各ドットを結ぶ
+**連結線（常時表示）**: `init()` 完了後に `requestAnimationFrame(() => this.#drawConnectLines())` で描画を開始。`.hm-lines`（`position: relative`）内に単一のオーバーレイ SVG（`.hm-overlay-svg`、`position: absolute; top:0; left:0; pointer-events:none`）を配置し、異なる行に遷移する連続 humanStep ペア（`#crossLinePairs`）のドット間を `<line class="hm-vline">` で結ぶ。座標は `getBoundingClientRect()` と `scrollTop` で `.hm-lines` コンテンツ座標に変換する。トグルボタン（`.hm-btn-lines`）は廃止。
+
+```js
+// #drawConnectLines() 座標計算
+const x1 = rA.right  - linesRect.left;
+const y1 = rA.top + rA.height / 2 - linesRect.top + scrollTop;
+const x2 = rB.left   - linesRect.left;
+const y2 = rB.top + rB.height / 2 - linesRect.top + scrollTop;
+```
+
+CSS: `.hm-vline { stroke: var(--accent); stroke-width: 1; stroke-opacity: 0.4; fill: none; }`
 
 **update()**: 全行の背景色・カウントテキスト・ドットクラスを更新し、アクティブ行に `.hm-line--active` を付与
 
@@ -1278,6 +1324,8 @@ JSVisualizer/
 │   │   │   └── index.js              ✅ コールスタックカード（slide-in）
 │   │   ├── line-trace/
 │   │   │   └── index.js              ✅ 行×変数マトリクス表（動的列追加）
+│   │   ├── exec-trace/
+│   │   │   └── index.js              ✅ 実行順トレース表（humanStep 順・変数列+条件列）
 │   │   ├── trace-table/
 │   │   │   └── index.js              ✅ 全ステップ静的テーブル
 │   │   ├── animated-trace/
@@ -1305,7 +1353,8 @@ JSVisualizer/
 │   └── components/
 │       ├── code-editor.js             ← コードエディタ
 │       ├── step-controls.js           ← ステップ操作バー（10ボタン）
-│       ├── view-switcher.js           ← ビュー切り替えタブ（13ビュー登録 + keyboard/localStorage）
+│       ├── view-switcher.js           ← ビュー切り替えタブ（14ビュー登録 + keyboard/localStorage）
+│       ├── pane-resizer.js             ← ペインリサイザー（editor/viz 幅変更・localStorage 永続化）
 │       └── settings-panel.js          ← テーマ切り替え設定パネル
 ├── web/
 │   ├── index.html                     ← FOUC防止スクリプト含む
@@ -1525,7 +1574,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 | ② Clone JSInterpreter | `git clone https://github.com/tntetsu/JSInterpreter.git ../JSInterpreter`（`package.json` の `file:../JSInterpreter` 参照に合わせた配置） |
 | ③ Node.js setup | `actions/setup-node@v4`（Node 20 + npm キャッシュ） |
 | ④ Install deps | `npm ci` |
-| ⑤ Test | `npm test`（Jest 42 テスト） |
+| ⑤ Test | `npm test`（Jest 66 テスト） |
 | ⑥ Build | `npm run build`（esbuild で `web/` に成果物生成） |
 | ⑦ Upload artifact | `actions/upload-pages-artifact@v3`（`web/` ディレクトリ） |
 | ⑧ Deploy | `actions/deploy-pages@v4` |
@@ -1542,20 +1591,20 @@ CSS カスタムプロパティで 2 テーマを管理する。
 
 ## 9. テスト方針
 
-### 9.1 ユニットテスト（Jest / 42 件）
+### 9.1 ユニットテスト（Jest / 66 件）
 
 | 対象 | テストファイル | テスト数 | テスト内容 |
 |------|-------------|---------|-----------|
-| `trace-builder.js` | `tests/core/trace-builder.test.js` | 21 件 | `buildHeatmap`（4件）, `buildHumanIndices`（5件）, `getHumanStepList`（1件）, `buildRecursionTree`（4件）, `buildLifetime`（5件）, `buildControlFlow`（7件） |
-| `debugger-adapter.js` | `tests/core/debugger-adapter.test.js` | - | load/moveTo の副作用、diff 検出 |
+| `trace-builder.js` | `tests/core/trace-builder.test.js` | 28 件 | `buildHeatmap`（4件）, `buildHumanIndices`（5件）, `getHumanStepList`（1件）, `buildRecursionTree`（4件）, `buildCallTree`（3件）, `buildLifetime`（5件）, `buildControlFlow`（7件）, その他 |
 | `step-controller.js` | `tests/core/step-controller.test.js` | 21 件 | 粒度別ステップ（expr/stmt/human/call）の cursor 移動 |
+| 17 サンプル | `tests/core/samples.test.js` | 17 件 | 全サンプルコードがエラーなく実行でき trace ≥ 1 を確認 |
 
-**合計: 42 テスト**（`npm test` で全実行）
+**合計: 66 テスト**（`npm test` で全実行）
 
 ### 9.2 テスト実行コマンド
 
 ```bash
-npm test               # 全テスト実行
+npm test               # 全テスト実行（66 件）
 npm run test:watch     # ウォッチモード
 ```
 
