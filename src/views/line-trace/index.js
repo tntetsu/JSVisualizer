@@ -87,25 +87,75 @@ function extractCondText(lines, loc, end) {
 }
 
 /**
- * si が条件文 enter の場合、matchIdx までの範囲を走査して
- * AST 深さ D+1 の最初のブール exit の条件テキストと値を返す。
- * ForStatement は init のあとにテスト式が来るため nextSi ではなく
- * matchIdx を上限にすることで正しく検出できる。
+ * while/do-while/for の条件式 exit であるトレースインデックスの Set を返す。
+ * TraceBuilder.buildHumanIndices と同じロジックで条件式 exit を特定する。
  */
-function buildCondInfo(trace, si, lines) {
-  const ev = trace[si];
-  if (!ev || ev.phase !== 'enter' || !CONDITION_NODES.has(ev.nodeType)) return null;
-  const D        = ev.depth;
-  const endBound = ev.matchIdx != null ? ev.matchIdx + 1 : trace.length;
-  for (let i = si + 1; i < endBound; i++) {
-    const t = trace[i];
-    if (!t || t.depth < D) break;
-    if (t.phase === 'exit' && t.depth === D + 1 && typeof t.value === 'boolean') {
-      const text = extractCondText(lines, t.loc, t.end);
-      if (text) return { text, value: t.value };
-      return null;
+function buildConditionExitSet(trace) {
+  const set = new Set();
+  for (let i = 0; i < trace.length; i++) {
+    const ev = trace[i];
+    if (ev.phase === 'enter' &&
+        (ev.nodeType === 'WhileStatement' || ev.nodeType === 'DoWhileStatement')) {
+      const D      = ev.depth;
+      const endIdx = ev.matchIdx ?? trace.length;
+      for (let j = i + 1; j < endIdx; j++) {
+        const t = trace[j];
+        if (t.phase === 'exit' && t.depth === D + 1 &&
+            t.nodeType !== 'BlockStatement' && typeof t.value === 'boolean') {
+          set.add(j);
+        }
+      }
+    }
+    if (ev.phase === 'enter' && ev.nodeType === 'ForStatement') {
+      const D      = ev.depth;
+      const endIdx = ev.matchIdx ?? trace.length;
+      for (let j = i + 1; j < endIdx; j++) {
+        const t = trace[j];
+        if (t.phase === 'exit' && t.depth === D + 1 &&
+            t.nodeType !== 'VariableDeclaration' &&
+            t.nodeType !== 'BlockStatement' &&
+            typeof t.value === 'boolean') {
+          set.add(j);
+        }
+      }
     }
   }
+  return set;
+}
+
+/**
+ * si が条件評価の humanStep かどうかを判定し、{text, value} を返す。
+ *
+ * Case 1: while/for 条件式 exit（conditionExitSet に含まれる）
+ *         → イベント自身の loc/end から条件テキストを抽出
+ * Case 2: IfStatement / ConditionalExpression の enter
+ *         → matchIdx 範囲内で最初のブール exit を探す
+ */
+function buildCondInfo(trace, si, lines, conditionExitSet) {
+  const ev = trace[si];
+  if (!ev) return null;
+
+  // Case 1: while/for 条件式 exit
+  if (conditionExitSet.has(si)) {
+    const text = extractCondText(lines, ev.loc, ev.end);
+    return text ? { text, value: ev.value } : null;
+  }
+
+  // Case 2: 条件文 enter（IfStatement / ConditionalExpression）
+  if (ev.phase === 'enter' && CONDITION_NODES.has(ev.nodeType)) {
+    const D        = ev.depth;
+    const endBound = ev.matchIdx != null ? ev.matchIdx + 1 : trace.length;
+    for (let i = si + 1; i < endBound; i++) {
+      const t = trace[i];
+      if (!t || t.depth < D) break;
+      if (t.phase === 'exit' && t.depth === D + 1 && typeof t.value === 'boolean') {
+        const text = extractCondText(lines, t.loc, t.end);
+        if (text) return { text, value: t.value };
+        return null;
+      }
+    }
+  }
+
   return null;
 }
 
@@ -188,12 +238,13 @@ export class LineTrace extends BaseView {
     this.#tbodyEl.appendChild(tbodyFrag);
 
     // 条件列を init で事前計算（全 humanStep を走査）
+    const conditionExitSet = buildConditionExitSet(this.#trace);
     const condSet  = new Set();
     const condMeta = [];
     const hiCondMap = new Map();
     for (let hi = 0; hi < this.#humanSteps.length; hi++) {
       const si   = this.#humanSteps[hi];
-      const info = buildCondInfo(this.#trace, si, lines);
+      const info = buildCondInfo(this.#trace, si, lines, conditionExitSet);
       if (info) {
         hiCondMap.set(hi, info);
         if (!condSet.has(info.text)) {

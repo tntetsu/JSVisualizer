@@ -81,11 +81,10 @@ export class TraceBuilder {
 
     const set = new Set();
 
+    // WhileStatement / ForStatement は条件式評価ごとに個別追加するため除外
     const HUMAN_ENTER_TYPES = new Set([
       'ExpressionStatement',
       'IfStatement',
-      'WhileStatement',
-      'ForStatement',
       'ForOfStatement',
       'ForInStatement',
       'BreakStatement',
@@ -107,6 +106,37 @@ export class TraceBuilder {
         set.add(i);
       } else if (ev.phase === 'exit' && HUMAN_EXIT_TYPES.has(ev.nodeType)) {
         set.add(i);
+      }
+
+      // WhileStatement / DoWhileStatement: 条件式 exit を全イテレーション分追加
+      if (ev.phase === 'enter' &&
+          (ev.nodeType === 'WhileStatement' || ev.nodeType === 'DoWhileStatement')) {
+        const loopDepth = ev.depth;
+        const endIdx    = ev.matchIdx ?? this.#trace.length;
+        for (let j = i + 1; j < endIdx; j++) {
+          const inner = this.#trace[j];
+          if (inner.phase === 'exit' &&
+              inner.depth === loopDepth + 1 &&
+              inner.nodeType !== 'BlockStatement') {
+            set.add(j);
+          }
+        }
+      }
+
+      // ForStatement: テスト式 exit と更新式 exit を全イテレーション分追加
+      // init（VariableDeclaration）は HUMAN_EXIT_TYPES で既にカバー
+      if (ev.phase === 'enter' && ev.nodeType === 'ForStatement') {
+        const forDepth = ev.depth;
+        const endIdx   = ev.matchIdx ?? this.#trace.length;
+        for (let j = i + 1; j < endIdx; j++) {
+          const inner = this.#trace[j];
+          if (inner.phase === 'exit' &&
+              inner.depth === forDepth + 1 &&
+              inner.nodeType !== 'VariableDeclaration' &&
+              inner.nodeType !== 'BlockStatement') {
+            set.add(j);
+          }
+        }
       }
     }
 

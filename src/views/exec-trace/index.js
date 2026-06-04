@@ -41,20 +41,64 @@ function extractCondText(lines, loc, end) {
   return (lineText.slice(loc.column - 1).trim() + '…') || null;
 }
 
-function buildCondInfo(trace, si, lines) {
-  const ev = trace[si];
-  if (!ev || ev.phase !== 'enter' || !CONDITION_NODES.has(ev.nodeType)) return null;
-  const D        = ev.depth;
-  const endBound = ev.matchIdx != null ? ev.matchIdx + 1 : trace.length;
-  for (let i = si + 1; i < endBound; i++) {
-    const t = trace[i];
-    if (!t || t.depth < D) break;
-    if (t.phase === 'exit' && t.depth === D + 1 && typeof t.value === 'boolean') {
-      const text = extractCondText(lines, t.loc, t.end);
-      if (text) return { text, value: t.value };
-      return null;
+function buildConditionExitSet(trace) {
+  const set = new Set();
+  for (let i = 0; i < trace.length; i++) {
+    const ev = trace[i];
+    if (ev.phase === 'enter' &&
+        (ev.nodeType === 'WhileStatement' || ev.nodeType === 'DoWhileStatement')) {
+      const D      = ev.depth;
+      const endIdx = ev.matchIdx ?? trace.length;
+      for (let j = i + 1; j < endIdx; j++) {
+        const t = trace[j];
+        if (t.phase === 'exit' && t.depth === D + 1 &&
+            t.nodeType !== 'BlockStatement' && typeof t.value === 'boolean') {
+          set.add(j);
+        }
+      }
+    }
+    if (ev.phase === 'enter' && ev.nodeType === 'ForStatement') {
+      const D      = ev.depth;
+      const endIdx = ev.matchIdx ?? trace.length;
+      for (let j = i + 1; j < endIdx; j++) {
+        const t = trace[j];
+        if (t.phase === 'exit' && t.depth === D + 1 &&
+            t.nodeType !== 'VariableDeclaration' &&
+            t.nodeType !== 'BlockStatement' &&
+            typeof t.value === 'boolean') {
+          set.add(j);
+        }
+      }
     }
   }
+  return set;
+}
+
+function buildCondInfo(trace, si, lines, conditionExitSet) {
+  const ev = trace[si];
+  if (!ev) return null;
+
+  // Case 1: while/for 条件式 exit
+  if (conditionExitSet.has(si)) {
+    const text = extractCondText(lines, ev.loc, ev.end);
+    return text ? { text, value: ev.value } : null;
+  }
+
+  // Case 2: 条件文 enter（IfStatement / ConditionalExpression）
+  if (ev.phase === 'enter' && CONDITION_NODES.has(ev.nodeType)) {
+    const D        = ev.depth;
+    const endBound = ev.matchIdx != null ? ev.matchIdx + 1 : trace.length;
+    for (let i = si + 1; i < endBound; i++) {
+      const t = trace[i];
+      if (!t || t.depth < D) break;
+      if (t.phase === 'exit' && t.depth === D + 1 && typeof t.value === 'boolean') {
+        const text = extractCondText(lines, t.loc, t.end);
+        if (text) return { text, value: t.value };
+        return null;
+      }
+    }
+  }
+
   return null;
 }
 
@@ -104,9 +148,10 @@ export class ExecTrace extends BaseView {
     const condNames = [];
     const hiCondMap = new Map();  // hi → {text, value}
 
+    const conditionExitSet = buildConditionExitSet(trace);
     for (let hi = 0; hi < humanSteps.length; hi++) {
       const si   = humanSteps[hi];
-      const info = buildCondInfo(trace, si, lines);
+      const info = buildCondInfo(trace, si, lines, conditionExitSet);
       if (info) {
         hiCondMap.set(hi, info);
         if (!condSet.has(info.text)) {
