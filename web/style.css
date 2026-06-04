@@ -1394,6 +1394,26 @@ html, body {
   text-overflow: ellipsis;
 }
 
+/* 条件列 */
+.lt-th-cond {
+  background: var(--surface2);
+  color: var(--accent);
+  font-style: italic;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lt-td-cond {
+  text-align: center;
+  border-left: 1px solid var(--border);
+  min-width: 52px;
+  max-width: 120px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* 値なし（まだ実行されていない行） */
 .lt-empty {
   color: var(--border);
@@ -1750,7 +1770,7 @@ html, body {
   border-color: var(--accent);
 }
 
-.hm-connect-svg {
+.hm-overlay-svg {
   position: absolute;
   top: 0;
   left: 0;
@@ -1758,15 +1778,11 @@ html, body {
   display: none;
 }
 
-.hm-connect-line {
-  fill: none;
+.hm-vline {
   stroke: var(--accent);
   stroke-width: 1;
-  opacity: 0.4;
-}
-
-.hm-show-lines .hm-connect-svg {
-  display: block;
+  stroke-opacity: 0.4;
+  fill: none;
 }
 
 .hm-lines {
@@ -1776,6 +1792,7 @@ html, body {
   font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
   font-size: 13px;
   line-height: 1.55;
+  position: relative;
 }
 
 .hm-line {

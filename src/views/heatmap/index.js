@@ -7,6 +7,9 @@
  * - 現在位置ドット: ハイライト（hm-dot--current）
  * - 未実行ドット: 薄いグレー（デフォルト）
  * 実行回数は「現在の回数 / 総回数」形式で表示し、ステップごとに更新する。
+ *
+ * 連結線: 異なる行に遷移する連続 humanStep のドット間を縦線で接続する。
+ * dotA の右端 → dotB の左端 を .hm-lines 上の オーバーレイ SVG に描画する。
  */
 
 import { BaseView } from '../base-view.js';
@@ -16,13 +19,17 @@ import { esc }      from '../../utils/format.js';
 const DOT_MAX = 200;
 
 export class Heatmap extends BaseView {
-  #container    = null;
-  #builder      = null;
-  #lineEls      = null;
-  #dotEls       = null;
-  #lineTimeline = null;  // Map<lineNo, number[]> — この行が実行された humanStep インデックス列
-  #maxTotal     = 1;     // 全行の中の最大実行回数（背景色正規化用）
-  #showLines    = false; // 連結線の表示/非表示
+  #container      = null;
+  #builder        = null;
+  #lineEls        = null;
+  #dotEls         = null;
+  #lineTimeline   = null;  // Map<lineNo, number[]>
+  #maxTotal       = 1;
+  #showLines      = false;
+  #crossLinePairs = null;  // [hiA, hiB][] — 異なる行に遷移する連続 humanStep ペア
+  #dotMap         = null;  // Map<hi, HTMLElement>
+  #overlaySvg     = null;
+  #linesEl        = null;
 
   // ── BaseView ──────────────────────────────────────────────────────────────
 
@@ -45,7 +52,7 @@ export class Heatmap extends BaseView {
     const counts     = [...heatmap.values()];
     this.#maxTotal   = counts.length > 0 ? Math.max(...counts) : 1;
 
-    // humanStep ごとの行遷移（lineNo 配列）
+    // humanStep ごとの行番号列
     const timeline = humanSteps.map(si => trace[si]?.loc?.line ?? 0);
 
     // lineNo → 実行された humanStep インデックスの配列
@@ -59,14 +66,23 @@ export class Heatmap extends BaseView {
     }
     this.#lineTimeline = lineTimeline;
 
+    // 異なる行に遷移する連続 humanStep ペアを事前計算
+    this.#crossLinePairs = [];
+    for (let t = 0; t + 1 < timeline.length; t++) {
+      if (timeline[t] !== timeline[t + 1] && timeline[t] > 0 && timeline[t + 1] > 0) {
+        this.#crossLinePairs.push([t, t + 1]);
+      }
+    }
+
+    // ── HTML 構築 ─────────────────────────────────────────────────────────
     let html = '<div class="hm-wrap">';
     html += '<div class="hm-toolbar"><button class="hm-btn-lines" title="連結線を表示/非表示">連結線</button></div>';
     html += '<div class="hm-lines">';
 
     for (let i = 0; i < lines.length; i++) {
-      const lineNo    = i + 1;
+      const lineNo     = i + 1;
       const dotIndices = lineTimeline.get(lineNo) ?? [];
-      const dotsHtml  = this.#buildDots(dotIndices, totalSteps);
+      const dotsHtml   = this.#buildDots(dotIndices, totalSteps);
 
       html += `<div class="hm-line" data-line="${lineNo}" style="">
         <span class="hm-lineno">${lineNo}</span>
@@ -83,6 +99,20 @@ export class Heatmap extends BaseView {
     this.#lineEls = container.querySelectorAll('.hm-line');
     this.#dotEls  = [...container.querySelectorAll('.hm-dot')];
 
+    // hi → dotElement マップ（連結線描画用）
+    this.#dotMap = new Map();
+    for (const el of this.#dotEls) {
+      this.#dotMap.set(Number(el.dataset.hi), el);
+    }
+
+    // オーバーレイ SVG を .hm-lines 内に追加
+    const linesEl = container.querySelector('.hm-lines');
+    this.#linesEl = linesEl;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('hm-overlay-svg');
+    linesEl.appendChild(svg);
+    this.#overlaySvg = svg;
+
     // 連結線トグルボタン
     const btnLines = container.querySelector('.hm-btn-lines');
     if (btnLines) {
@@ -90,7 +120,11 @@ export class Heatmap extends BaseView {
       btnLines.addEventListener('click', () => {
         this.#showLines = !this.#showLines;
         btnLines.classList.toggle('hm-btn-lines--on', this.#showLines);
-        container.querySelector('.hm-lines')?.classList.toggle('hm-show-lines', this.#showLines);
+        if (this.#showLines) {
+          requestAnimationFrame(() => this.#drawConnectLines());
+        } else {
+          this.#clearConnectLines();
+        }
       });
     }
   }
@@ -112,15 +146,15 @@ export class Heatmap extends BaseView {
     for (const el of this.#dotEls) {
       const dotHi = Number(el.dataset.hi);
       el.classList.remove('hm-dot--past', 'hm-dot--current');
-      if (dotHi < hi)       el.classList.add('hm-dot--past');
+      if (dotHi < hi)        el.classList.add('hm-dot--past');
       else if (dotHi === hi) el.classList.add('hm-dot--current');
     }
 
     // 各行の背景色とカウントテキストを更新
     const maxTotal = this.#maxTotal;
     for (const el of this.#lineEls) {
-      const lineNo    = Number(el.dataset.line);
-      const lineHis   = this.#lineTimeline?.get(lineNo) ?? [];
+      const lineNo     = Number(el.dataset.line);
+      const lineHis    = this.#lineTimeline?.get(lineNo) ?? [];
       const totalCount = Number(el.querySelector('.hm-count')?.dataset.total ?? 0);
 
       // バイナリサーチ: lineHis 内で値 ≤ hi の個数
@@ -171,17 +205,21 @@ export class Heatmap extends BaseView {
 
   destroy() {
     if (this.#container) this.#container.innerHTML = '';
-    this.#container    = null;
-    this.#builder      = null;
-    this.#lineEls      = null;
-    this.#dotEls       = null;
-    this.#lineTimeline = null;
+    this.#container      = null;
+    this.#builder        = null;
+    this.#lineEls        = null;
+    this.#dotEls         = null;
+    this.#lineTimeline   = null;
+    this.#crossLinePairs = null;
+    this.#dotMap         = null;
+    this.#overlaySvg     = null;
+    this.#linesEl        = null;
   }
 
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
 
   /**
-   * humanStep インデックスの配列からドット + 連結線 SVG の HTML を生成する。
+   * humanStep インデックスの配列からドットスパンの HTML を生成する。
    * @param {number[]} indices  この行が実行された humanStep インデックスの配列
    * @param {number}   total    総 humanStep 数
    * @returns {string}
@@ -190,18 +228,60 @@ export class Heatmap extends BaseView {
     if (indices.length === 0) return '';
     const visible = indices.length > DOT_MAX ? indices.slice(-DOT_MAX) : indices;
     const denom   = Math.max(total - 1, 1);
-    const W       = 360;
-
-    const dots = visible.map(hi =>
+    return visible.map(hi =>
       `<span class="hm-dot" data-hi="${hi}" style="left:${(hi / denom) * 100}%"></span>`
     ).join('');
+  }
 
-    let svg = '';
-    if (visible.length >= 2) {
-      const pts = visible.map(hi => `${((hi / denom) * W).toFixed(1)},5`).join(' ');
-      svg = `<svg class="hm-connect-svg" width="${W}" height="10" viewBox="0 0 ${W} 10" preserveAspectRatio="none"><polyline class="hm-connect-line" points="${pts}"/></svg>`;
+  /**
+   * 異なる行に遷移する連続 humanStep ペアをオーバーレイ SVG に縦線として描画する。
+   * dotA の右端 (x1, y1) → dotB の左端 (x2, y2) を .hm-lines のコンテンツ座標で表す。
+   */
+  #drawConnectLines() {
+    const svg     = this.#overlaySvg;
+    const linesEl = this.#linesEl;
+    if (!svg || !linesEl || !this.#crossLinePairs) return;
+
+    this.#clearConnectLines();
+
+    const linesRect = linesEl.getBoundingClientRect();
+    const scrollTop = linesEl.scrollTop;
+    const totalH    = linesEl.scrollHeight;
+    const totalW    = linesRect.width;
+
+    svg.setAttribute('width',   totalW.toFixed(0));
+    svg.setAttribute('height',  totalH);
+    svg.setAttribute('viewBox', `0 0 ${totalW.toFixed(0)} ${totalH}`);
+    svg.style.display = 'block';
+
+    for (const [hiA, hiB] of this.#crossLinePairs) {
+      const dotA = this.#dotMap.get(hiA);
+      const dotB = this.#dotMap.get(hiB);
+      if (!dotA || !dotB) continue;
+
+      const rA = dotA.getBoundingClientRect();
+      const rB = dotB.getBoundingClientRect();
+
+      // コンテンツ座標 = ビューポート座標 - linesRect.top + scrollTop
+      const x1 = rA.right  - linesRect.left;
+      const y1 = rA.top + rA.height / 2 - linesRect.top + scrollTop;
+      const x2 = rB.left   - linesRect.left;
+      const y2 = rB.top + rB.height / 2 - linesRect.top + scrollTop;
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1.toFixed(1));
+      line.setAttribute('y1', y1.toFixed(1));
+      line.setAttribute('x2', x2.toFixed(1));
+      line.setAttribute('y2', y2.toFixed(1));
+      line.setAttribute('class', 'hm-vline');
+      svg.appendChild(line);
     }
+  }
 
-    return dots + svg;
+  #clearConnectLines() {
+    const svg = this.#overlaySvg;
+    if (!svg) return;
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.style.display = 'none';
   }
 }
