@@ -201,10 +201,26 @@ export class Timeline extends BaseView {
     const chartH = H - PAD.top  - PAD.bottom;
     const n      = this.#history.length;
 
+    // 選択中の変数のみで Y 軸スケールを動的計算
+    let dynMin =  Infinity;
+    let dynMax = -Infinity;
+    for (const snap of this.#history) {
+      for (const name of this.#selectedVars) {
+        const v = snap.vars.get(name);
+        if (v !== undefined) {
+          if (v < dynMin) dynMin = v;
+          if (v > dynMax) dynMax = v;
+        }
+      }
+    }
+    if (!isFinite(dynMin)) dynMin = this.#minVal;
+    if (!isFinite(dynMax)) dynMax = this.#maxVal;
+    if (dynMin === dynMax) { dynMin -= 1; dynMax += 1; }
+
     // スケール関数
     const xOf = (i)  => PAD.left + (n <= 1 ? chartW / 2 : (i / (n - 1)) * chartW);
     const yOf = (val) => PAD.top + chartH
-      - ((val - this.#minVal) / (this.#maxVal - this.#minVal)) * chartH;
+      - ((val - dynMin) / (dynMax - dynMin)) * chartH;
 
     // ── Y 軸 ───────────────────────────────────────────────────────────────
     const yAxis = this.#el('line', {
@@ -215,7 +231,7 @@ export class Timeline extends BaseView {
     this.#svgEl.appendChild(yAxis);
 
     // Y 軸ラベル（min / max）
-    for (const v of [this.#minVal, this.#maxVal]) {
+    for (const v of [dynMin, dynMax]) {
       const t = this.#el('text', {
         x: PAD.left - 5, y: yOf(v) + 4,
         'text-anchor': 'end', 'font-size': 10,
