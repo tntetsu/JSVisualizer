@@ -22,6 +22,7 @@ export class Heatmap extends BaseView {
   #dotEls       = null;
   #lineTimeline = null;  // Map<lineNo, number[]> — この行が実行された humanStep インデックス列
   #maxTotal     = 1;     // 全行の中の最大実行回数（背景色正規化用）
+  #showLines    = false; // 連結線の表示/非表示
 
   // ── BaseView ──────────────────────────────────────────────────────────────
 
@@ -58,7 +59,9 @@ export class Heatmap extends BaseView {
     }
     this.#lineTimeline = lineTimeline;
 
-    let html = '<div class="hm-wrap"><div class="hm-lines">';
+    let html = '<div class="hm-wrap">';
+    html += '<div class="hm-toolbar"><button class="hm-btn-lines" title="連結線を表示/非表示">連結線</button></div>';
+    html += '<div class="hm-lines">';
 
     for (let i = 0; i < lines.length; i++) {
       const lineNo    = i + 1;
@@ -79,6 +82,17 @@ export class Heatmap extends BaseView {
     container.innerHTML = html;
     this.#lineEls = container.querySelectorAll('.hm-line');
     this.#dotEls  = [...container.querySelectorAll('.hm-dot')];
+
+    // 連結線トグルボタン
+    const btnLines = container.querySelector('.hm-btn-lines');
+    if (btnLines) {
+      btnLines.classList.toggle('hm-btn-lines--on', this.#showLines);
+      btnLines.addEventListener('click', () => {
+        this.#showLines = !this.#showLines;
+        btnLines.classList.toggle('hm-btn-lines--on', this.#showLines);
+        container.querySelector('.hm-lines')?.classList.toggle('hm-show-lines', this.#showLines);
+      });
+    }
   }
 
   update(state) {
@@ -167,7 +181,7 @@ export class Heatmap extends BaseView {
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
 
   /**
-   * humanStep インデックスの配列からドット HTML を生成する。
+   * humanStep インデックスの配列からドット + 連結線 SVG の HTML を生成する。
    * @param {number[]} indices  この行が実行された humanStep インデックスの配列
    * @param {number}   total    総 humanStep 数
    * @returns {string}
@@ -175,8 +189,19 @@ export class Heatmap extends BaseView {
   #buildDots(indices, total) {
     if (indices.length === 0) return '';
     const visible = indices.length > DOT_MAX ? indices.slice(-DOT_MAX) : indices;
-    return visible.map(hi =>
-      `<span class="hm-dot" data-hi="${hi}" style="left:${(hi / Math.max(total - 1, 1)) * 100}%"></span>`
+    const denom   = Math.max(total - 1, 1);
+    const W       = 360;
+
+    const dots = visible.map(hi =>
+      `<span class="hm-dot" data-hi="${hi}" style="left:${(hi / denom) * 100}%"></span>`
     ).join('');
+
+    let svg = '';
+    if (visible.length >= 2) {
+      const pts = visible.map(hi => `${((hi / denom) * W).toFixed(1)},5`).join(' ');
+      svg = `<svg class="hm-connect-svg" width="${W}" height="10" viewBox="0 0 ${W} 10" preserveAspectRatio="none"><polyline class="hm-connect-line" points="${pts}"/></svg>`;
+    }
+
+    return dots + svg;
   }
 }
