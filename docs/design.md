@@ -22,6 +22,7 @@
 | 0.8 | 2026-06-02 | callStack 順序バグ修正（[0]=最外側・[last]=最内側に訂正）。CallTree ビュー新規追加（src/views/call-tree/）・TraceBuilder に buildCallTree() 追加。LineTrace 2ペイン化（ソースパネル+リサイズ+スクロール同期刷新）。ScopeView/StateView スコープ統合（mergeScopesForDisplay・formatFrameLabel）。Heatmap 時系列ドット+割合表示。RecursionTree 引数展開・NODE_W/H 拡大。Console パネル高さドラッグ変更（jsv-console-h）。localStorage jsv-lt-src-w 追加 |
 | 0.9 | 2026-06-03 | mergeScopesForDisplay を lexical scope 対応に刷新（旧: 2スコープ/関数仮定 → 新: 最内側関数が全 env チェーンをマージ）。StateView CALL STACK: formatFrameLabel 未インポートバグ修正＋スコープフレーム表示に変更。buildRecursionTree: 再帰呼び出しのみフィルタリング＋cost プロパティ付与。buildCallTree: #buildFullCallTree() を内部共有メソッドとして独立化。RecursionTree: cost 表示追加（左下角 cost:N）＋「再帰呼び出しがありません」メッセージ。Heatmap: 動的背景色（ステップ別更新）・ドット幅 3 倍（360px）・実行済み/未実行色分け・N回/M回 表示。MemoryView: mergeScopesForDisplay で正しいフレームラベル表示。テスト 49 件（buildCallTree テスト追加、buildRecursionTree テスト刷新）|
 | 1.0 | 2026-06-04 | JSInterpreter に `Environment.snapshotOwn()` メソッドと `Recorder.frameEnvStack`（アクティブフレームの live Environment 参照スタック）を追加。各 TraceEvent に `frameEnvs: Object[]`（外→内の callEnv スナップショット配列）を記録。`mergeScopesForDisplay(scopes, callStack, frameEnvs)` の第 3 引数を追加し、外側フレームの表示を `reconstructFrameVars`（args ベース）から `frameEnvs[i]`（callEnv スナップショット）に変更。params・デフォルト引数・function-body 変数を正確に表示。V-01/V-04/V-13 が `state.frameEnvs` を参照するよう更新。AppState に `frameEnvs` フィールド追加。sv-scroll を flex→block 化（`overflow-y: auto` のスクロールバー修正）|
+| 1.1 | 2026-06-04 | ScopeView・CallStackView をタブ非登録（非アクティブ）に変更。LineTrace を 2 ペイン構成から単一ペイン＋行番号スニペット（`lt-lineno-num` + `lt-lineno-snippet`、先頭 15 文字）構成に刷新（`#srcPanel`・`#srcLines`・`#setupScrollSync`・`#setupSrcResizer` および jsv-lt-src-w を削除）。ColorBox: タブ名「配列」・複数配列同時選択（`#selectedArrays: Set<string>`）・ポインタ変数を変数ごと個別行表示・文字列切り詰めなし。Timeline: `#renderSVG()` 内で選択変数のみの `dynMin`/`dynMax` を計算して Y 軸を動的スケール化。Heatmap: `#buildDots()` で SVG polyline を含む `.hm-connect-svg` を生成し「連結線」ボタン（`.hm-btn-lines`）で `.hm-show-lines` クラスをトグル。JSInterpreter `super()` 呼び出しバグ修正（`CallExpression` ハンドラに `node.callee.type === 'Super'` の早期リターンを追加）。`tests/core/samples.test.js` 新規追加（17 サンプル全エラーなし・trace ≥ 1 を確認）。テスト総数 49 → 66 件。view-switcher 登録ビュー数 15 → 13 |
 
 ---
 
@@ -537,7 +538,7 @@ update(state) で callStack.length > 0 の場合:
 
 ---
 
-#### `scope-view/` — スコープ・変数ビュー ✅
+#### `scope-view/` — スコープ・変数ビュー ✅（タブ非登録・非アクティブ）
 
 **スコープ統合表示** (`mergeScopesForDisplay(scopes, callStack, frameEnvs)` in `format.js`):
 
@@ -580,7 +581,7 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
 
 ---
 
-#### `callstack-view/` — コールスタックビュー ✅
+#### `callstack-view/` — コールスタックビュー ✅（タブ非登録・非アクティブ）
 
 ```html
 <div class="csv-stack">
@@ -598,42 +599,32 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
 
 ---
 
-#### `line-trace/` — 行×変数トレース表（2ペイン構成）✅
+#### `line-trace/` — 行×変数トレース表（単一ペイン構成）✅
 
 **DOM 構造**:
 ```
-.lt-outer (flex row)
-├── .lt-source-panel (左ペイン: width=可変)
-│   └── .lt-source-scroll (縦スクロール領域)
-│       └── .lt-source-lines
-│           └── .lt-src-row[data-line] × ソース行数
-│               ├── .lt-src-lineno
-│               └── .lt-src-code (シンタックスハイライト済み)
-├── .lt-src-divider (ドラッグリサイザー)
-└── .lt-var-area (右ペイン: flex 1)
-    └── .lt-wrap (flex column)
-        ├── .lt-toolbar (列表示切替ボタン群)
-        └── .lt-table-wrap (縦スクロール領域)
-            └── .lt-table
-                ├── thead .lt-thead-row
-                └── tbody .lt-tbody
+.lt-outer (flex column)
+└── .lt-wrap (flex column)
+    ├── .lt-toolbar (列表示切替ボタン群)
+    └── .lt-table-wrap (縦スクロール領域)
+        └── .lt-table
+            ├── thead .lt-thead-row
+            │   ├── th[0]: 行番号列（.lt-lineno-num + .lt-lineno-snippet）
+            │   └── th[n]: 変数列
+            └── tbody .lt-tbody
+                └── tr[data-line] × ソース行数
+                    ├── td.lt-lineno: <span class="lt-lineno-num">N</span>
+                    │               <span class="lt-lineno-snippet">先頭15文字</span>
+                    └── td[n]: 変数値セル
 ```
 
 **動作**:
-- `init()` でソース行のシンタックスハイライト（`highlightSyntax(source)`）と `<tr>` を静的生成
+- `init()` でソース行をパースして行番号・スニペット（先頭 15 文字）付きの `<tr>` を静的生成（ソースパネルなし）
 - `update()` で `humanSteps[0..cursor]` を走査:
   - 各 humanStep の `flattenEnv(ev.env)` から変数スナップショットを取得
   - 新規変数が出現したら列を追加（`#rebuildColumns` で `<th>` + 全行に `<td>` を挿入）
   - 変化したセルに `.lt-flash` → CSS flash アニメーション
-  - ソースパネルの現在行に `.lt-src-row--active` を付与
-
-**ソースパネル幅リサイザー**:
-- `#setupSrcResizer()`: `.lt-src-divider` の mousedown → mousemove で `#srcPanel.style.width` を更新
-- 範囲: 80〜600px、`localStorage('jsv-lt-src-w')` に永続化
-
-**スクロール同期**:
-- `#setupScrollSync()`: `.lt-source-scroll` ↔ `.lt-table-wrap` の `scrollTop` を双方向同期
-- `#syncing` フラグで無限ループを防止
+  - 現在実行行の `<tr>` に `.lt-row--active` を付与してスクロール追従
 
 **関数・クラス値は列から除外**: `isFunctionVal(val)` で判定
 
@@ -726,28 +717,40 @@ switch (ev.nodeType) {
 
 ---
 
-#### `color-box/` — 色付き箱 ✅
+#### `color-box/` — 配列ビュー ✅
 
 **表示対象**: 配列変数（`init()` 時に trace を走査して自動検出）
 
-**チップ**: 配列変数のシングル選択
+**チップ**: 配列変数の複数選択可能トグル（`#selectedArrays: Set<string>`）。最後の 1 つは選択解除不可
 
-**ポインタ検出**: スコープ内の整数変数をポインタ候補として自動検出し、対応する配列インデックスの箱をハイライト
+**ポインタ検出**: スコープ内の整数変数をポインタ候補として自動検出し、対応する配列インデックスの箱をハイライト。ポインタ変数はポインタ変数ごとに個別の `.cb-ptr-row` として表示
+
+**文字列値**: 切り詰めなしで全文表示
 
 **DOM 構造**:
 ```html
 <div class="cb-wrap">
   <div class="cb-chips">...</div>
-  <div class="cb-box-area">
-    <div class="cb-row">
-      <span class="cb-box cb-box--ptr" style="background: hsl(...)">
-        <span class="cb-idx">0</span>
-        <span class="cb-val">3</span>
-      </span>
-      ...
-    </div>
-    <div class="cb-ptr-row">  <!-- ポインタ変数の表示 -->
-      <span class="cb-ptr-label" style="left: ...">i↑</span>
+  <div class="cb-arrays-area">
+    <!-- 選択配列ごとに1ブロック -->
+    <div class="cb-array-block">
+      <div class="cb-array-name">arr</div>
+      <div class="cb-box-area">
+        <div class="cb-row">
+          <span class="cb-box cb-box--ptr" style="background: hsl(...)">
+            <span class="cb-idx">0</span>
+            <span class="cb-val">3</span>
+          </span>
+          ...
+        </div>
+        <!-- ポインタ変数ごとに個別行 -->
+        <div class="cb-ptr-row">
+          <span class="cb-ptr-label" style="left: ...">i↑</span>
+        </div>
+        <div class="cb-ptr-row">
+          <span class="cb-ptr-label" style="left: ...">j↑</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -768,11 +771,25 @@ switch (ev.nodeType) {
 
 **SVG 構造**: チップで選択した変数ごとに折れ線グラフ（`<polyline>`）を描画。カーソル縦線（`<line class="tl-cursor">`）が `update()` 時に X 座標のみ更新
 
+**Y 軸動的スケール**: `#renderSVG()` 内で、描画前に選択変数のみの値から `dynMin`/`dynMax` を計算する。未選択変数はスケールに影響しない。
+```js
+let dynMin = Infinity, dynMax = -Infinity;
+for (const snap of this.#history) {
+  for (const name of this.#selectedVars) {
+    const v = snap.vars.get(name);
+    if (v !== undefined) { if (v < dynMin) dynMin = v; if (v > dynMax) dynMax = v; }
+  }
+}
+if (!isFinite(dynMin)) dynMin = this.#minVal;
+if (!isFinite(dynMax)) dynMax = this.#maxVal;
+if (dynMin === dynMax) { dynMin -= 1; dynMax += 1; }
+```
+
 **座標変換**:
 ```js
 const PAD = { top: 12, bottom: 28, left: 44, right: 12 };
 const xOf = (i)   => PAD.left + (i / (history.length - 1)) * (svgW - PAD.left - PAD.right);
-const yOf = (val) => PAD.top  + (1 - (val - minVal) / range) * (svgH - PAD.top - PAD.bottom);
+const yOf = (val) => PAD.top  + (1 - (val - dynMin) / (dynMax - dynMin)) * (svgH - PAD.top - PAD.bottom);
 ```
 
 ---
@@ -798,6 +815,8 @@ el.style.background = `rgba(255,140,0,${alpha.toFixed(3)})`;
   - `hi < cursor_hi` → `.hm-dot--past`（アクセントカラー、実行済み）
   - `hi === cursor_hi` → `.hm-dot--current`（強調表示）
   - それ以外 → デフォルト（薄いグレー、未実行）
+
+**連結線（SVG polyline）**: `#buildDots(indices, total)` が各行の `.hm-dots` 内に `<span class="hm-dot">` と `<svg class="hm-connect-svg">` を生成。`.hm-connect-svg` はデフォルト非表示（`display: none`）。ツールバーの「連結線」ボタン（`.hm-btn-lines`）クリックで `.hm-lines` に `.hm-show-lines` クラスをトグルし、CSS で `.hm-show-lines .hm-connect-svg { display: block }` に切り替える。SVG の `<polyline class="hm-connect-line">` は水平位置 = `(hi / (total-1)) * 360px` で各ドットを結ぶ
 
 **update()**: 全行の背景色・カウントテキスト・ドットクラスを更新し、アクティブ行に `.hm-line--active` を付与
 
@@ -1286,21 +1305,18 @@ JSVisualizer/
 │   └── components/
 │       ├── code-editor.js             ← コードエディタ
 │       ├── step-controls.js           ← ステップ操作バー（10ボタン）
-│       ├── view-switcher.js           ← ビュー切り替えタブ（15ビュー登録 + keyboard/localStorage）
-│       ├── settings-panel.js          ← テーマ切り替え設定パネル
-│       └── code-editor.js             ← コードエディタ（17サンプル + showError(msg, errorType)）
+│       ├── view-switcher.js           ← ビュー切り替えタブ（13ビュー登録 + keyboard/localStorage）
+│       └── settings-panel.js          ← テーマ切り替え設定パネル
 ├── web/
 │   ├── index.html                     ← FOUC防止スクリプト含む
 │   ├── style.css                      ← ライト/ダークテーマ CSS（全ビュー含む）
 │   ├── app.bundle.js                  ← esbuild 生成（git 管理外）
 │   └── interpreter.bundle.js          ← esbuild 生成（git 管理外）
 ├── tests/
-│   ├── core/
-│   │   ├── debugger-adapter.test.js
-│   │   ├── step-controller.test.js
-│   │   └── trace-builder.test.js
-│   └── views/
-│       └── (各ビューの単体テスト)
+│   └── core/
+│       ├── step-controller.test.js
+│       ├── trace-builder.test.js
+│       └── samples.test.js            ← 17サンプル全エラーなし・trace ≥ 1 を確認（66テスト中17件）
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml                 ← GitHub Pages 自動デプロイ（CI/CD）

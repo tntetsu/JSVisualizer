@@ -894,6 +894,66 @@ html, body {
 .tt-col-target { width: 140px; color: var(--accent); font-family: 'Cascadia Code', Consolas, monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
 .tt-col-val    { }
 
+/* ── ExecTrace ────────────────────────────────────────────────── */
+.et-wrap {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.et-empty {
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.et-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Consolas', 'Monaco', 'Cascadia Code', monospace;
+  font-size: 12px;
+}
+
+.et-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface2);
+  padding: 5px 8px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.et-td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.et-row--active .et-td {
+  background: var(--accent-bg);
+}
+
+.et-row--active .et-col-num {
+  border-left: 3px solid var(--accent);
+}
+
+/* 列幅・スタイル */
+.et-col-num  { width: 36px;  text-align: right; color: var(--text-muted); }
+.et-col-line { width: 40px;  text-align: right; color: var(--text-muted); }
+.et-col-code { min-width: 160px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.et-col-var  { min-width: 60px; text-align: right; }
+.et-col-cond { min-width: 48px; text-align: center; color: var(--accent); font-weight: 600; }
+
 /* ── ScopeView ────────────────────────────────────────────────── */
 .scv-scroll {
   flex: 1;
