@@ -90,28 +90,50 @@ export class ColorBox extends BaseView {
 
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
 
-  /** humanStep を全走査して配列変数とその最大絶対値を収集する */
+  /** humanStep を全走査して配列変数のメタ情報（最大絶対値・最大表示幅・最大グリッド高）を収集する */
   #scanTrace() {
     const humanSteps = this.#builder.getHumanStepList();
     const trace      = this.#builder.trace;
     const metaMap    = new Map();
 
+    // 第1パス: 配列変数と最大絶対値を収集
     for (const si of humanSteps) {
       const ev = trace[si];
       if (!ev?.env) continue;
       const vars = flattenEnv(ev.env);
-
       for (const [name, val] of vars) {
         if (BUILTIN_NAMES.has(name)) continue;
         if (!Array.isArray(val)) continue;
-
-        const m = metaMap.get(name) ?? { maxVal: 0 };
+        const m = metaMap.get(name) ?? { maxVal: 0, maxWidth: 0, maxGridHeight: 0 };
         for (const v of val) {
-          if (typeof v === 'number' && isFinite(v)) {
-            m.maxVal = Math.max(m.maxVal, Math.abs(v));
-          }
+          if (typeof v === 'number' && isFinite(v)) m.maxVal = Math.max(m.maxVal, Math.abs(v));
         }
         metaMap.set(name, m);
+      }
+    }
+
+    const arrayVarNames = new Set(metaMap.keys());
+
+    // 第2パス: 各ステップでの表示サイズを計算し最大値を確定
+    for (const si of humanSteps) {
+      const ev = trace[si];
+      if (!ev?.env) continue;
+      const vars = flattenEnv(ev.env);
+      for (const [arrName, arr] of vars) {
+        if (!metaMap.has(arrName)) continue;
+        if (!Array.isArray(arr) || arr.length === 0) continue;
+        const len  = arr.length;
+        const CELL = len <= 10 ? 48 : len <= 20 ? 38 : len <= 32 ? 28 : 20;
+        const IDX_H = Math.round(CELL * 0.55);
+        const PTR_H = Math.round(CELL * 0.65);
+        let ptrCount = 0;
+        for (const [name, val] of vars) {
+          if (BUILTIN_NAMES.has(name) || arrayVarNames.has(name)) continue;
+          if (typeof val === 'number' && Number.isInteger(val) && val >= 0 && val < len) ptrCount++;
+        }
+        const m = metaMap.get(arrName);
+        m.maxWidth      = Math.max(m.maxWidth,      len * CELL);
+        m.maxGridHeight = Math.max(m.maxGridHeight, IDX_H + CELL + ptrCount * PTR_H);
       }
     }
 
@@ -196,9 +218,11 @@ export class ColorBox extends BaseView {
       const FONT = Math.max(9, Math.round(CELL * 0.34));
       const style = `width:${CELL}px;font-size:${FONT}px`;
 
+      const minW = meta?.maxWidth      ? `min-width:${meta.maxWidth}px;`      : '';
+      const minH = meta?.maxGridHeight ? `min-height:${meta.maxGridHeight}px;` : '';
       html += `<div class="cb-array-block">`;
       html += `<div class="cb-array-name">${esc(arrName)}</div>`;
-      html += '<div class="cb-grid">';
+      html += `<div class="cb-grid" style="${minW}${minH}">`;
 
       // インデックス行
       html += '<div class="cb-row cb-idx-row">';
