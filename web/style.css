@@ -1606,7 +1606,10 @@ html, body {
 
 .cb-array-block {
   padding: 8px 12px 12px;
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface2);
+  margin: 4px;
 }
 
 .cb-array-name {
