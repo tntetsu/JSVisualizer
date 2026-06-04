@@ -1744,31 +1744,6 @@ html, body {
 }
 
 /* 連結線トグルボタン */
-.hm-toolbar {
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  background: var(--surface);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.hm-btn-lines {
-  font-size: 11px;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface2);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.hm-btn-lines--on {
-  background: var(--accent-bg);
-  color: var(--accent);
-  border-color: var(--accent);
-}
 
 .hm-overlay-svg {
   position: absolute;

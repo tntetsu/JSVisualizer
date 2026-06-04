@@ -25,7 +25,6 @@ export class Heatmap extends BaseView {
   #dotEls         = null;
   #lineTimeline   = null;  // Map<lineNo, number[]>
   #maxTotal       = 1;
-  #showLines      = false;
   #crossLinePairs = null;  // [hiA, hiB][] — 異なる行に遷移する連続 humanStep ペア
   #dotMap         = null;  // Map<hi, HTMLElement>
   #overlaySvg     = null;
@@ -76,7 +75,6 @@ export class Heatmap extends BaseView {
 
     // ── HTML 構築 ─────────────────────────────────────────────────────────
     let html = '<div class="hm-wrap">';
-    html += '<div class="hm-toolbar"><button class="hm-btn-lines" title="連結線を表示/非表示">連結線</button></div>';
     html += '<div class="hm-lines">';
 
     for (let i = 0; i < lines.length; i++) {
@@ -113,20 +111,8 @@ export class Heatmap extends BaseView {
     linesEl.appendChild(svg);
     this.#overlaySvg = svg;
 
-    // 連結線トグルボタン
-    const btnLines = container.querySelector('.hm-btn-lines');
-    if (btnLines) {
-      btnLines.classList.toggle('hm-btn-lines--on', this.#showLines);
-      btnLines.addEventListener('click', () => {
-        this.#showLines = !this.#showLines;
-        btnLines.classList.toggle('hm-btn-lines--on', this.#showLines);
-        if (this.#showLines) {
-          requestAnimationFrame(() => this.#drawConnectLines());
-        } else {
-          this.#clearConnectLines();
-        }
-      });
-    }
+    // 連結線を常時表示
+    requestAnimationFrame(() => this.#drawConnectLines());
   }
 
   update(state) {
