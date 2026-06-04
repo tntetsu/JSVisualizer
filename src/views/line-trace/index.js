@@ -5,18 +5,11 @@
  * 列   = 変数名（ステップが進み変数が宣言されるたびに列を追加）
  * セル = その行を最後に実行した時点での変数値
  *
- * 左側にソースコードパネルを内包し、右側に変数列テーブルを配置する。
- * 2 ペイン間はドラッグリサイザーで幅変更可能。
- * ソースと変数テーブルの縦スクロールを同期する。
+ * 行番号列にはコードスニペット（先頭15文字）を表示する。
  */
 
 import { BaseView }                           from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES, formatValue, esc } from '../../utils/format.js';
-
-const SRC_WIDTH_KEY = 'jsv-lt-src-w';
-const SRC_W_DEFAULT = 220;
-const SRC_W_MIN     = 80;
-const SRC_W_MAX     = 600;
 
 // ── シンタックスハイライト（code-view と同一ロジック） ─────────────────────
 
@@ -76,17 +69,11 @@ export class LineTrace extends BaseView {
   #builder    = null;
   #theadRow   = null;
   #tbodyEl    = null;
-  #varArea    = null;   // 右ペイン（変数テーブル含む）
-  #srcLines   = null;   // 左ペイン内のソース行コンテナ
-  #srcPanel   = null;   // 左ペイン全体
   #humanSteps = [];
   #trace      = [];
   #rowEls     = new Map();
   #cellEls    = new Map();
-  #srcRowEls  = new Map(); // lineNo → source 行 div
   #varMeta    = [];
-  #syncing    = false;
-  #currentActiveLine = 0;
 
   // ── BaseView ──────────────────────────────────────────────────────────────
 
@@ -98,8 +85,6 @@ export class LineTrace extends BaseView {
     this.#varMeta    = [];
     this.#rowEls.clear();
     this.#cellEls.clear();
-    this.#srcRowEls.clear();
-    this.#currentActiveLine = 0;
 
     const source = builder?.source ?? '';
     if (!source) {
@@ -107,76 +92,44 @@ export class LineTrace extends BaseView {
       return;
     }
 
-    const lines      = source.split('\n');
-    const highlighted = highlightSyntax(source).split('\n');
-    const savedW     = parseInt(localStorage.getItem(SRC_WIDTH_KEY), 10);
-    const srcW       = isNaN(savedW) ? SRC_W_DEFAULT : Math.min(SRC_W_MAX, Math.max(SRC_W_MIN, savedW));
+    const lines = source.split('\n');
 
     container.innerHTML = `
       <div class="lt-outer">
-        <div class="lt-source-panel" style="width:${srcW}px">
-          <div class="lt-source-scroll">
-            <div class="lt-source-lines"></div>
-          </div>
-        </div>
-        <div class="lt-src-divider" title="ドラッグして幅変更"></div>
-        <div class="lt-var-area">
-          <div class="lt-wrap">
-            <div class="lt-toolbar" id="lt-toolbar"></div>
-            <div class="lt-table-wrap">
-              <table class="lt-table">
-                <thead>
-                  <tr class="lt-thead-row">
-                    <th class="lt-th lt-th-lineno">#</th>
-                  </tr>
-                </thead>
-                <tbody class="lt-tbody"></tbody>
-              </table>
-            </div>
+        <div class="lt-wrap">
+          <div class="lt-toolbar" id="lt-toolbar"></div>
+          <div class="lt-table-wrap">
+            <table class="lt-table">
+              <thead>
+                <tr class="lt-thead-row">
+                  <th class="lt-th lt-th-lineno">#</th>
+                </tr>
+              </thead>
+              <tbody class="lt-tbody"></tbody>
+            </table>
           </div>
         </div>
       </div>`;
 
     this.#theadRow = container.querySelector('.lt-thead-row');
     this.#tbodyEl  = container.querySelector('.lt-tbody');
-    this.#varArea  = container.querySelector('.lt-var-area');
-    this.#srcPanel = container.querySelector('.lt-source-panel');
-    this.#srcLines = container.querySelector('.lt-source-lines');
-
-    // ソース行を生成
-    const srcFrag = document.createDocumentFragment();
-    for (let i = 0; i < lines.length; i++) {
-      const lineNo = i + 1;
-      const row = document.createElement('div');
-      row.className = 'lt-src-row';
-      row.dataset.line = String(lineNo);
-      row.innerHTML = `<span class="lt-src-lineno">${lineNo}</span><span class="lt-src-code">${highlighted[i] ?? ''}</span>`;
-      srcFrag.appendChild(row);
-      this.#srcRowEls.set(lineNo, row);
-    }
-    this.#srcLines.appendChild(srcFrag);
 
     // 変数テーブルの行を生成
     const tbodyFrag = document.createDocumentFragment();
     for (let i = 0; i < lines.length; i++) {
       const lineNo = i + 1;
+      const snippet = lines[i].trim().slice(0, 15);
       const tr = document.createElement('tr');
       tr.className = 'lt-row';
       const numTd = document.createElement('td');
       numTd.className = 'lt-td lt-td-lineno';
-      numTd.textContent = String(lineNo);
+      numTd.innerHTML = `<span class="lt-lineno-num">${lineNo}</span><span class="lt-lineno-snippet">${esc(snippet)}</span>`;
       tr.append(numTd);
       tbodyFrag.appendChild(tr);
       this.#rowEls.set(lineNo, tr);
       this.#cellEls.set(lineNo, []);
     }
     this.#tbodyEl.appendChild(tbodyFrag);
-
-    // スクロール同期（ソースパネル ↔ 変数エリア）
-    this.#setupScrollSync();
-
-    // ソースパネルリサイザー
-    this.#setupSrcResizer(container.querySelector('.lt-src-divider'));
   }
 
   update(state) {
@@ -226,19 +179,6 @@ export class LineTrace extends BaseView {
       this.#rebuildColumns(newMeta);
     }
 
-    // ソース行のアクティブクラスを更新
-    if (currentLine !== this.#currentActiveLine) {
-      if (this.#currentActiveLine > 0) {
-        this.#srcRowEls.get(this.#currentActiveLine)?.classList.remove('lt-src-row--active');
-      }
-      this.#currentActiveLine = currentLine;
-      if (currentLine > 0) {
-        const srcRow = this.#srcRowEls.get(currentLine);
-        srcRow?.classList.add('lt-src-row--active');
-        srcRow?.scrollIntoView({ block: 'nearest' });
-      }
-    }
-
     // 各行のセルを更新
     for (const [lineNo, rowEl] of this.#rowEls) {
       const isActive = lineNo === currentLine;
@@ -268,10 +208,6 @@ export class LineTrace extends BaseView {
   reset() {
     if (!this.#tbodyEl) return;
     for (const rowEl of this.#rowEls.values()) rowEl.classList.remove('lt-row--active');
-    if (this.#currentActiveLine > 0) {
-      this.#srcRowEls.get(this.#currentActiveLine)?.classList.remove('lt-src-row--active');
-      this.#currentActiveLine = 0;
-    }
   }
 
   destroy() {
@@ -280,63 +216,11 @@ export class LineTrace extends BaseView {
     this.#builder    = null;
     this.#theadRow   = null;
     this.#tbodyEl    = null;
-    this.#varArea    = null;
-    this.#srcPanel   = null;
-    this.#srcLines   = null;
     this.#rowEls.clear();
     this.#cellEls.clear();
-    this.#srcRowEls.clear();
     this.#varMeta    = [];
     this.#humanSteps = [];
     this.#trace      = [];
-  }
-
-  // ── スクロール同期 ─────────────────────────────────────────────────────────
-
-  #setupScrollSync() {
-    const srcScroll = this.#srcPanel?.querySelector('.lt-source-scroll');
-    const tableWrap = this.#varArea?.querySelector('.lt-table-wrap');
-    if (!srcScroll || !tableWrap) return;
-
-    srcScroll.addEventListener('scroll', () => {
-      if (this.#syncing) return;
-      this.#syncing = true;
-      tableWrap.scrollTop = srcScroll.scrollTop;
-      this.#syncing = false;
-    });
-    tableWrap.addEventListener('scroll', () => {
-      if (this.#syncing) return;
-      this.#syncing = true;
-      srcScroll.scrollTop = tableWrap.scrollTop;
-      this.#syncing = false;
-    });
-  }
-
-  // ── ソースパネル幅リサイザー ───────────────────────────────────────────────
-
-  #setupSrcResizer(divider) {
-    if (!divider || !this.#srcPanel) return;
-    let startX = 0, startW = 0;
-
-    divider.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      startX = e.clientX;
-      startW = this.#srcPanel.offsetWidth;
-      divider.classList.add('lt-src-divider--active');
-
-      const onMove = (e) => {
-        const newW = Math.min(SRC_W_MAX, Math.max(SRC_W_MIN, startW + e.clientX - startX));
-        this.#srcPanel.style.width = `${newW}px`;
-      };
-      const onUp = () => {
-        divider.classList.remove('lt-src-divider--active');
-        localStorage.setItem(SRC_WIDTH_KEY, String(this.#srcPanel.offsetWidth));
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup',   onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup',   onUp);
-    });
   }
 
   // ── 列操作 ────────────────────────────────────────────────────────────────

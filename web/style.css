@@ -1139,94 +1139,17 @@ html, body {
    LineTrace — ソース行×変数トレース表  .lt-*
 ═══════════════════════════════════════════════════════════════ */
 
-/* ── 2ペインレイアウト ────────────────────────────────────────────── */
+/* ── レイアウト ────────────────────────────────────────────────────── */
 
 .lt-outer {
   display: flex;
+  flex-direction: column;
   height: 100%;
   overflow: hidden;
-}
-
-/* 左: ソースコードパネル */
-.lt-source-panel {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-right: 1px solid var(--border);
-}
-
-.lt-source-scroll {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
-  padding-top: 10px;
-}
-
-.lt-source-lines {
-  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
-  font-size: 13px;
-  line-height: 22px;
-  white-space: pre;
-}
-
-.lt-src-row {
-  display: flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 6px;
-  box-sizing: border-box;
-  transition: background 0.1s;
-}
-
-.lt-src-row--active {
-  background: var(--accent-bg);
-  border-left: 2px solid var(--accent);
-  padding-left: 4px;
-}
-
-.lt-src-lineno {
-  width: 28px;
-  text-align: right;
-  color: var(--text-muted);
-  font-size: 11px;
-  flex-shrink: 0;
-  user-select: none;
-  padding-right: 8px;
-}
-
-.lt-src-code {
-  flex: 1;
-  position: relative;
-}
-
-/* 仕切り線 */
-.lt-src-divider {
-  width: 5px;
-  flex-shrink: 0;
-  cursor: ew-resize;
-  background: transparent;
-  transition: background 0.15s;
-  z-index: 5;
-}
-
-.lt-src-divider:hover,
-.lt-src-divider--active {
-  background: var(--accent);
-  opacity: 0.4;
-}
-
-/* 右: 変数エリア */
-.lt-var-area {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
 }
 
 .lt-wrap {
-  height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1382,15 +1305,23 @@ html, body {
 
 .lt-td-lineno {
   color: var(--text-muted);
-  text-align: right;
   font-size: 11px;
   user-select: none;
+  white-space: nowrap;
+  padding-right: 12px;
 }
 
-.lt-td-src {
-  color: var(--text);
-  white-space: pre;
-  padding-right: 16px;
+.lt-lineno-num {
+  display: inline-block;
+  min-width: 24px;
+  text-align: right;
+  margin-right: 6px;
+}
+
+.lt-lineno-snippet {
+  color: var(--text-muted);
+  opacity: 0.7;
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
 }
 
 /* 変数値セル */
