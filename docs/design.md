@@ -1,9 +1,9 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 0.9  
+**バージョン**: 1.0  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-03  
+**最終更新**: 2026-06-04  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -21,6 +21,7 @@
 | 0.7 | 2026-05-26 | 修正 1〜8 反映: JSInterpreter assignTo 拡張（分割代入）。PaneResizer 追加。CodeMirror 6 エディタ化（Compartment・MutationObserver）。プログラム名表示。Console 常時パネル（state-view から分離）。LineTrace 改修（ソース列廃止・行高さ統一・スクロール同期・#varMeta 表示管理・D&D 列並び替え）。TraceTable に対象列追加（env diff・CallExpression・ReturnStatement）。テスト 42 件 |
 | 0.8 | 2026-06-02 | callStack 順序バグ修正（[0]=最外側・[last]=最内側に訂正）。CallTree ビュー新規追加（src/views/call-tree/）・TraceBuilder に buildCallTree() 追加。LineTrace 2ペイン化（ソースパネル+リサイズ+スクロール同期刷新）。ScopeView/StateView スコープ統合（mergeScopesForDisplay・formatFrameLabel）。Heatmap 時系列ドット+割合表示。RecursionTree 引数展開・NODE_W/H 拡大。Console パネル高さドラッグ変更（jsv-console-h）。localStorage jsv-lt-src-w 追加 |
 | 0.9 | 2026-06-03 | mergeScopesForDisplay を lexical scope 対応に刷新（旧: 2スコープ/関数仮定 → 新: 最内側関数が全 env チェーンをマージ）。StateView CALL STACK: formatFrameLabel 未インポートバグ修正＋スコープフレーム表示に変更。buildRecursionTree: 再帰呼び出しのみフィルタリング＋cost プロパティ付与。buildCallTree: #buildFullCallTree() を内部共有メソッドとして独立化。RecursionTree: cost 表示追加（左下角 cost:N）＋「再帰呼び出しがありません」メッセージ。Heatmap: 動的背景色（ステップ別更新）・ドット幅 3 倍（360px）・実行済み/未実行色分け・N回/M回 表示。MemoryView: mergeScopesForDisplay で正しいフレームラベル表示。テスト 49 件（buildCallTree テスト追加、buildRecursionTree テスト刷新）|
+| 1.0 | 2026-06-04 | JSInterpreter に `Environment.snapshotOwn()` メソッドと `Recorder.frameEnvStack`（アクティブフレームの live Environment 参照スタック）を追加。各 TraceEvent に `frameEnvs: Object[]`（外→内の callEnv スナップショット配列）を記録。`mergeScopesForDisplay(scopes, callStack, frameEnvs)` の第 3 引数を追加し、外側フレームの表示を `reconstructFrameVars`（args ベース）から `frameEnvs[i]`（callEnv スナップショット）に変更。params・デフォルト引数・function-body 変数を正確に表示。V-01/V-04/V-13 が `state.frameEnvs` を参照するよう更新。AppState に `frameEnvs` フィールド追加。sv-scroll を flex→block 化（`overflow-y: auto` のスクロールバー修正）|
 
 ---
 
@@ -91,6 +92,39 @@ step-controller.js
         └──▶ switcher.update(state)     → アクティブビューの update() を呼ぶ
 ```
 
+### 1.2 JSInterpreter 内部設計（`frameEnvs` 生成機構）
+
+外側フレームの変数を正確にキャプチャするため、以下の拡張を加えた。
+
+**`Environment.snapshotOwn()`** (`environment.js`):
+```js
+snapshotOwn() {
+  const frame = {};
+  for (const [k, v] of this.bindings) {
+    frame[k] = deepClone(v);  // 自スコープのバインディングのみ（親チェーン不含）
+  }
+  return frame;
+}
+```
+
+**`Recorder.frameEnvStack`** (`interpreter.js`):
+```js
+// Recorder コンストラクタ
+this.frameEnvStack = [];   // アクティブフレームの live Environment 参照スタック
+
+// callFunction / newInstance で関数呼び出し時
+recorder.frameEnvStack.push(callEnv);   // push: フレーム開始
+// 関数終了時
+recorder.frameEnvStack.pop();           // pop: フレーム終了
+
+// record() でイベント生成時
+const frameEnvs = this.frameEnvStack.map(e => e.snapshotOwn());
+// → TraceEvent.frameEnvs に格納
+```
+
+`frameEnvStack` には `callEnv`（`bindParams` でパラメータを束縛した後の live な `Environment`）が積まれるため、
+関数実行中に変化する変数（デフォルト引数、function-body `let/const/var`）もステップごとに正確に取得できる。
+
 ---
 
 ## 2. 基本データ型
@@ -115,6 +149,9 @@ JSInterpreter が各実行ステップで生成するオブジェクト。`trace
  *                                  loc = その関数を呼び出した CallExpression の start 位置
  *                                  最内側フレームの取得: callStack[callStack.length - 1]
  * @property {Array}   env        スコープチェーン（env[0] が最内側スコープ）
+ * @property {Object[]} frameEnvs  各アクティブフレームの callEnv スナップショット（外→内順、callStack と同一インデックス）
+ *                                  Recorder.frameEnvStack の live Environment を snapshotOwn() で取得したもの。
+ *                                  params・デフォルト引数・function-body 変数を含む（ブロックスコープは含まない）
  * @property {any}     [value]    exit 時に確定した値（enter 時は undefined）
  * @property {number}  [matchIdx] stepOver() 用の対応 exit ステップのインデックス
  */
@@ -191,6 +228,7 @@ class DebuggerAdapter extends EventTarget {
  * @property {Object}           variables    getVariables('all') の結果
  * @property {Object[]}         scopes       env[] スコープチェーン（env[0] = 最内）
  * @property {Object[]}         callStack    getCallStack() の結果
+ * @property {Object[]}         frameEnvs    各アクティブフレームの callEnv スナップショット（外→内順、callStack と対応）
  * @property {string[]}         changedVars  前ステップから変化した変数名
  * @property {Object[]}         consoleOutput getConsoleOutput() の結果
  * @property {boolean}          done         isDone()
@@ -217,6 +255,16 @@ this.dispatchEvent(new CustomEvent('error', {
 ```
 
 `app.js` では `e.detail.errorType` を `editor.showError(message, errorType)` に渡す。
+
+**`frameEnvs` の取得** (`#buildState()` 内):
+
+```js
+frameEnvs: ev?.frameEnvs ?? [],
+```
+
+`TraceEvent.frameEnvs` は JSInterpreter の `Recorder` が各イベント生成時に
+`frameEnvStack.map(e => e.snapshotOwn())` で作成したスナップショット配列。
+`debugger-adapter.js` はそのまま `AppState.frameEnvs` として公開する。
 
 ---
 
@@ -473,24 +521,48 @@ update(state) で callStack.length > 0 の場合:
 
 > Console 出力は `#console-panel`（`debug-pane` 下部固定）に分離済み。`app.js` の `updateConsolePanel(state)` が `'ready'`/`'step'` イベントごとに更新する。
 
+**スクロール実装** (`.sv-scroll` の CSS):
+
+`display:flex; flex-direction:column` 内で `overflow-y:auto` は機能しないため、`.sv-scroll` を block 表示に変更。カード間の余白は隣接兄弟セレクタ (`.debug-card + .debug-card { margin-top: 8px }`) で設定する。
+
+```css
+.sv-scroll {
+  flex: 1 1 0;
+  overflow-y: auto;
+  padding: 8px;
+  min-height: 0;
+  /* display:flex を除去することで overflow-y: auto が正常動作 */
+}
+```
+
 ---
 
 #### `scope-view/` — スコープ・変数ビュー ✅
 
-**スコープ統合表示** (`mergeScopesForDisplay(scopes, callStack)` in `format.js`):
+**スコープ統合表示** (`mergeScopesForDisplay(scopes, callStack, frameEnvs)` in `format.js`):
 
 JavaScript は lexical scoping を採用しており、JSInterpreter の `callFunction` は
 `new Environment(callee.closure)` でスコープを作成する（呼び出し元スコープではなく定義元スコープが親）。
-このため同一スコープレベルで定義された関数間（例: quickSort と partition）では、
-相手のスコープは env チェーンに含まれない。
+このため同一スコープレベルで定義された関数間（例: quickSort と partition）や
+再帰呼び出し（factorial(3)→factorial(2)）では、外側フレームのスコープが
+env チェーンに含まれない。
+
+外側フレームの変数を正確に表示するため、JSInterpreter の `Recorder` は各フレームの
+`callEnv`（`Environment` オブジェクト）への参照を `frameEnvStack` で管理し、
+TraceEvent 生成時に `snapshotOwn()`（自スコープのみのスナップショット）を呼んで
+`frameEnvs` として記録する。これにより params・デフォルト引数・function-body 変数が
+正確にキャプチャされる。
 
 ```
 callStack の順序: [0]=最外側, [N-1]=最内側（現在実行中）
 scopes の順序:    [0]=最内側スコープ, [M-1]=グローバル
+frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（callStack と同一インデックス）
 
-アルゴリズム（v0.9 以降）:
+アルゴリズム（v1.0 以降）:
   最内側関数: scopes[0]〜scopes[M-2] を外→内の順でマージ（内側が外側を上書き）
-  外側関数: vars: {} （env チェーンに含まれないため変数不明）
+              ブロックスコープ・クロージャチェーンを含む完全な変数リスト
+  外側関数:   frameEnvs[i] を使用（callEnv スナップショット）
+              params・デフォルト引数・function-body let/const/var を含む
   グローバル: scopes[M-1]
   表示順: innermost-first（最内側が先頭）
 ```
@@ -903,6 +975,8 @@ function buildHeap(scopes) {
   return { heap, refMap };
 }
 ```
+
+**スタックレンダリング**: `#renderStack(scopes, callStack, changed, refMap, heap, frameEnvs)` が `mergeScopesForDisplay(scopes, callStack, frameEnvs)` を呼びフレームごとの変数を取得する。外側フレームは `frameEnvs[i]`（callEnv スナップショット）から params・デフォルト引数・function-body 変数を表示。
 
 **参照セルの HTML**: スタック・ヒープともに参照値のセルに `data-ref-heap="N"` 属性を付与
 

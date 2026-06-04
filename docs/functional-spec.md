@@ -1,9 +1,9 @@
 # 機能仕様書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 0.9  
+**バージョン**: 1.0  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-03  
+**最終更新**: 2026-06-04  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -21,6 +21,7 @@
 | 0.7 | 2026-05-26 | 修正 1〜8 反映: 分割代入サポート・ドラッグ可能なペインリサイザー・CodeMirror 6 エディタ・プログラム名表示・Console 常時パネル・LineTrace 改善（ソース列削除・行位置一致・スクロール同期・列表示切替・D&D 並び替え）・TraceTable「対象」列追加 |
 | 0.8 | 2026-06-02 | 修正反映: V-15 CallTree（全関数呼び出しツリー）新規追加・LineTrace 2ペイン化（ソースコードパネル内包・ドラッグリサイズ）・ScopeView/StateView スコープ統合（factorial(6) 形式ラベル）・Heatmap 時系列ドット＋割合表示・RecursionTree 引数展開表示改善・Console パネル高さドラッグ変更・callStack 順序バグ修正（呼び出し元ハイライト・再帰ツリー引数）|
 | 0.9 | 2026-06-03 | 修正 1〜7 反映: スコープ表示アルゴリズム刷新（lexical scope 対応 mergeScopesForDisplay）・StateView CALL STACK 表示修正（formatFrameLabel 未インポートバグ修正 + スコープフレーム表示）・buildRecursionTree を再帰呼び出しのみにフィルタリング＋cost 付与・buildCallTree を完全独立化・RecursionTree に cost 表示追加・Heatmap 動的背景色（ステップ別更新）＋ドット 3 倍幅＋実行済み/未実行色分け＋N回/M回 形式・MemoryView スコープ名修正 |
+| 1.0 | 2026-06-04 | スタックフレーム変数の正確化: JSInterpreter に `Environment.snapshotOwn()` + `Recorder.frameEnvStack` を追加し、各 TraceEvent に `frameEnvs`（各フレームの callEnv スナップショット、外→内順）を記録。外側フレームにローカル変数・デフォルト引数を正確表示（`mergeScopesForDisplay` の第 3 引数 `frameEnvs` を利用）。V-01/V-04/V-13 が `frameEnvs` を使用。sv-scroll の flex→block 化によるスクロールバー修正 |
 
 ---
 
@@ -154,7 +155,7 @@
 
 > **Console 出力は右ペイン下部の常時表示パネルに移動。** どのタブを選択中でも `console.log` の出力が確認できる（後述 F-14）。
 
-**入力**: `state.event`, `state.variables`, `state.scopes`, `state.callStack`
+**入力**: `state.event`, `state.variables`, `state.scopes`, `state.callStack`, `state.frameEnvs`
 
 ---
 
@@ -210,7 +211,7 @@
 - **スコープ統合表示**: 各関数呼び出しに対して生成される paramScope（引数）と blockScope（本体ブロック）を 1 枠に統合表示
 - **引数付きラベル**: フレームラベルを `factorial(6)` 形式で表示（`formatFrameLabel(frame)`）
 
-**入力**: `state.scopes`, `state.callStack`, `state.changedVars`
+**入力**: `state.scopes`, `state.callStack`, `state.changedVars`, `state.frameEnvs`
 
 ---
 
@@ -376,7 +377,7 @@
 - 変化した変数の行は黄色でハイライト
 - 矢印は `requestAnimationFrame` 後に `getBoundingClientRect()` で位置計算
 
-**入力**: `state.scopes`, `state.callStack`, `state.changedVars`
+**入力**: `state.scopes`, `state.callStack`, `state.changedVars`, `state.frameEnvs`
 
 ---
 
@@ -487,7 +488,7 @@
 |------|------|
 | ホスティング | GitHub Pages（`https://tntetsu.github.io/JSVisualizer/`） |
 | デプロイトリガー | `main` ブランチへの push または手動実行（`workflow_dispatch`） |
-| CI パイプライン | ① JSInterpreter クローン → ② `npm ci` → ③ `npm test`（42 テスト）→ ④ `npm run build` → ⑤ GitHub Pages へアップロード |
+| CI パイプライン | ① JSInterpreter クローン → ② `npm ci` → ③ `npm test`（49 テスト）→ ④ `npm run build` → ⑤ GitHub Pages へアップロード |
 | 成果物 | `web/` ディレクトリ（`app.bundle.js` / `interpreter.bundle.js` / `index.html` / `style.css`） |
 | 並行デプロイ | `concurrency: pages` で同時デプロイを 1 つに制限（前のデプロイをキャンセル） |
 

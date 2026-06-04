@@ -159,6 +159,11 @@ export class DebuggerAdapter extends EventTarget {
     return this.#dbg;
   }
 
+  /** 解析済み AST を返す（TraceBuilder.buildCFG() 用）。 */
+  getAST() {
+    return this.#dbg?.ast ?? null;
+  }
+
   /** ロード済みか */
   isLoaded() {
     return this.#dbg !== null;

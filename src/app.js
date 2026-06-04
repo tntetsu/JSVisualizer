@@ -160,7 +160,7 @@ const stepControls = new StepControls({
 adapter.addEventListener('ready', (e) => {
   const state   = e.detail;
   const source  = editor.getCode();
-  const builder = new TraceBuilder(adapter.getTrace(), source);
+  const builder = new TraceBuilder(adapter.getTrace(), source, adapter.getAST());
 
   // ViewSwitcher に builder + 初期 state を通知（builder 付きで再マウント）
   switcher.onReady(state, builder);

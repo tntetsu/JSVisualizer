@@ -2022,71 +2022,194 @@ html, body {
   pointer-events: none;
 }
 
-/* ── ControlFlow (.cf-*) ────────────────────────────────────────────────── */
+/* ── ControlFlow — 構造的フローチャート (.cf-*) ──────────────────────────── */
 
 .cf-wrap {
   width: 100%;
   height: 100%;
   overflow: auto;
-  padding: 8px;
+  padding: 12px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.cf-svg {
-  display: block;
+/* スコープパネル */
+.cf-scope {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-/* ノード枠 */
-.cf-rect {
-  stroke: var(--border);
-  stroke-width: 1;
-  /* fill は JS で直接設定 */
-  transition: stroke 0.15s, stroke-width 0.15s;
+.cf-scope-hdr {
+  background: var(--surface2, var(--surface));
+  padding: 5px 12px;
+  font-size: 12px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
 }
 
-/* 現在行ノード */
-.cf-node--active .cf-rect {
-  stroke: var(--accent);
-  stroke-width: 2.5;
+.cf-region {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-/* 行番号 */
-.cf-lineno {
-  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
-  font-size: 10px;
-  fill: var(--text-muted);
+/* ── ノード共通 ── */
+
+.cf-node {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: 12px;
+  min-height: 28px;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
 
-/* ソーステキスト */
-.cf-src {
-  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+.cf-node code {
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
   font-size: 11px;
-  fill: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
 }
 
-/* 実行回数 */
-.cf-count {
-  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+/* 条件ノード（if / ループ） */
+.cf-node--cond {
+  background: rgba(200, 168, 58, 0.10);
+  border-color: rgba(200, 168, 58, 0.45);
+}
+.cf-node--cond::before {
+  content: '◇';
+  color: #b8983a;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* ループ条件（↺ で上書き） */
+.cf-node--loop.cf-node--cond::before {
+  content: '↺';
+  color: var(--hl-orange, #e86b4c);
+  font-size: 14px;
+}
+
+/* return */
+.cf-node--return {
+  background: rgba(76, 200, 132, 0.10);
+  border-color: rgba(76, 200, 132, 0.50);
+}
+.cf-node--return::before {
+  content: '⏎';
+  color: #3cb870;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* break / continue */
+.cf-node--jump {
+  background: rgba(160, 76, 232, 0.08);
+  border-color: rgba(160, 76, 232, 0.38);
+}
+
+/* 未実行（dead code） */
+.cf-node--dead {
+  opacity: 0.36;
+  border-style: dashed;
+}
+
+/* 現在アクティブ */
+.cf-node--active {
+  border-color: var(--accent) !important;
+  background: rgba(76, 155, 232, 0.18) !important;
+  box-shadow: 0 0 0 2px rgba(76, 155, 232, 0.28);
+}
+
+/* 実行回数バッジ */
+.cf-exec-badge {
   font-size: 10px;
-  fill: var(--text-muted);
+  color: var(--text-muted);
+  background: var(--surface2, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 5px;
+  flex-shrink: 0;
+  font-family: monospace;
 }
 
-/* エッジ（前向き） */
-.cf-edge--fwd {
-  stroke: var(--accent);
-  stroke-width: 1.5;
+/* ── if/else ── */
+
+.cf-if-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-/* エッジ（後ろ向き / ループバック）: 破線で色以外の手がかりも提供 */
-.cf-edge--back {
-  stroke: var(--hl-orange, #e86b4c);
-  stroke-width: 2;
-  stroke-dasharray: 6 3;
+.cf-if-branches {
+  display: flex;
+  gap: 8px;
 }
 
-/* 矢印マーカー */
-.cf-marker-fwd  { fill: var(--accent); }
-.cf-marker-back { fill: var(--hl-orange, #e86b4c); }
+.cf-if-branch {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+
+.cf-if-branch--true  { border-color: rgba(76, 200, 132, 0.60); }
+.cf-if-branch--false { border-color: rgba(232, 107, 76, 0.50); }
+
+.cf-branch-hdr {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.cf-if-branch--true  .cf-branch-hdr { color: #3cb870; }
+.cf-if-branch--false .cf-branch-hdr { color: var(--hl-orange, #e86b4c); }
+
+.cf-no-else {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 3px 0;
+}
+
+/* ── ループ ── */
+
+.cf-loop-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cf-loop-body {
+  border-left: 2px solid rgba(232, 107, 76, 0.50);
+  padding-left: 12px;
+  margin-left: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── seq ── */
+
+.cf-seq {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Phase 5: MemoryView / ObjectGraph

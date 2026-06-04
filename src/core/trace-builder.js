@@ -41,16 +41,24 @@ export class TraceBuilder {
   /** @type {Object[]|null} キャッシュ */
   #lifetimeCache = null;
 
-  /** @type {Object|null} キャッシュ */
+  /** @type {Object|null} キャッシュ（旧 buildControlFlow 用） */
   #controlFlowCache = null;
+
+  /** @type {Object|null} AST（buildCFG 用） */
+  #ast = null;
+
+  /** @type {Object[]|null} キャッシュ（buildCFG 用） */
+  #cfgCache = null;
 
   /**
    * @param {Object[]} trace   JSDebugger.trace
    * @param {string}  [source] 元ソースコード
+   * @param {Object}  [ast]    JSDebugger.ast（制御フロービュー用）
    */
-  constructor(trace, source = '') {
+  constructor(trace, source = '', ast = null) {
     this.#trace  = trace;
     this.#source = source;
+    this.#ast    = ast;
   }
 
   // ── Phase 1 ───────────────────────────────────────────────────────────────
@@ -357,6 +365,20 @@ export class TraceBuilder {
     return this.#controlFlowCache;
   }
 
+  /**
+   * AST から構造的 CFG スコープ配列を生成する（制御フロービュー用）。
+   * 返り値: Array<{ name:string, params:string[], items:CfgItem[] }>
+   * CfgItem の type: 'stmt'|'return'|'jump'|'if'|'while'|'for'|'do-while'|'seq'
+   * @returns {Object[]}
+   */
+  buildCFG() {
+    if (this.#cfgCache !== null) return this.#cfgCache;
+    if (!this.#ast) { this.#cfgCache = []; return []; }
+    const b = new CfgBuilder(this.#trace, this.#source);
+    this.#cfgCache = b.build(this.#ast);
+    return this.#cfgCache;
+  }
+
   // ── ユーティリティ ────────────────────────────────────────────────────────
 
   /**
@@ -380,5 +402,211 @@ export class TraceBuilder {
   /** 元ソースコード */
   get source() {
     return this.#source;
+  }
+}
+
+// ── CfgBuilder ────────────────────────────────────────────────────────────
+
+class CfgBuilder {
+  #lines;      // string[]  ソース行（1-indexed: lines[0] = 行1）
+  #execOf;     // Map<lineNo, count>
+  #seq = 0;
+
+  constructor(trace, source) {
+    this.#lines  = source.split('\n');
+    this.#execOf = new Map();
+    for (const ev of trace) {
+      if (ev.phase === 'enter' && ev.loc?.line) {
+        const l = ev.loc.line;
+        this.#execOf.set(l, (this.#execOf.get(l) ?? 0) + 1);
+      }
+    }
+  }
+
+  build(ast) {
+    const scopes = [];
+    // グローバルスコープ
+    scopes.push({ name: 'global', params: [], items: this.#region(ast.body ?? []) });
+    // 各関数定義をスコープとして追加
+    this.#collectFuncs(ast.body ?? [], scopes);
+    return scopes;
+  }
+
+  // ── ID 生成 ───────────────────────────────────────────────────────────────
+
+  #id() { return `cf${this.#seq++}`; }
+
+  // ── ソース取得 ────────────────────────────────────────────────────────────
+
+  #text(lineNo) {
+    if (lineNo < 1 || lineNo > this.#lines.length) return '';
+    return this.#lines[lineNo - 1].trim();
+  }
+
+  #exec(lineNo) { return this.#execOf.get(lineNo) ?? 0; }
+
+  // ── 文列を CfgItem 配列に変換 ─────────────────────────────────────────────
+
+  #region(stmts) {
+    const items = [];
+    for (const s of stmts ?? []) {
+      const item = this.#stmt(s);
+      if (item !== null) items.push(item);
+    }
+    return items;
+  }
+
+  #body(node) {
+    if (!node) return [];
+    if (node.type === 'BlockStatement') return this.#region(node.body ?? []);
+    const item = this.#stmt(node);
+    return item ? [item] : [];
+  }
+
+  #stmt(node) {
+    if (!node) return null;
+    const line = node.loc?.line ?? 0;
+
+    switch (node.type) {
+      case 'IfStatement':
+        return {
+          type: 'if', id: this.#id(),
+          condLine:  line,
+          condLabel: this.#text(line),
+          execCount: this.#exec(line),
+          then_: this.#body(node.consequent),
+          else_: node.alternate ? this.#body(node.alternate) : null,
+        };
+
+      case 'WhileStatement':
+        return {
+          type: 'while', id: this.#id(),
+          condLine:  line,
+          condLabel: this.#text(line),
+          execCount: this.#exec(line),
+          body: this.#body(node.body),
+        };
+
+      case 'DoWhileStatement':
+        return {
+          type: 'do-while', id: this.#id(),
+          condLine:  node.test?.loc?.line ?? line,
+          condLabel: this.#text(line),
+          execCount: this.#exec(line),
+          body: this.#body(node.body),
+        };
+
+      case 'ForStatement':
+      case 'ForOfStatement':
+      case 'ForInStatement':
+        return {
+          type: 'for', id: this.#id(),
+          condLine:  line,
+          condLabel: this.#text(line),
+          execCount: this.#exec(line),
+          body: this.#body(node.body),
+        };
+
+      case 'ReturnStatement':
+        return {
+          type: 'return', id: this.#id(),
+          lineStart: line, lineEnd: line,
+          label: this.#text(line),
+          execCount: this.#exec(line),
+        };
+
+      case 'BreakStatement':
+      case 'ContinueStatement':
+        return {
+          type: 'jump', id: this.#id(),
+          lineStart: line, lineEnd: line,
+          label: this.#text(line),
+          execCount: this.#exec(line),
+        };
+
+      case 'FunctionDeclaration':
+      case 'ClassDeclaration':
+      case 'EmptyStatement':
+        return null;
+
+      case 'BlockStatement': {
+        const items = this.#region(node.body ?? []);
+        if (items.length === 0) return null;
+        if (items.length === 1) return items[0];
+        return { type: 'seq', id: this.#id(), children: items };
+      }
+
+      default: {
+        const label = this.#text(line);
+        if (!label) return null;
+        return {
+          type: 'stmt', id: this.#id(),
+          lineStart: line, lineEnd: line,
+          label,
+          execCount: this.#exec(line),
+        };
+      }
+    }
+  }
+
+  // ── 関数定義を再帰的に収集 ────────────────────────────────────────────────
+
+  #collectFuncs(stmts, scopes) {
+    for (const s of stmts ?? []) this.#extractFunc(s, scopes);
+  }
+
+  #extractFunc(node, scopes) {
+    if (!node) return;
+    switch (node.type) {
+      case 'FunctionDeclaration': {
+        const name   = node.id?.name ?? '(anonymous)';
+        const params = (node.params ?? []).map(p => this.#pname(p));
+        scopes.push({ name, params, items: this.#region(node.body?.body ?? []) });
+        this.#collectFuncs(node.body?.body ?? [], scopes);
+        break;
+      }
+      case 'VariableDeclaration':
+        for (const d of node.declarations ?? []) this.#extractFunc(d.init, scopes);
+        break;
+      case 'ExpressionStatement':
+        this.#extractFunc(node.expression, scopes);
+        break;
+      case 'AssignmentExpression':
+        this.#extractFunc(node.right, scopes);
+        break;
+      case 'FunctionExpression':
+      case 'ArrowFunctionExpression': {
+        const name   = node.id?.name ?? '(anonymous)';
+        const params = (node.params ?? []).map(p => this.#pname(p));
+        const stmts  = node.body?.type === 'BlockStatement'
+          ? node.body.body ?? []
+          : [{ type: 'ReturnStatement', argument: node.body, loc: node.body?.loc }];
+        scopes.push({ name, params, items: this.#region(stmts) });
+        this.#collectFuncs(stmts, scopes);
+        break;
+      }
+      case 'IfStatement':
+        this.#extractFunc(node.consequent, scopes);
+        this.#extractFunc(node.alternate, scopes);
+        break;
+      case 'WhileStatement':
+      case 'DoWhileStatement':
+      case 'ForStatement':
+      case 'ForOfStatement':
+      case 'ForInStatement':
+        this.#extractFunc(node.body, scopes);
+        break;
+      case 'BlockStatement':
+        this.#collectFuncs(node.body ?? [], scopes);
+        break;
+    }
+  }
+
+  #pname(p) {
+    if (!p) return '?';
+    if (p.type === 'Identifier')        return p.name;
+    if (p.type === 'AssignmentPattern') return this.#pname(p.left) + '=…';
+    if (p.type === 'RestElement')       return '…' + this.#pname(p.argument);
+    return '?';
   }
 }
