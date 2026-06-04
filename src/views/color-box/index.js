@@ -1,10 +1,11 @@
 /**
- * color-box/index.js — 色付き箱アニメーション
+ * color-box/index.js — 配列アニメーション
  *
  * 配列の各要素を色付きの箱として表示する。
  * - 箱の色は値の大きさに応じて変化（ソートアルゴリズムで各要素を追跡しやすい）
  * - 整数型の変数がポインタ（インデックス）として認識され、対応する箱をハイライト
- * - チップで表示する配列変数を切り替え
+ * - ポインタ変数は変数ごとに個別の行として表示
+ * - チップで複数の配列変数を同時選択可能
  */
 
 import { BaseView }                       from '../base-view.js';
@@ -20,7 +21,6 @@ function valueToBoxColor(val, maxVal) {
   if (maxVal === 0 || typeof val !== 'number') return 'var(--surface2)';
   const ratio = Math.min(Math.abs(val) / maxVal, 1);
   const hue   = Math.round(220 - ratio * 220); // 220 (blue) → 0 (red)
-  // ライト/ダーク両対応: ライトネスを固定してテーマ影響を受けにくくする
   return `hsl(${hue}, 65%, 70%)`;
 }
 
@@ -34,8 +34,8 @@ export class ColorBox extends BaseView {
   #chipsEl     = null;
   #boxAreaEl   = null;
 
-  /** @type {string|null} 選択中の配列変数名 */
-  #selectedArray = null;
+  /** @type {Set<string>} 選択中の配列変数名（複数可） */
+  #selectedArrays = new Set();
 
   /** @type {Array<{name:string, maxVal:number}>} */
   #allArrayVars  = [];
@@ -116,118 +116,127 @@ export class ColorBox extends BaseView {
     }
 
     this.#allArrayVars = [...metaMap.entries()].map(([name, meta]) => ({ name, ...meta }));
+    // 先頭配列をデフォルト選択
     if (this.#allArrayVars.length > 0) {
-      this.#selectedArray = this.#allArrayVars[0].name;
+      this.#selectedArrays = new Set([this.#allArrayVars[0].name]);
     }
   }
 
-  /** 配列選択チップを描画する */
+  /** 配列選択チップを描画する（複数選択トグル） */
   #renderChips() {
     if (!this.#chipsEl) return;
 
     this.#chipsEl.innerHTML = this.#allArrayVars.map(m =>
-      `<button class="cb-chip${this.#selectedArray === m.name ? ' cb-chip--on' : ''}"
+      `<button class="cb-chip${this.#selectedArrays.has(m.name) ? ' cb-chip--on' : ''}"
                data-var="${m.name}">
-         ${m.name}[]
+         ${esc(m.name)}[]
        </button>`
     ).join('');
 
     this.#chipsEl.addEventListener('click', e => {
       const btn = e.target.closest('.cb-chip');
       if (!btn) return;
-      this.#selectedArray = btn.dataset.var;
-      this.#chipsEl.querySelectorAll('.cb-chip').forEach(b => b.classList.remove('cb-chip--on'));
-      btn.classList.add('cb-chip--on');
+      const varName = btn.dataset.var;
+      if (this.#selectedArrays.has(varName)) {
+        if (this.#selectedArrays.size > 1) this.#selectedArrays.delete(varName);
+      } else {
+        this.#selectedArrays.add(varName);
+      }
+      this.#chipsEl.querySelectorAll('.cb-chip').forEach(b => {
+        b.classList.toggle('cb-chip--on', this.#selectedArrays.has(b.dataset.var));
+      });
       if (this.#lastVars) this.#render(this.#lastVars);
     });
   }
 
   /**
-   * 配列の箱を描画する。
-   * - インデックス行 / 値行 / ポインタ行 の 3 行構成
+   * 選択中の全配列を縦に並べて描画する。
+   * ポインタ変数は変数ごとに個別の行で表示する。
    * @param {Map<string, any>} vars
    */
   #render(vars) {
-    if (!this.#boxAreaEl || !this.#selectedArray) return;
+    if (!this.#boxAreaEl || this.#selectedArrays.size === 0) return;
 
-    const meta = this.#allArrayVars.find(m => m.name === this.#selectedArray);
-    const arr  = vars.get(this.#selectedArray);
+    // 全配列変数名のセット（ポインタ候補から除外するため）
+    const arrayVarNames = new Set(this.#allArrayVars.map(m => m.name));
 
-    if (!Array.isArray(arr) || arr.length === 0) {
-      this.#boxAreaEl.innerHTML = '<p class="cb-empty">配列が空です</p>';
-      return;
-    }
+    let html = '';
+    for (const arrName of this.#selectedArrays) {
+      const meta = this.#allArrayVars.find(m => m.name === arrName);
+      const arr  = vars.get(arrName);
 
-    // ── ポインタ変数を収集 ──────────────────────────────────────────────────
-    // 整数値が [0, arr.length) に収まる変数を「ポインタ」とみなす
-    /** @type {Map<number, string[]>} idx → 変数名リスト */
-    const ptrMap = new Map();
-    for (const [name, val] of vars) {
-      if (BUILTIN_NAMES.has(name)) continue;
-      if (name === this.#selectedArray) continue;
-      if (
-        typeof val === 'number'
-        && Number.isInteger(val)
-        && val >= 0
-        && val < arr.length
-      ) {
-        if (!ptrMap.has(val)) ptrMap.set(val, []);
-        ptrMap.get(val).push(name);
+      if (!Array.isArray(arr) || arr.length === 0) {
+        html += `<div class="cb-array-block"><div class="cb-array-name">${esc(arrName)}</div><p class="cb-empty">配列が空です</p></div>`;
+        continue;
       }
-    }
 
-    const highlightedSet = new Set(ptrMap.keys());
-    const maxVal = meta?.maxVal ?? 0;
+      // ポインタ変数を収集：整数型で [0, arr.length) に収まる変数
+      // name → idx のマップ（配列変数自体は除外）
+      const ptrByName = new Map();
+      for (const [name, val] of vars) {
+        if (BUILTIN_NAMES.has(name)) continue;
+        if (arrayVarNames.has(name)) continue;
+        if (
+          typeof val === 'number'
+          && Number.isInteger(val)
+          && val >= 0
+          && val < arr.length
+        ) {
+          ptrByName.set(name, val);
+        }
+      }
 
-    // セルサイズ（配列の長さに応じて縮小）
-    const CELL = arr.length <= 10 ? 48
-               : arr.length <= 20 ? 38
-               : arr.length <= 32 ? 28
-               : 20;
-    const FONT = Math.max(9, Math.round(CELL * 0.34));
+      const highlightedSet = new Set(ptrByName.values());
+      const maxVal = meta?.maxVal ?? 0;
 
-    // ── HTML 生成 ──────────────────────────────────────────────────────────
-    const style = `width:${CELL}px;font-size:${FONT}px`;
+      const CELL = arr.length <= 10 ? 48
+                 : arr.length <= 20 ? 38
+                 : arr.length <= 32 ? 28
+                 : 20;
+      const FONT = Math.max(9, Math.round(CELL * 0.34));
+      const style = `width:${CELL}px;font-size:${FONT}px`;
 
-    let html = '<div class="cb-grid">';
+      html += `<div class="cb-array-block">`;
+      html += `<div class="cb-array-name">${esc(arrName)}</div>`;
+      html += '<div class="cb-grid">';
 
-    // インデックス行
-    html += '<div class="cb-row cb-idx-row">';
-    for (let i = 0; i < arr.length; i++) {
-      html += `<div class="cb-cell cb-cell--idx" style="${style};height:${Math.round(CELL * 0.55)}px">${i}</div>`;
-    }
-    html += '</div>';
-
-    // 値行
-    html += '<div class="cb-row cb-val-row">';
-    for (let i = 0; i < arr.length; i++) {
-      const v      = arr[i];
-      const isHl   = highlightedSet.has(i);
-      const bgColor = typeof v === 'number' && !isHl
-        ? `background:${valueToBoxColor(v, maxVal)};`
-        : '';
-      const hlCls  = isHl ? ' cb-cell--hl' : '';
-      const display = typeof v === 'number' ? String(v)
-                    : typeof v === 'string' ? v.slice(0, 5)
-                    : '?';
-
-      html += `<div class="cb-cell${hlCls}" style="${style};height:${CELL}px;${bgColor}">${esc(display)}</div>`;
-    }
-    html += '</div>';
-
-    // ポインタ行（ポインタが存在する場合のみ）
-    if (ptrMap.size > 0) {
-      html += '<div class="cb-row cb-ptr-row">';
+      // インデックス行
+      html += '<div class="cb-row cb-idx-row">';
       for (let i = 0; i < arr.length; i++) {
-        const names = ptrMap.get(i);
-        const label  = names ? names.join('/') : '';
-        html += `<div class="cb-cell cb-cell--ptr" style="${style};height:${Math.round(CELL * 0.65)}px">${esc(label)}</div>`;
+        html += `<div class="cb-cell cb-cell--idx" style="${style};height:${Math.round(CELL * 0.55)}px">${i}</div>`;
       }
       html += '</div>';
+
+      // 値行
+      html += '<div class="cb-row cb-val-row">';
+      for (let i = 0; i < arr.length; i++) {
+        const v      = arr[i];
+        const isHl   = highlightedSet.has(i);
+        const bgColor = typeof v === 'number' && !isHl
+          ? `background:${valueToBoxColor(v, maxVal)};`
+          : '';
+        const hlCls  = isHl ? ' cb-cell--hl' : '';
+        const display = typeof v === 'number' ? String(v)
+                      : typeof v === 'string' ? v
+                      : typeof v === 'boolean' ? String(v)
+                      : '?';
+        html += `<div class="cb-cell${hlCls}" style="${style};height:${CELL}px;${bgColor}">${esc(display)}</div>`;
+      }
+      html += '</div>';
+
+      // ポインタ行（変数ごとに1行）
+      for (const [ptrName, ptrIdx] of ptrByName) {
+        html += '<div class="cb-row cb-ptr-row">';
+        for (let i = 0; i < arr.length; i++) {
+          const label = i === ptrIdx ? ptrName : '';
+          html += `<div class="cb-cell cb-cell--ptr" style="${style};height:${Math.round(CELL * 0.65)}px">${esc(label)}</div>`;
+        }
+        html += '</div>';
+      }
+
+      html += '</div></div>';
     }
 
-    html += '</div>';
-
-    this.#boxAreaEl.innerHTML = html;
+    this.#boxAreaEl.innerHTML = html || '<p class="cb-empty">選択された配列が見つかりません</p>';
   }
 }

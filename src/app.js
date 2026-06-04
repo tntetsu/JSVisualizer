@@ -112,7 +112,7 @@ switcher.register('state',     '変数・スタック',   StateView);
 switcher.register('trace',     'トレース表',       LineTrace);
 switcher.register('table',     '全ステップ',       TraceTable);
 switcher.register('bar',       '棒グラフ',         BarChart);
-switcher.register('colorbox',  '色付き箱',         ColorBox);
+switcher.register('colorbox',  '配列',             ColorBox);
 switcher.register('timeline',  '時系列',           Timeline);
 switcher.register('heatmap',   'ヒートマップ',     Heatmap);
 switcher.register('recursion', '再帰ツリー',       RecursionTree);

@@ -1520,6 +1520,20 @@ html, body {
   overflow: auto;
 }
 
+.cb-array-block {
+  display: inline-block;
+  padding: 8px 12px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cb-array-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  font-family: monospace;
+}
+
 .cb-grid {
   display: flex;
   flex-direction: column;
