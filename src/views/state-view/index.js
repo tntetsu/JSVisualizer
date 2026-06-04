@@ -7,7 +7,7 @@
  */
 
 import { BaseView }                                            from '../base-view.js';
-import { esc, formatValue, BUILTIN_NAMES, mergeScopesForDisplay, formatFrameLabel } from '../../utils/format.js';
+import { esc, formatValue, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
 
 export class StateView extends BaseView {
   /** @type {HTMLElement|null} */
@@ -15,7 +15,6 @@ export class StateView extends BaseView {
   #currentStepEl   = null;
   #variablesEl     = null;
   #callstackEl     = null;
-  #scopeAllCb      = null;
   /** @type {import('../../core/debugger-adapter.js').AppState|null} */
   #lastState       = null;
 
@@ -37,13 +36,7 @@ export class StateView extends BaseView {
         </div>
 
         <div class="debug-card">
-          <div class="card-header">
-            Variables
-            <label class="scope-toggle" title="スコープ別に表示">
-              <input type="checkbox" class="sv-scope-all">
-              <span>スコープ別</span>
-            </label>
-          </div>
+          <div class="card-header">Variables</div>
           <div class="sv-variables variables">
             <p class="placeholder">—</p>
           </div>
@@ -61,11 +54,6 @@ export class StateView extends BaseView {
     this.#currentStepEl   = container.querySelector('.sv-current');
     this.#variablesEl     = container.querySelector('.sv-variables');
     this.#callstackEl     = container.querySelector('.sv-callstack');
-    this.#scopeAllCb      = container.querySelector('.sv-scope-all');
-
-    this.#scopeAllCb.addEventListener('change', () => {
-      if (this.#lastState) this.#renderVariables(this.#lastState);
-    });
   }
 
   /** @param {import('../../core/debugger-adapter.js').AppState} state */
@@ -82,7 +70,6 @@ export class StateView extends BaseView {
     this.#currentStepEl.innerHTML = '<p class="placeholder">実行待ち</p>';
     this.#variablesEl.innerHTML   = '<p class="placeholder">—</p>';
     this.#callstackEl.innerHTML   = '<p class="placeholder">—</p>';
-    if (this.#scopeAllCb) this.#scopeAllCb.checked = false;
   }
 
   destroy() {
@@ -91,7 +78,6 @@ export class StateView extends BaseView {
     this.#currentStepEl   = null;
     this.#variablesEl     = null;
     this.#callstackEl     = null;
-    this.#scopeAllCb      = null;
     this.#lastState       = null;
   }
 
@@ -123,51 +109,30 @@ export class StateView extends BaseView {
   }
 
   #renderVariables(state) {
-    const { scopes, variables, changedVars, event } = state;
-    const scopeAll = this.#scopeAllCb?.checked ?? false;
-    const changed  = new Set(changedVars);
+    const { variables, changedVars, event } = state;
+    const changed = new Set(changedVars);
 
     if (!event) {
       this.#variablesEl.innerHTML = '<p class="placeholder">—</p>';
       return;
     }
 
-    let html = '';
-
-    if (scopeAll && scopes.length > 0) {
-      const displayScopes = mergeScopesForDisplay(scopes, state.callStack, state.frameEnvs);
-      for (const { label, vars } of displayScopes) {
-        const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));
-        if (!entries.length) continue;
-        html += `<div class="scope-frame">
-          <div class="scope-label">${esc(label)}</div>`;
-        for (const [name, val] of entries) {
-          const flash = changed.has(name) ? ' var-row--changed' : '';
-          html += `<div class="var-row${flash}">
-            <span class="var-name">${esc(name)}</span>
-            <span class="var-eq">=</span>
-            ${formatValue(val)}
-          </div>`;
-        }
-        html += '</div>';
-      }
-    } else {
-      const entries = Object.entries(variables).filter(([k]) => !BUILTIN_NAMES.has(k));
-      if (!entries.length) {
-        this.#variablesEl.innerHTML = '<p class="placeholder">変数なし</p>';
-        return;
-      }
-      for (const [name, val] of entries) {
-        const flash = changed.has(name) ? ' var-row--changed' : '';
-        html += `<div class="var-row${flash}">
-          <span class="var-name">${esc(name)}</span>
-          <span class="var-eq">=</span>
-          ${formatValue(val)}
-        </div>`;
-      }
+    const entries = Object.entries(variables).filter(([k]) => !BUILTIN_NAMES.has(k));
+    if (!entries.length) {
+      this.#variablesEl.innerHTML = '<p class="placeholder">変数なし</p>';
+      return;
     }
 
-    this.#variablesEl.innerHTML = html || '<p class="placeholder">変数なし</p>';
+    let html = '';
+    for (const [name, val] of entries) {
+      const flash = changed.has(name) ? ' var-row--changed' : '';
+      html += `<div class="var-row${flash}">
+        <span class="var-name">${esc(name)}</span>
+        <span class="var-eq">=</span>
+        ${formatValue(val)}
+      </div>`;
+    }
+    this.#variablesEl.innerHTML = html;
   }
 
   #renderCallStack(state) {
