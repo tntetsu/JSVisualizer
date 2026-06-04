@@ -187,8 +187,14 @@ export class ColorBox extends BaseView {
       const meta = this.#allArrayVars.find(m => m.name === arrName);
       const arr  = vars.get(arrName);
 
+      const minW = meta?.maxWidth      ? `min-width:${meta.maxWidth}px;`      : '';
+      const minH = meta?.maxGridHeight ? `min-height:${meta.maxGridHeight}px;` : '';
+
       if (!Array.isArray(arr) || arr.length === 0) {
-        html += `<div class="cb-array-block"><div class="cb-array-name">${esc(arrName)}</div><p class="cb-empty">配列が空です</p></div>`;
+        html += `<div class="cb-array-block">`;
+        html += `<div class="cb-array-name">${esc(arrName)}</div>`;
+        html += `<div class="cb-grid" style="${minW}${minH}"><p class="cb-empty">配列が空です</p></div>`;
+        html += `</div>`;
         continue;
       }
 
@@ -218,8 +224,6 @@ export class ColorBox extends BaseView {
       const FONT = Math.max(9, Math.round(CELL * 0.34));
       const style = `width:${CELL}px;font-size:${FONT}px`;
 
-      const minW = meta?.maxWidth      ? `min-width:${meta.maxWidth}px;`      : '';
-      const minH = meta?.maxGridHeight ? `min-height:${meta.maxGridHeight}px;` : '';
       html += `<div class="cb-array-block">`;
       html += `<div class="cb-array-name">${esc(arrName)}</div>`;
       html += `<div class="cb-grid" style="${minW}${minH}">`;

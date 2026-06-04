@@ -1598,10 +1598,13 @@ html, body {
 .cb-box-area {
   flex: 1;
   overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: flex-start;
 }
 
 .cb-array-block {
-  display: inline-block;
   padding: 8px 12px 12px;
   border-bottom: 1px solid var(--border);
 }
@@ -1619,7 +1622,6 @@ html, body {
   flex-direction: column;
   gap: 3px;
   width: max-content;
-  min-width: 100%;
 }
 
 .cb-row {
