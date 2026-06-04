@@ -81,6 +81,7 @@ function detectChanges(prev, curr) {
  * @property {Object}        variables     全スコープをフラット化した変数マップ
  * @property {Object[][]}    scopes        env[] スコープチェーン（配列の配列）
  * @property {Object[]}      callStack     現在のコールスタック
+ * @property {Object[]}      frameEnvs     各アクティブフレームの callEnv スナップショット（外→内の順、callStack と対応）
  * @property {string[]}      changedVars   前ステップから変化した変数名
  * @property {Object[]}      consoleOutput 現在 cursor までのコンソール出力
  * @property {boolean}       done          実行完了フラグ
@@ -202,6 +203,7 @@ export class DebuggerAdapter extends EventTarget {
       variables,
       scopes:        ev?.env ?? [],
       callStack:     this.#dbg.getCallStack(),
+      frameEnvs:     ev?.frameEnvs ?? [],
       changedVars,
       consoleOutput: this.#dbg.getConsoleOutput(),
       done:          this.#dbg.isDone(),

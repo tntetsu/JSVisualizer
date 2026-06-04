@@ -135,7 +135,7 @@ export class StateView extends BaseView {
     let html = '';
 
     if (scopeAll && scopes.length > 0) {
-      const displayScopes = mergeScopesForDisplay(scopes, state.callStack);
+      const displayScopes = mergeScopesForDisplay(scopes, state.callStack, state.frameEnvs);
       for (const { label, vars } of displayScopes) {
         const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));
         if (!entries.length) continue;
@@ -177,7 +177,7 @@ export class StateView extends BaseView {
       return;
     }
     const changed = new Set(changedVars);
-    const displayScopes = mergeScopesForDisplay(scopes, callStack);
+    const displayScopes = mergeScopesForDisplay(scopes, callStack, state.frameEnvs);
     let html = '';
     for (const { label, vars, isInnermost } of displayScopes) {
       const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));

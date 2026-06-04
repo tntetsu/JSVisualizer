@@ -142,7 +142,7 @@ export class MemoryView extends BaseView {
   update(state) {
     if (!this.#stackEl) return;
 
-    const { scopes, callStack, changedVars } = state;
+    const { scopes, callStack, changedVars, frameEnvs } = state;
     const changed = new Set(changedVars ?? []);
 
     if (!scopes || scopes.length === 0) {
@@ -154,7 +154,7 @@ export class MemoryView extends BaseView {
 
     const { heap, refMap } = buildHeap(scopes);
 
-    this.#renderStack(scopes, callStack ?? [], changed, refMap, heap);
+    this.#renderStack(scopes, callStack ?? [], changed, refMap, heap, frameEnvs ?? []);
     this.#renderHeap(heap);
 
     // DOM が確定してから矢印を描画
@@ -185,11 +185,12 @@ export class MemoryView extends BaseView {
    * @param {Set<string>} changed
    * @param {WeakMap}     refMap
    * @param {Object[]}    heap
+   * @param {Object[]}    frameEnvs 各フレームの callEnv スナップショット
    */
-  #renderStack(scopes, callStack, changed, refMap, heap) {
+  #renderStack(scopes, callStack, changed, refMap, heap, frameEnvs = []) {
     let html = '';
 
-    const displayScopes = mergeScopesForDisplay(scopes, callStack ?? []);
+    const displayScopes = mergeScopesForDisplay(scopes, callStack ?? [], frameEnvs);
 
     for (const { label, vars, isInnermost } of displayScopes) {
       const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));

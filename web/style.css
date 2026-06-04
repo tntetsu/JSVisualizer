@@ -774,13 +774,14 @@ html, body {
 
 /* ── StateView ────────────────────────────────────────────────── */
 .sv-scroll {
-  flex: 1;
+  flex: 1 1 0;
   overflow-y: auto;
   padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   min-height: 0;
+  /* gap の代わりに隣接カード間の margin で間隔を確保 */
+}
+.sv-scroll > .debug-card + .debug-card {
+  margin-top: 8px;
 }
 
 /* ── AnimatedTrace ────────────────────────────────────────────── */

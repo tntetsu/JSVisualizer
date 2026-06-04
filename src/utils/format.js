@@ -114,45 +114,6 @@ export function formatFrameLabel(frame) {
   return `${name}(${argStr})`;
 }
 
-// ── スコープ再構築ヘルパー ────────────────────────────────────────────────────
-
-/** 全スコープから指定名の JSFunction を検索する */
-function findFunctionInScopes(name, scopes) {
-  if (!name) return null;
-  for (const scope of scopes ?? []) {
-    const val = scope?.[name];
-    if (val && val.__type__ === 'JSFunction') return val;
-  }
-  return null;
-}
-
-/** AST パラメータノードから変数名を取得する */
-function extractParamName(param) {
-  if (!param) return null;
-  if (param.type === 'Identifier')       return param.name;
-  if (param.type === 'AssignmentPattern') return extractParamName(param.left);
-  if (param.type === 'RestElement')       return extractParamName(param.argument);
-  return null;
-}
-
-/**
- * callStack フレームの引数値から変数マップを再構築する。
- * JSFunction の params からパラメータ名を取得し、args と対応付ける。
- * 関数定義が見つからない場合は空オブジェクトを返す。
- */
-function reconstructFrameVars(frame, scopes) {
-  if (!frame?.args?.length) return {};
-  const fn = findFunctionInScopes(frame.name, scopes);
-  if (!fn?.params) return {};
-  const vars = {};
-  fn.params.forEach((param, i) => {
-    if (i >= frame.args.length) return;
-    const name = extractParamName(param);
-    if (name) vars[name] = frame.args[i];
-  });
-  return vars;
-}
-
 /**
  * env スコープチェーンと callStack フレームをマージして表示用スコープ配列を返す。
  *
@@ -162,25 +123,30 @@ function reconstructFrameVars(frame, scopes) {
  * 再帰呼び出し（factorial(3)→factorial(2)）では、外側フレームのスコープが
  * env チェーンに含まれない。
  *
+ * JSInterpreter の Recorder が各フレームの callEnv を frameEnvStack で管理し、
+ * TraceEvent.frameEnvs として記録する（外→内の順、callStack と同じインデックス）。
+ * この frameEnvs を使って各フレームのローカル変数（引数・let/const 宣言）を正確に表示する。
+ *
  * アルゴリズム:
  *   - 最内側フレーム: scopes[0]〜scopes[M-2] を全てマージ（ブロックスコープ含む）
- *   - 外側フレーム: callStack の args と関数定義の params から引数値を再構築
+ *   - 外側フレーム:  frameEnvs[i] を使用（callEnv スナップショット）
  *   - グローバルフレーム: scopes[M-1]
  *
  * env スナップショットの順序:
  *   scopes[0]   = 最内スコープ（最もネストしたブロック or パラメータ）
  *   scopes[M-1] = グローバルスコープ
- * callStack の順序:
- *   callStack[0]   = 最外側フレーム
- *   callStack[N-1] = 最内側フレーム（現在実行中）
+ * callStack / frameEnvs の順序:
+ *   [0]   = 最外側フレーム
+ *   [N-1] = 最内側フレーム（現在実行中）
  *
  * 返り値は innermost-first 順（先頭が最内側）。
  *
- * @param {Object[]} scopes     env スコープチェーン（AppState.scopes）
- * @param {Object[]} callStack  コールスタック（AppState.callStack）
+ * @param {Object[]} scopes      env スコープチェーン（AppState.scopes）
+ * @param {Object[]} callStack   コールスタック（AppState.callStack）
+ * @param {Object[]} [frameEnvs] 各フレームの callEnv スナップショット（AppState.frameEnvs）
  * @returns {Array<{label:string, vars:Object, isInnermost:boolean}>}
  */
-export function mergeScopesForDisplay(scopes, callStack) {
+export function mergeScopesForDisplay(scopes, callStack, frameEnvs = []) {
   const N = callStack?.length ?? 0;
   const M = scopes?.length ?? 0;
 
@@ -196,7 +162,7 @@ export function mergeScopesForDisplay(scopes, callStack) {
 
   const display = [];
 
-  // 最内側関数: scopes[0]〜scopes[M-2] を全てマージ（ブロックスコープ含む）
+  // 最内側関数: scopes[0]〜scopes[M-2] を全てマージ（ブロックスコープ・クロージャ含む）
   const innermostVars = {};
   for (let j = M - 2; j >= 0; j--) {
     Object.assign(innermostVars, scopes[j] ?? {});
@@ -207,12 +173,12 @@ export function mergeScopesForDisplay(scopes, callStack) {
     isInnermost: true,
   });
 
-  // 外側フレーム: env チェーンに含まれないため callStack.args から引数値を再構築
-  // （JSFunction.params を参照してパラメータ名を取得）
+  // 外側フレーム: frameEnvs[i] に callEnv スナップショットが記録されている
+  // （params + function-body let/const/var。ブロックスコープ内変数は含まない）
   for (let i = N - 2; i >= 0; i--) {
     display.push({
       label:       formatFrameLabel(callStack[i]),
-      vars:        reconstructFrameVars(callStack[i], scopes),
+      vars:        frameEnvs[i] ? { ...frameEnvs[i] } : {},
       isInnermost: false,
     });
   }
