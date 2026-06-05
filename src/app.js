@@ -32,6 +32,7 @@ import { Lifetime }         from './views/lifetime/index.js';
 import { ControlFlow }      from './views/control-flow/index.js';
 import { MemoryView }       from './views/memory-view/index.js';
 import { ObjectGraph }      from './views/object-graph/index.js';
+import { SubstTrace }      from './views/subst-trace/index.js';
 
 // ── DOM 参照 ───────────────────────────────────────────────────────────────
 
@@ -112,6 +113,7 @@ const switcher = new ViewSwitcher(viewTabsEl, viewContainerEl);
 switcher.register('state',     '変数・スタック',   StateView);
 switcher.register('trace',     'トレース表',       LineTrace);
 switcher.register('exectrace','実行トレース',     ExecTrace);
+switcher.register('subst',    '代入展開',         SubstTrace);
 switcher.register('table',     '全ステップ',       TraceTable);
 switcher.register('bar',       '棒グラフ',         BarChart);
 switcher.register('colorbox',  '配列',             ColorBox);

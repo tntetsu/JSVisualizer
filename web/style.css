@@ -894,6 +894,75 @@ html, body {
 .tt-col-target { width: 140px; color: var(--accent); font-family: 'Cascadia Code', Consolas, monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
 .tt-col-val    { }
 
+/* ── SubstTrace（代入展開ビュー） ─────────────────────────────── */
+.stx-wrap {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 16px 20px;
+}
+
+.stx-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+
+.stx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stx-line {
+  font-family: 'Consolas', 'Monaco', 'Cascadia Code', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  white-space: pre;
+  transition: background 0.1s;
+}
+
+.stx-line--past {
+  color: var(--text);
+}
+
+.stx-line--active {
+  color: var(--text);
+  background: var(--accent-bg);
+  font-weight: 600;
+}
+
+.stx-lineno {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.stx-line--past   .stx-lineno,
+.stx-line--active .stx-lineno {
+  color: var(--accent);
+}
+
+.stx-arrow {
+  color: var(--text-muted);
+}
+
+.stx-hl-expanded {
+  background: var(--hl-expr);
+  border-radius: 2px;
+}
+
+.stx-hl-pending {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 /* ── ExecTrace ────────────────────────────────────────────────── */
 .et-wrap {
   flex: 1;
