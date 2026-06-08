@@ -3,7 +3,7 @@
 **プロジェクト名**: JSVisualizer  
 **バージョン**: 1.0  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-04  
+**最終更新**: 2026-06-08  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -24,6 +24,8 @@
 | 1.0 | 2026-06-04 | スタックフレーム変数の正確化: JSInterpreter に `Environment.snapshotOwn()` + `Recorder.frameEnvStack` を追加し、各 TraceEvent に `frameEnvs`（各フレームの callEnv スナップショット、外→内順）を記録。外側フレームにローカル変数・デフォルト引数を正確表示（`mergeScopesForDisplay` の第 3 引数 `frameEnvs` を利用）。V-01/V-04/V-13 が `frameEnvs` を使用。sv-scroll の flex→block 化によるスクロールバー修正 |
 | 1.1 | 2026-06-04 | ScopeView（V-04）・CallStackView（V-05）をタブ非登録（非アクティブ）に変更。LineTrace（V-02）を 2 ペイン構成から単一ペイン＋行番号スニペット構成に刷新（jsv-lt-src-w 削除）。ColorBox（V-07）をタブ名「配列」に変更・複数配列同時選択・ポインタ変数を変数ごと個別行表示・文字列の切り詰めなし表示に変更。Timeline（V-08）でチップ選択変数のみの Y 軸動的スケール計算を追加。Heatmap（V-09）に「連結線」トグルボタン（ドット間 SVG polyline）を追加。JSInterpreter の `super()` 呼び出しバグを修正（CallExpression ハンドラで Super を直接処理）。サンプルコード全 17 種を網羅する回帰テスト（samples.test.js）を追加。テスト総数 49 → 66 件 |
 | 1.2 | 2026-06-04 | while/for 条件式の評価を humanStep に追加（TraceBuilder.buildHumanIndices）。LineTrace・ExecTrace の条件式列で while/for 各イテレーションの条件値を正確に表示。ExecTrace（V-02b）をタブ「実行トレース」として文書化。タブ登録順を「実行トレース」→「全ステップ」に変更。Heatmap の連結線をトグルボタン廃止・常時表示に変更（オーバーレイ SVG + rAF）。ColorBox に最大サイズ事前計算（`maxWidth`/`maxGridHeight`）・空配列時も占有領域確保・幅超過時の折り返し（flex-wrap）・配列ブロックの枠線＋背景色を追加。JSInterpreter `formatLogArg` に `depth` 引数を追加し配列・オブジェクト内の文字列をシングルクォート付きで表示（Node.js 互換）|
+| 1.4 | 2026-06-08 | ExprTrace（V-02d）改善: (1) VariableDeclaration 位置取得をソース正規表現ベースに変更（VariableDeclarator イベントが trace に存在しないため）。(2) セクション検出対象に IfStatement test・WhileStatement test（イテレーションごと）・ReturnStatement 引数・ForStatement init/test/update（イテレーションごと）を追加。(3) extractVarNames を式テキスト内識別子のみに絞り込み（env 全変数追加の "B" を削除）。(4) 変数値の時系列表示: Row 0 = enterIdx env・中間行 = exit 時点 env・最終行（≥2行）= exitIdx env。(5) update() でアクティブ行の TD を trace[cursor].env からリアルタイム書き換え（#trace フィールドを追加）。単一行セクション（let x = 851 等）でも束縛の瞬間に値が 851 に変わることを確認可能 |
+| 1.3 | 2026-06-05 | V-02c SubstTrace（代入展開）・V-02d ExprTrace（式評価）を新規追加・文書化。タブ登録数 14 → 16。SubstTrace: 再帰関数の置換モデル逐次展開（`computeReturnExpr` + `buildSubstitutionLines`）。ExprTrace: 1行の式の部分式逐次置換トレース表（`buildSectionRows` + `srcPosToDispPos`・`addSubstitution`・`applySubstitutions` ヘルパー群）。両ビューに展開ハイライト（橙）・評価待ちハイライト（青太字）を実装 |
 
 ---
 
@@ -198,6 +200,80 @@
 
 **入力**: `builder.getHumanStepList()`, `builder.trace`, `builder.source`, `state.cursor`
 
+---
+
+#### V-02c: 代入展開ビュー（SubstTrace）✅ 実装済み
+
+タブ名: **代入展開**（タブ登録順: 実行トレースの次、式評価の前）
+
+- 再帰関数呼び出しを「置換モデル（substitution model）」で逐次展開して表示
+- 最初のユーザー定義関数呼び出し（`factorial(5)` 等）から開始し、ReturnStatement ごとに関数呼び出し文字列を評価済み return 式で置換して行を追加
+- 最終行はトップレベル CallExpression の確定値（`→ 120` 等）を表示
+- **ハイライト 2 種**:
+  - `.stx-hl-expanded`（橙背景）: 直前の置換で展開された部分
+  - `.stx-hl-pending`（青太字）: 次の ReturnStatement で置換される予定の呼び出し
+  - pending が expanded 内に収まる場合はネスト span を生成
+- `update()` は `traceIdx <= cursor` の最大行に `.stx-line--active` を付与（過去行は `.stx-line--past`）
+- 対応ビュー: `ExpressionStatement` から始まるユーザー定義関数呼び出し。ネイティブ関数や非再帰プログラムでは「関数呼び出しが検出されませんでした」を表示
+
+**コアアルゴリズム** (`computeReturnExpr` / `buildSubstitutionLines`):
+- `getCallFrame(trace, enterIdx)`: CallExpression enter の直後で callStack が深くなった最初のイベントからフレームを取得
+- `computeReturnExpr(trace, returnEnterIdx, sourceLines)`: return 引数テキストを走査し Identifier exit は値で・CallExpression は `formatFrameLabel(frame)` で置換。右から左に適用して位置ずれを防ぐ
+- `buildSubstitutionLines()`: `currentExpr` 文字列の中で `callStrToReplace.indexOf()` を使って置換位置を特定
+
+**入力**: `builder.trace`, `builder.source`
+
+---
+
+#### V-02d: 式評価トレースビュー（ExprTrace）✅ 実装済み
+
+タブ名: **式評価**（タブ登録順: 代入展開の次、全ステップの前）
+
+- 1行の式が評価される過程を部分式の逐次置換で表示する。部分式が評価されるたびに新しい行が追加される
+- 各セクションは `cursor >= enterIdx && cursor <= exitIdx` の間だけ表示（評価中の式のみ可視）
+- 変数値列: 式テキストに登場する識別子のみ（関数値・キーワード・組み込みグローバルを除外）
+- **ハイライト 2 種**:
+  - `.xev-hl-expanded`（橙背景）: 直前の置換で書き換えられた部分
+  - `.xev-hl-pending`（青太字）: 次に評価される部分式
+  - pending が expanded 内に収まる場合はネスト span
+- `update()` はアクティブ行（`traceIdx <= cursor` の最大行）に `.xev-row--active`、過去行に `.xev-row--past` を付与し、**アクティブ行の変数 TD を `trace[cursor].env` からリアルタイムに書き換える**
+
+**セクション検出** (`buildExpressionSections`):
+
+| ステートメント種別 | 対象 | 採用閾値 |
+|---|---|---|
+| `ExpressionStatement` | 内包する式（単一行限定） | rows ≥ 2 |
+| `VariableDeclaration` | 初期化式（`varName = init` 形式）| rows ≥ 1 |
+| `IfStatement` | test 式（単一行限定） | rows ≥ 2 |
+| `WhileStatement` | test 式（イテレーションごと、単一行限定） | rows ≥ 2 |
+| `ReturnStatement` | 引数式（単一行限定） | rows ≥ 2 |
+| `ForStatement` | init 式・test 式（イテレーションごと）・update 式（イテレーションごと） | rows ≥ 1 |
+
+`VariableDeclaration` の位置取得: interpreter が VariableDeclarator イベントを emit しないため `trace[i+1]` に直接 init 式が来る。開始列はソース正規表現（`/^(?:let|const|var)\s+name\s*=\s*/`）から計算し、終端列は trace スキャンで取得する。
+
+**行生成アルゴリズム** (`buildSectionRows`):
+1. `enterIdx + 1` 〜 `bound`（`loopEnd ?? exitIdx`）の exit イベントを走査
+2. フィルタ: `phase !== 'exit'`、`!end`、`callDepth !== outerCallDepth`（関数内部除外）、複数行、関数値、`undefined`、`Literal`/`TemplateLiteral` を除外
+3. `addSubstitution(subs, evSrcStart, evSrcEnd, valueText)`: ソース座標で置換を追加し、完全に内包される既存置換を除去
+4. `applySubstitutions(srcText, subs, baseCol)`: 置換リストをソーステキストに適用して表示テキストを生成
+5. 表示テキストが前行と同一なら行追加せず（重複排除）
+6. `srcRangeToDispRange(subs, baseCol, srcStart, srcEnd)`: `srcPosToDispPos()` を使ってソース座標 → 表示座標へ変換
+7. 後填め: 行 N の `pendingDispRange` は行 N の置換リストで行 N+1 のソース範囲を変換して計算
+
+**変数値の時系列表示**:
+- Row 0: `trace[enterIdx].env`（評価開始前の状態）
+- 中間行: その exit イベント時点の env（部分式評価直後）
+- 最終行（rows ≥ 2 のみ）: `trace[exitIdx].env`（束縛・代入完了後の値）
+- アクティブ行: `update()` 内で `trace[cursor].env` からリアルタイム書き換え（単一行セクション `let x = 851` でも束縛の瞬間を確認可能）
+
+**変数列の収集** (`extractVarNames`):
+- 式テキスト中の非関数・非キーワード・非組み込みグローバル識別子（登場順）
+- env の全変数は追加しない（式に含まれる変数のみ表示）
+- 関数値（`isFunctionVal(v)`）・JS キーワード・`GLOBAL_BUILTINS` は除外
+
+**CSS プレフィックス**: `.xev-*`（ExecTrace の `.et-*` と衝突回避）
+
+**入力**: `builder.trace`, `builder.source`
 ---
 
 #### V-03: 全ステップ表（TraceTable）✅ 実装済み

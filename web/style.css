@@ -963,6 +963,90 @@ html, body {
   font-weight: 700;
 }
 
+/* ── ExprTrace ───────────────────────────────────────────────── */
+.xev-wrap {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.xev-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+
+.xev-section {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.xev-section--hidden { display: none; }
+
+.xev-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Consolas', 'Monaco', 'Cascadia Code', monospace;
+  font-size: 13px;
+}
+
+.xev-th {
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.xev-col-expr { min-width: 180px; border-right: 1px solid var(--border); }
+.xev-col-var  { width: 56px; text-align: center; border-right: 1px solid var(--border); }
+.xev-col-var:last-child { border-right: none; }
+
+.xev-td {
+  padding: 3px 10px;
+  color: var(--text-muted);
+  white-space: pre;
+  border-bottom: 1px solid var(--border);
+}
+
+.xev-td:last-child { border-right: none; }
+
+.xev-table tbody tr:last-child .xev-td { border-bottom: none; }
+
+.xev-col-var.xev-td { text-align: center; }
+
+.xev-row--past .xev-td {
+  color: var(--text);
+}
+
+.xev-row--active .xev-td {
+  color: var(--text);
+  background: var(--accent-bg);
+  font-weight: 600;
+}
+
+.xev-val--defined { color: var(--text); }
+.xev-row--active .xev-val--defined { font-weight: 600; }
+
+.xev-hl-expanded {
+  background: var(--hl-expr);
+  border-radius: 2px;
+}
+
+.xev-hl-pending {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 /* ── ExecTrace ────────────────────────────────────────────────── */
 .et-wrap {
   flex: 1;

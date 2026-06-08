@@ -3,7 +3,7 @@
 **プロジェクト名**: JSVisualizer  
 **バージョン**: 1.0  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-04  
+**最終更新**: 2026-06-08  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -24,6 +24,8 @@
 | 1.0 | 2026-06-04 | JSInterpreter に `Environment.snapshotOwn()` メソッドと `Recorder.frameEnvStack`（アクティブフレームの live Environment 参照スタック）を追加。各 TraceEvent に `frameEnvs: Object[]`（外→内の callEnv スナップショット配列）を記録。`mergeScopesForDisplay(scopes, callStack, frameEnvs)` の第 3 引数を追加し、外側フレームの表示を `reconstructFrameVars`（args ベース）から `frameEnvs[i]`（callEnv スナップショット）に変更。params・デフォルト引数・function-body 変数を正確に表示。V-01/V-04/V-13 が `state.frameEnvs` を参照するよう更新。AppState に `frameEnvs` フィールド追加。sv-scroll を flex→block 化（`overflow-y: auto` のスクロールバー修正）|
 | 1.1 | 2026-06-04 | ScopeView・CallStackView をタブ非登録（非アクティブ）に変更。LineTrace を 2 ペイン構成から単一ペイン＋行番号スニペット（`lt-lineno-num` + `lt-lineno-snippet`、先頭 15 文字）構成に刷新（`#srcPanel`・`#srcLines`・`#setupScrollSync`・`#setupSrcResizer` および jsv-lt-src-w を削除）。ColorBox: タブ名「配列」・複数配列同時選択（`#selectedArrays: Set<string>`）・ポインタ変数を変数ごと個別行表示・文字列切り詰めなし。Timeline: `#renderSVG()` 内で選択変数のみの `dynMin`/`dynMax` を計算して Y 軸を動的スケール化。Heatmap: `#buildDots()` で SVG polyline を含む `.hm-connect-svg` を生成し「連結線」ボタン（`.hm-btn-lines`）で `.hm-show-lines` クラスをトグル。JSInterpreter `super()` 呼び出しバグ修正（`CallExpression` ハンドラに `node.callee.type === 'Super'` の早期リターンを追加）。`tests/core/samples.test.js` 新規追加（17 サンプル全エラーなし・trace ≥ 1 を確認）。テスト総数 49 → 66 件。view-switcher 登録ビュー数 15 → 13（ScopeView・CallStackView 非登録）|
 | 1.2 | 2026-06-04 | `buildHumanIndices()` に while/do-while/for 条件式・更新式 exit をイテレーションごと追加（`matchIdx` 範囲内の深さ D+1 exit を走査）。WhileStatement/ForStatement enter は humanStep から除外。LineTrace・ExecTrace に `buildConditionExitSet()` + 改訂 `buildCondInfo()` を追加し条件列を正確表示。ExecTrace（実行トレースタブ）を設計文書化。タブ登録順: 実行トレース → 全ステップ（app.js で入れ替え）。Heatmap: `.hm-btn-lines` トグルボタン廃止。`#drawConnectLines()` を `init()` 内で rAF 経由で呼び出し常時表示へ変更。`.hm-overlay-svg`（position:absolute）＋ `<line class="hm-vline">` で異なる行間を縦線表示。ColorBox: `#scanTrace()` を 2 パス化し配列ごとの `maxWidth`/`maxGridHeight` を事前計算。`#render()` で `.cb-grid` に `min-width`/`min-height` を設定（空配列時も同様）。`.cb-box-area` を `flex-wrap:wrap` 化・`.cb-array-block` に枠線＋背景色・`.cb-grid` の `min-width:100%` 削除。JSInterpreter `formatLogArg(v, depth=0)`: `depth > 0` の文字列を `'str'` 形式で表示（Node.js 互換）|
+| 1.4 | 2026-06-08 | ExprTrace 改善: (1) VariableDeclaration: VariableDeclarator イベントが trace に存在しないため位置取得をソース正規表現＋trace スキャンに変更。(2) セクション検出対象を拡張（IfStatement test・WhileStatement test イテレーション別・ReturnStatement 引数・ForStatement init/test/update イテレーション別）。(3) extractVarNames: 式テキスト内の識別子のみ（env 全変数追加の B を削除）。(4) buildSectionRows: Row 0 = enterIdx env、中間行 = exit 時点 env、最終行（rows≥2）= exitIdx env。(5) ExprTrace クラスに #trace フィールドを追加し、update() でアクティブ行の TD を trace[cursor].env からリアルタイム書き換え |
+| 1.3 | 2026-06-05 | SubstTrace（代入展開）・ExprTrace（式評価）ビューを新規追加。タブ登録数 14 → 16。SubstTrace: `computeReturnExpr` が ReturnStatement 引数を Identifier/CallExpression 逐次置換し `buildSubstitutionLines` で展開行を構築。CSS `.stx-*`。ExprTrace: `buildSectionRows` が exit イベントを走査して置換リスト（`addSubstitution`/`applySubstitutions`）を更新し行を生成。`srcPosToDispPos` / `srcRangeToDispRange` でソース座標→表示座標変換。CSS `.xev-*`。両ビューに expanded（橙）/ pending（青太字）の 2 色ハイライトを実装。app.js に SubstTrace・ExprTrace のタブ登録を追加 |
 
 ---
 
