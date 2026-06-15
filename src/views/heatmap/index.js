@@ -18,6 +18,9 @@ import { esc }      from '../../utils/format.js';
 /** ドット最大表示数（表示幅超過時は先頭を切り捨て） */
 const DOT_MAX = 200;
 
+/** この実行回数以上の行を「異常」として赤表示する */
+const ANOMALY_THRESHOLD = 1_000;
+
 export class Heatmap extends BaseView {
   #container      = null;
   #builder        = null;
@@ -152,8 +155,18 @@ export class Heatmap extends BaseView {
       }
       const currentCount = lo;
 
-      const alpha = currentCount === 0 ? 0 : 0.08 + (currentCount / maxTotal) * 0.47;
-      el.style.background = `rgba(255,140,0,${alpha.toFixed(3)})`;
+      el.classList.remove('hm-line--anomaly');
+      if (currentCount === 0) {
+        el.style.background = '';
+      } else if (currentCount >= ANOMALY_THRESHOLD) {
+        el.style.background = 'rgba(200,0,0,0.80)';
+        el.classList.add('hm-line--anomaly');
+      } else {
+        // オレンジグラデーション: 999回をスケール上限として正規化
+        const normalMax = Math.max(Math.min(maxTotal, ANOMALY_THRESHOLD - 1), 1);
+        const alpha = 0.08 + (currentCount / normalMax) * 0.47;
+        el.style.background = `rgba(255,140,0,${alpha.toFixed(3)})`;
+      }
 
       const countEl = el.querySelector('.hm-count');
       if (countEl) {
@@ -176,7 +189,7 @@ export class Heatmap extends BaseView {
   reset() {
     if (this.#lineEls) {
       this.#lineEls.forEach(el => {
-        el.classList.remove('hm-line--active');
+        el.classList.remove('hm-line--active', 'hm-line--anomaly');
         el.style.background = '';
         const countEl = el.querySelector('.hm-count');
         if (countEl) countEl.textContent = '';

@@ -1,7 +1,7 @@
 # JSVisualizer — アーキテクチャ決定記録（ADR）
 
 このディレクトリには、JSVisualizer の設計で行った重要な決定を記録した ADR（Architecture Decision Record）が含まれています。  
-git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2026-06-14 に作成。
+git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2026-06-14 に作成。2026-06-15 に ADR-016〜019 を追加。
 
 ## 一覧
 
@@ -22,3 +22,7 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [013](ADR-013-colorbox-stable-layout.md) | ColorBox の 2 パス走査による安定レイアウト | 2026-06-04 |
 | [014](ADR-014-substitution-model-views.md) | 置換モデルビュー（SubstTrace・ExprTrace）の導入 | 2026-06-05〜08 |
 | [015](ADR-015-scope-callstack-tabs-removed.md) | ScopeView・CallStackView のタブ非登録化 | 2026-06-04 |
+| [016](ADR-016-theme-system.md) | テーマシステム（Catppuccin Latte/Mocha + FOUC 防止） | 2026-05-25 |
+| [017](ADR-017-error-classification.md) | エラーハンドリングの二分類（構文エラー vs 実行エラー） | 2026-05-25 |
+| [018](ADR-018-controlflow-ast-refactor.md) | 制御フロービューの AST ベース構造的フローチャートへの刷新 | 2026-06-04 |
+| [019](ADR-019-weakmap-object-identity.md) | MemoryView・ObjectGraph でのオブジェクト同一性追跡（WeakMap） | 2026-05-26 |

@@ -1944,6 +1944,13 @@ html, body {
   outline: none;
 }
 
+/* 異常実行頻度（1000回以上）の行: テキストを白にして視認性を確保 */
+.hm-line--anomaly .hm-src,
+.hm-line--anomaly .hm-lineno,
+.hm-line--anomaly .hm-count {
+  color: rgba(255, 255, 255, 0.95);
+}
+
 .hm-lineno {
   color: var(--text-muted);
   min-width: 2.8ch;

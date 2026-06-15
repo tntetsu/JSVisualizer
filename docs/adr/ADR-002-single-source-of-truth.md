@@ -43,5 +43,5 @@
 ## 結果・影響
 
 - `app.js` が唯一の「配線役」となり、ビューは受け身の更新のみを行う
-- エラーハンドリング（parse / runtime の判別）も `DebuggerAdapter.load()` に集約された（ADR-006 参照）
+- エラーハンドリング（parse / runtime の判別）も `DebuggerAdapter.load()` に集約された（ADR-017 参照）
 - `frameEnvs` のような JSInterpreter 拡張の影響も `DebuggerAdapter` の `#buildState()` 内で吸収できた

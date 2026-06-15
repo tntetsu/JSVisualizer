@@ -8,7 +8,7 @@
  *  - 'ready' / 'step' カスタムイベントの発火
  */
 
-import { JSDebugger } from '../../web/interpreter.bundle.js';
+import { JSDebugger, MaxStepsError, ExecutionError } from '../../web/interpreter.bundle.js';
 
 // ── ヘルパー ────────────────────────────────────────────────────────────────
 
@@ -104,11 +104,27 @@ export class DebuggerAdapter extends EventTarget {
    */
   load(source) {
     try {
-      this.#dbg = new JSDebugger(source);
+      this.#dbg = new JSDebugger(source, { maxSteps: 10_000 });
       this.#prevFlat = new Map();
       this.dispatchEvent(new CustomEvent('ready', { detail: this.#buildState([]) }));
     } catch (err) {
       this.#dbg = null;
+      // maxSteps 超過 / 実行エラー: 部分トレースで閲覧可能にしつつエラーを表示する
+      if (err instanceof MaxStepsError || err instanceof ExecutionError) {
+        const hasTrace = err.partialTrace?.length > 0;
+        if (hasTrace) {
+          this.#dbg = JSDebugger.fromTrace(
+            err.partialSource, err.partialTrace, err.partialAst, err.partialConsoleLogs
+          );
+          this.#prevFlat = new Map();
+          this.dispatchEvent(new CustomEvent('ready', { detail: this.#buildState([]) }));
+        }
+        const errorType = err instanceof MaxStepsError ? 'maxsteps' : 'runtime';
+        this.dispatchEvent(new CustomEvent('error', {
+          detail: { message: err.message, errorType },
+        }));
+        return;
+      }
       // SyntaxError またはパーサーエラーはパースエラー、それ以外は実行時エラーとして区別する
       const msg = err?.message ?? '';
       const isParseError = err instanceof SyntaxError

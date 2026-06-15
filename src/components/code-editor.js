@@ -403,8 +403,9 @@ export class CodeEditor {
    */
   showError(msg, errorType = null) {
     if (msg) {
-      const typeLabel = errorType === 'parse'   ? '構文エラー'
-                      : errorType === 'runtime' ? '実行エラー'
+      const typeLabel = errorType === 'parse'    ? '構文エラー'
+                      : errorType === 'runtime'  ? '実行エラー'
+                      : errorType === 'maxsteps' ? 'ステップ上限'
                       : null;
       this.#errorEl.innerHTML = typeLabel
         ? `<span class="error-badge">${typeLabel}</span> ${_esc(msg)}`
