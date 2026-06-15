@@ -8,7 +8,7 @@
  *  - 'ready' / 'step' カスタムイベントの発火
  */
 
-import { JSDebugger, MaxStepsError, ExecutionError } from '../../web/interpreter.bundle.js';
+import { JSDebugger, ExecutionError } from '../../web/interpreter.bundle.js';
 
 // ── ヘルパー ────────────────────────────────────────────────────────────────
 
@@ -109,19 +109,18 @@ export class DebuggerAdapter extends EventTarget {
       this.dispatchEvent(new CustomEvent('ready', { detail: this.#buildState([]) }));
     } catch (err) {
       this.#dbg = null;
-      // maxSteps 超過 / 実行エラー: 部分トレースで閲覧可能にしつつエラーを表示する
-      if (err instanceof MaxStepsError || err instanceof ExecutionError) {
-        const hasTrace = err.partialTrace?.length > 0;
-        if (hasTrace) {
+      // 実行エラー（maxSteps 超過・スタックオーバーフロー等）:
+      // 部分トレースで閲覧可能にしてからエラーバッジを表示する
+      if (err instanceof ExecutionError) {
+        if (err.partialTrace?.length > 0) {
           this.#dbg = JSDebugger.fromTrace(
             err.partialSource, err.partialTrace, err.partialAst, err.partialConsoleLogs
           );
           this.#prevFlat = new Map();
           this.dispatchEvent(new CustomEvent('ready', { detail: this.#buildState([]) }));
         }
-        const errorType = err instanceof MaxStepsError ? 'maxsteps' : 'runtime';
         this.dispatchEvent(new CustomEvent('error', {
-          detail: { message: err.message, errorType },
+          detail: { message: err.message, errorType: 'runtime' },
         }));
         return;
       }
