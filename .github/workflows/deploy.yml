@@ -55,7 +55,7 @@ jobs:
 
       # 7. GitHub Pages 用に成果物をアップロード
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: web/
 
