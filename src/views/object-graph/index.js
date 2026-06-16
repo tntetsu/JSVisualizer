@@ -21,14 +21,12 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 
 // ── レイアウト定数 ────────────────────────────────────────────────────────
 
-const NODE_W     = 110;
-const NODE_H_MIN = 32;  // 最小高さ（ラベルのみ）
-const ROW_H      = 13;  // プロパティ1行の高さ
-const MAX_PROPS  = 8;   // 1ノードに表示するプロパティの最大数
-const H_SPACING  = 16;  // ノード間の最小水平間隔
-const V_SPACING  = 16;  // ノード間の最小垂直間隔
-const FD_ITER    = 80;  // 力学的レイアウトのイテレーション数
-const INITIAL_SPREAD = 100; // 初期配置の広がり
+const NODE_W      = 110;
+const NODE_H_MIN  = 32;  // 最小高さ（ラベルのみ）
+const ROW_H       = 13;  // プロパティ1行の高さ
+const MAX_PROPS   = 8;   // 1ノードに表示するプロパティの最大数
+const COLUMN_GAP  = 22;  // 列間の水平間隔（エッジ＋矢印が収まる最小値）
+const ROW_GAP     = 6;   // 同列内ノード間の垂直間隔
 
 // ── グラフ構築 ────────────────────────────────────────────────────────────
 
@@ -142,72 +140,74 @@ function buildGraph(variables, scopes) {
   return { nodes: [...nodeMap.values()], edges, rootVars };
 }
 
-// ── 力学的レイアウト (Fruchterman-Reingold 簡易版) ──────────────────────
+// ── 階層型レイアウト（左→右、データ構造を反映）────────────────────────
 
 /**
+ * DAG の最長パス法で各ノードに列番号を割り当て、
+ * 左→右の階層レイアウトを生成する。
+ * 同じプロパティのエッジが同じ方向（右向き）に統一される。
+ *
  * @param {{ id, x, y }[]} nodes
  * @param {{ from, to }[]}  edges
  */
-function forceDirectedLayout(nodes, edges) {
+function hierarchicalLayout(nodes, edges) {
   if (nodes.length === 0) return;
   if (nodes.length === 1) { nodes[0].x = 0; nodes[0].y = 0; return; }
 
-  const K  = Math.sqrt((NODE_W + H_SPACING) * (NODE_H_MIN + V_SPACING) * nodes.length);
-  let temp = INITIAL_SPREAD;
+  // 隣接リストと入次数を構築
+  const adj   = new Map(nodes.map(n => [n.id, []]));
+  const inDeg = new Map(nodes.map(n => [n.id, 0]));
+  for (const e of edges) {
+    adj.get(e.from)?.push(e.to);
+    inDeg.set(e.to, (inDeg.get(e.to) ?? 0) + 1);
+  }
 
-  // 初期配置: ランダムではなく格子状に配置（再現性のため）
-  const cols = Math.ceil(Math.sqrt(nodes.length));
-  nodes.forEach((n, i) => {
-    n.x = (i % cols) * (NODE_W + H_SPACING) - (cols / 2) * (NODE_W + H_SPACING);
-    n.y = Math.floor(i / cols) * (NODE_H_MIN + V_SPACING) - (nodes.length / cols / 2) * (NODE_H_MIN + V_SPACING);
-  });
-
-  const idxMap = new Map(nodes.map((n, i) => [n.id, i]));
-
-  for (let iter = 0; iter < FD_ITER; iter++) {
-    const disp = nodes.map(() => ({ x: 0, y: 0 }));
-
-    // 反発力（全ノードペア）
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const dx = nodes[i].x - nodes[j].x;
-        const dy = nodes[i].y - nodes[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-        const repulse = (K * K) / dist;
-        const fx = (dx / dist) * repulse;
-        const fy = (dy / dist) * repulse;
-        disp[i].x += fx;
-        disp[i].y += fy;
-        disp[j].x -= fx;
-        disp[j].y -= fy;
-      }
+  // Kahn のアルゴリズムでトポロジカル順を取得
+  const deg  = new Map(inDeg);
+  const topo = [];
+  const q    = nodes.filter(n => deg.get(n.id) === 0).map(n => n.id);
+  while (q.length) {
+    const id = q.shift();
+    topo.push(id);
+    for (const nid of (adj.get(id) ?? [])) {
+      const d = deg.get(nid) - 1;
+      deg.set(nid, d);
+      if (d === 0) q.push(nid);
     }
+  }
+  // 循環参照ノード（検出済みのため通常は空）を末尾に追加
+  const inTopo = new Set(topo);
+  for (const n of nodes) if (!inTopo.has(n.id)) topo.push(n.id);
 
-    // 引力（エッジ）
-    for (const e of edges) {
-      const si = idxMap.get(e.from);
-      const ti = idxMap.get(e.to);
-      if (si === undefined || ti === undefined) continue;
-      const dx = nodes[si].x - nodes[ti].x;
-      const dy = nodes[si].y - nodes[ti].y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const attract = (dist * dist) / K;
-      const fx = (dx / dist) * attract;
-      const fy = (dy / dist) * attract;
-      disp[si].x -= fx;
-      disp[si].y -= fy;
-      disp[ti].x += fx;
-      disp[ti].y += fy;
+  // 列番号 = ルートからの最長パス距離
+  const col = new Map(nodes.map(n => [n.id, 0]));
+  for (const id of topo) {
+    for (const nid of (adj.get(id) ?? [])) {
+      if (col.get(nid) < col.get(id) + 1) col.set(nid, col.get(id) + 1);
     }
+  }
 
-    // 位置更新（温度でクリップ）
-    for (let i = 0; i < nodes.length; i++) {
-      const d = Math.sqrt(disp[i].x ** 2 + disp[i].y ** 2) || 0.01;
-      nodes[i].x += (disp[i].x / d) * Math.min(d, temp);
-      nodes[i].y += (disp[i].y / d) * Math.min(d, temp);
+  // 列ごとにグループ化（トポロジカル順を維持）
+  const byCol = new Map();
+  for (const id of topo) {
+    const c = col.get(id);
+    if (!byCol.has(c)) byCol.set(c, []);
+    byCol.get(c).push(id);
+  }
+
+  // 座標を割り当て: X = 列番号 × (NODE_W + COLUMN_GAP)、Y = 列内の積み上げ
+  const nodeById = new Map(nodes.map(n => [n.id, n]));
+  const sortedCols = [...byCol.keys()].sort((a, b) => a - b);
+  let x = 0;
+  for (const c of sortedCols) {
+    let y = 0;
+    for (const id of byCol.get(c)) {
+      const n = nodeById.get(id);
+      n.x = x;
+      n.y = y;
+      y += nodeHeight(n) + ROW_GAP;
     }
-
-    temp = Math.max(1, temp * 0.92); // 冷却
+    x += NODE_W + COLUMN_GAP;
   }
 }
 
@@ -261,8 +261,8 @@ export class ObjectGraph extends BaseView {
       return;
     }
 
-    // 力学的レイアウト
-    forceDirectedLayout(nodes, edges);
+    // 階層型レイアウト
+    hierarchicalLayout(nodes, edges);
 
     // SVG 描画
     this.#render(nodes, edges, rootVars);
@@ -329,7 +329,7 @@ export class ObjectGraph extends BaseView {
     const edgesG = svgEl('g', { class: 'og-edges' });
     const nodesG = svgEl('g', { class: 'og-nodes' });
 
-    // ── エッジ描画 ──
+    // ── エッジ描画（エルボーコネクタ: 右→縦→右） ──
     for (const e of edges) {
       const src = nodeById.get(e.from);
       const dst = nodeById.get(e.to);
@@ -337,29 +337,36 @@ export class ObjectGraph extends BaseView {
 
       const srcH = nodeHeight(src);
       const dstH = nodeHeight(dst);
+      const x1   = src.x + NODE_W;
+      const y1   = Math.round(src.y + srcH / 2);
+      const x2   = dst.x;
+      const y2   = Math.round(dst.y + dstH / 2);
 
-      // 始点: src の右中央
-      const x1 = src.x + NODE_W;
-      const y1 = src.y + srcH / 2;
-      // 終点: dst の左中央
-      const x2 = dst.x;
-      const y2 = dst.y + dstH / 2;
-      const mx = (x1 + x2) / 2;
+      let pathD;
+      if (x2 > x1 + 4) {
+        // 前向きエッジ: エルボーコネクタ（中間 x で折れる）
+        const mx = Math.round((x1 + x2) / 2);
+        pathD = `M ${x1},${y1} H ${mx} V ${y2} H ${x2}`;
+      } else {
+        // 後向き・同列エッジ: 右へ張り出したベジェ弧
+        const bow = Math.max(24, Math.abs(y2 - y1) * 0.4);
+        pathD = `M ${x1},${y1} C ${x1+bow},${y1} ${x2+bow},${y2} ${x2},${y2}`;
+      }
 
-      const path = svgEl('path', {
+      edgesG.appendChild(svgEl('path', {
         class: 'og-edge',
-        d: `M ${x1},${y1} C ${mx},${y1} ${mx},${y2} ${x2},${y2}`,
+        d: pathD,
         fill: 'none',
         'marker-end': 'url(#og-arr)',
-      });
-      edgesG.appendChild(path);
+      }));
 
-      // エッジラベル（プロパティ名）
+      // エッジラベル: 縦セグメントの右側に配置
       if (e.label) {
+        const mx  = x2 > x1 + 4 ? Math.round((x1 + x2) / 2) : x1 + 20;
         const lt = svgEl('text', {
           class: 'og-edge-label',
-          x: mx, y: (y1 + y2) / 2 - 3,
-          'text-anchor': 'middle',
+          x: mx + 2, y: Math.round((y1 + y2) / 2) - 1,
+          'text-anchor': 'start',
         });
         lt.textContent = e.label;
         edgesG.appendChild(lt);
