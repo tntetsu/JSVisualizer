@@ -21,14 +21,14 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 
 // ── レイアウト定数 ────────────────────────────────────────────────────────
 
-const NODE_W     = 160;
-const NODE_H_MIN = 52;  // 最小高さ（ラベルのみ）
-const ROW_H      = 18;  // プロパティ1行の高さ
+const NODE_W     = 110;
+const NODE_H_MIN = 32;  // 最小高さ（ラベルのみ）
+const ROW_H      = 13;  // プロパティ1行の高さ
 const MAX_PROPS  = 8;   // 1ノードに表示するプロパティの最大数
-const H_SPACING  = 60;  // ノード間の最小水平間隔
-const V_SPACING  = 80;  // ノード間の最小垂直間隔
+const H_SPACING  = 16;  // ノード間の最小水平間隔
+const V_SPACING  = 16;  // ノード間の最小垂直間隔
 const FD_ITER    = 80;  // 力学的レイアウトのイテレーション数
-const INITIAL_SPREAD = 200; // 初期配置の広がり
+const INITIAL_SPREAD = 100; // 初期配置の広がり
 
 // ── グラフ構築 ────────────────────────────────────────────────────────────
 
@@ -297,7 +297,7 @@ export class ObjectGraph extends BaseView {
     }
 
     // 原点を中央に移すためのオフセット計算
-    const PAD = 60;
+    const PAD = 16;
     const xs  = nodes.map(n => n.x);
     const ys  = nodes.map(n => n.y);
     const nh  = nodes.map(nodeHeight);
@@ -386,7 +386,7 @@ export class ObjectGraph extends BaseView {
       if (labels && labels.length > 0) {
         const lt = svgEl('text', {
           class: 'og-root-label',
-          x: NODE_W / 2, y: -6,
+          x: NODE_W / 2, y: -3,
           'text-anchor': 'middle',
         });
         lt.textContent = labels.join(', ');
@@ -400,14 +400,14 @@ export class ObjectGraph extends BaseView {
 
       // タイトル
       const titleT = svgEl('text', {
-        class: 'og-title', x: NODE_W / 2, y: 18, 'text-anchor': 'middle',
+        class: 'og-title', x: NODE_W / 2, y: 11, 'text-anchor': 'middle',
       });
       titleT.textContent = node.label;
       g.appendChild(titleT);
 
       // 区切り線
       g.appendChild(svgEl('line', {
-        class: 'og-divider', x1: 0, y1: NODE_H_MIN - 16, x2: NODE_W, y2: NODE_H_MIN - 16,
+        class: 'og-divider', x1: 0, y1: NODE_H_MIN - 10, x2: NODE_W, y2: NODE_H_MIN - 10,
       }));
 
       // プロパティ行
@@ -441,7 +441,7 @@ export class ObjectGraph extends BaseView {
         const t = svgEl('text', { class: 'og-prim-label', x: 0, y: lineY });
         t.textContent = `${pv.name} = ${fmtVal(pv.val)}`;
         gp.appendChild(t);
-        lineY += 16;
+        lineY += ROW_H;
       }
       this.#svgEl.appendChild(gp);
     }
