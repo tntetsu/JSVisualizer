@@ -25,8 +25,14 @@ const NODE_W      = 110;
 const NODE_H_MIN  = 32;  // 最小高さ（ラベルのみ）
 const ROW_H       = 13;  // プロパティ1行の高さ
 const MAX_PROPS   = 8;   // 1ノードに表示するプロパティの最大数
-const COLUMN_GAP  = 22;  // 列間の水平間隔（エッジ＋矢印が収まる最小値）
-const ROW_GAP     = 6;   // 同列内ノード間の垂直間隔
+const COLUMN_GAP  = 80;  // 列間の水平間隔（エッジラベルが8文字以上収まる幅）
+const ROW_GAP     = 16;  // 同列内ノード間の垂直間隔
+
+// ノード背景色パレット（CSS 変数 → style.css で定義）
+const NODE_BG = [
+  'var(--og-bg-0)', 'var(--og-bg-1)', 'var(--og-bg-2)',
+  'var(--og-bg-3)', 'var(--og-bg-4)', 'var(--og-bg-5)',
+];
 
 // ── グラフ構築 ────────────────────────────────────────────────────────────
 
@@ -297,7 +303,7 @@ export class ObjectGraph extends BaseView {
     }
 
     // 原点を中央に移すためのオフセット計算
-    const PAD = 16;
+    const PAD = 20;
     const xs  = nodes.map(n => n.x);
     const ys  = nodes.map(n => n.y);
     const nh  = nodes.map(nodeHeight);
@@ -343,14 +349,20 @@ export class ObjectGraph extends BaseView {
       const y2   = Math.round(dst.y + dstH / 2);
 
       let pathD;
+      let labelX, labelY;
       if (x2 > x1 + 4) {
         // 前向きエッジ: エルボーコネクタ（中間 x で折れる）
         const mx = Math.round((x1 + x2) / 2);
-        pathD = `M ${x1},${y1} H ${mx} V ${y2} H ${x2}`;
+        pathD  = `M ${x1},${y1} H ${mx} V ${y2} H ${x2}`;
+        // ラベルは第一水平スタブ（x1→mx）の中央、スタブ上方に配置
+        labelX = Math.round(x1 + (mx - x1) / 2);
+        labelY = y1 - 3;
       } else {
         // 後向き・同列エッジ: 右へ張り出したベジェ弧
-        const bow = Math.max(24, Math.abs(y2 - y1) * 0.4);
-        pathD = `M ${x1},${y1} C ${x1+bow},${y1} ${x2+bow},${y2} ${x2},${y2}`;
+        const bow = Math.max(28, Math.abs(y2 - y1) * 0.4);
+        pathD  = `M ${x1},${y1} C ${x1+bow},${y1} ${x2+bow},${y2} ${x2},${y2}`;
+        labelX = x1 + bow / 2;
+        labelY = Math.round((y1 + y2) / 2) - 3;
       }
 
       edgesG.appendChild(svgEl('path', {
@@ -360,15 +372,14 @@ export class ObjectGraph extends BaseView {
         'marker-end': 'url(#og-arr)',
       }));
 
-      // エッジラベル: 縦セグメントの右側に配置
+      // エッジラベル: 第一スタブ中央の上方に配置（最大8文字が収まる幅確保）
       if (e.label) {
-        const mx  = x2 > x1 + 4 ? Math.round((x1 + x2) / 2) : x1 + 20;
         const lt = svgEl('text', {
           class: 'og-edge-label',
-          x: mx + 2, y: Math.round((y1 + y2) / 2) - 1,
-          'text-anchor': 'start',
+          x: labelX, y: labelY,
+          'text-anchor': 'middle',
         });
-        lt.textContent = e.label;
+        lt.textContent = e.label.length > 10 ? e.label.slice(0, 9) + '…' : e.label;
         edgesG.appendChild(lt);
       }
     }
@@ -384,26 +395,30 @@ export class ObjectGraph extends BaseView {
     }
 
     // ── ノード描画 ──
-    for (const node of nodes) {
-      const h  = nodeHeight(node);
-      const g  = svgEl('g', { class: 'og-node', transform: `translate(${node.x},${node.y})` });
+    for (let ni = 0; ni < nodes.length; ni++) {
+      const node   = nodes[ni];
+      const h      = nodeHeight(node);
+      const bgFill = NODE_BG[ni % NODE_BG.length];
+      const g      = svgEl('g', { class: 'og-node', transform: `translate(${node.x},${node.y})` });
 
       // 上部に変数名ラベル
       const labels = rootLabelMap.get(node.id);
       if (labels && labels.length > 0) {
         const lt = svgEl('text', {
           class: 'og-root-label',
-          x: NODE_W / 2, y: -3,
+          x: NODE_W / 2, y: -4,
           'text-anchor': 'middle',
         });
         lt.textContent = labels.join(', ');
         g.appendChild(lt);
       }
 
-      // ノード枠
-      g.appendChild(svgEl('rect', {
-        class: 'og-rect', width: NODE_W, height: h, rx: 5,
-      }));
+      // ノード枠（ノードごとに背景色を変えて境界を明確化）
+      const rect = svgEl('rect', {
+        class: 'og-rect', width: NODE_W, height: h, rx: 4,
+      });
+      rect.style.fill = bgFill;
+      g.appendChild(rect);
 
       // タイトル
       const titleT = svgEl('text', {
