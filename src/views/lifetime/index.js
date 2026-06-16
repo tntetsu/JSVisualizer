@@ -10,13 +10,15 @@
 import { BaseView } from '../base-view.js';
 import { esc, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
 
-const SVG_NS  = 'http://www.w3.org/2000/svg';
-const XHTML   = 'http://www.w3.org/1999/xhtml';
-const ROW_H   = 68;
-const LABEL_W = 32;
-const CHART_W = 580;
-const PAD_T   = 36;
-const PAD_B   = 8;
+const SVG_NS      = 'http://www.w3.org/2000/svg';
+const XHTML       = 'http://www.w3.org/1999/xhtml';
+const ROW_H       = 68;
+const LABEL_W     = 32;
+const MIN_CHART_W = 580;
+const CHAR_PX     = 5;   // approximate px per character at 11px monospace (Cascadia Code ~6px, 0.7× scale)
+const BAR_PAD     = 14;  // horizontal padding inside a bar
+const PAD_T       = 36;
+const PAD_B       = 8;
 
 const DEPTH_COLORS = [
   'rgba(76, 155, 232, 0.72)',
@@ -164,7 +166,7 @@ export class Lifetime extends BaseView {
     const N = this.#humanSteps.length;
 
     if (N === 0 || segments.length === 0) {
-      container.innerHTML = '<div class="lf-wrap"><p class="placeholder">実行データがありません</p></div>';
+      container.innerHTML = '<div class="lf-wrap"><p class="placeholder">No execution data</p></div>';
       this.#svgEl = null;
       return;
     }
@@ -174,8 +176,21 @@ export class Lifetime extends BaseView {
 
     const MAX_HI = Math.max(1, N - 1);
     const rows   = maxDepth + 1;
-    const svgW   = LABEL_W + CHART_W + 12;
-    const svgH   = PAD_T + rows * ROW_H + PAD_B;
+
+    // Compute minimum CHART_W needed so that even the shortest bar can show its label.
+    // Each segment needs: barW = (span / MAX_HI) * CHART_W >= approxLabelPx
+    // => CHART_W >= approxLabelPx * MAX_HI / span
+    let neededW = MIN_CHART_W;
+    for (const seg of segments) {
+      const span = seg.endHi - seg.startHi + 1;
+      const approxChars = Math.max(seg.name.length + 6, 8); // name + "(args)\nn=v" overhead
+      const approxLabelPx = approxChars * CHAR_PX + BAR_PAD;
+      neededW = Math.max(neededW, Math.ceil(approxLabelPx * MAX_HI / span));
+    }
+    // Cap at 3× MIN_CHART_W to avoid excessive horizontal scroll
+    const CHART_W = Math.min(neededW, MIN_CHART_W * 3);
+    const svgW    = LABEL_W + CHART_W + 12;
+    const svgH    = PAD_T + rows * ROW_H + PAD_B;
 
     this.#svgEl.setAttribute('width',   svgW);
     this.#svgEl.setAttribute('height',  svgH);

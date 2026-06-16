@@ -100,6 +100,10 @@ function nodeStateClass(node, cursor) {
 // ── ビュークラス ──────────────────────────────────────────────────────────
 
 export class CallTree extends BaseView {
+  static hasContent(builder) {
+    return builder ? builder.buildCallTree().length > 0 : false;
+  }
+
   #container = null;
   #svgEl     = null;
   #roots     = [];
@@ -117,12 +121,12 @@ export class CallTree extends BaseView {
     this.#nodeById.clear();
 
     if (this.#roots.length === 0) {
-      container.innerHTML = '<div class="ct-wrap"><p class="placeholder">関数呼び出しがありません</p></div>';
+      container.innerHTML = '<div class="ct-wrap"><p class="placeholder">No function calls</p></div>';
       this.#svgEl = null;
       return;
     }
 
-    container.innerHTML = '<div class="ct-wrap"><svg class="ct-svg" role="img" aria-label="関数呼び出しツリー" xmlns="http://www.w3.org/2000/svg"></svg></div>';
+    container.innerHTML = '<div class="ct-wrap"><svg class="ct-svg" role="img" aria-label="Call tree" xmlns="http://www.w3.org/2000/svg"></svg></div>';
     this.#svgEl = container.querySelector('.ct-svg');
 
     this.#walkNodes(this.#roots, node => this.#nodeById.set(node.id, node));

@@ -115,6 +115,10 @@ function nodeStateClass(node, cursor) {
 // ── ビュークラス ──────────────────────────────────────────────────────────
 
 export class RecursionTree extends BaseView {
+  static hasContent(builder) {
+    return builder ? builder.buildRecursionTree().length > 0 : false;
+  }
+
   /** @type {HTMLElement|null} */
   #container = null;
 
@@ -146,12 +150,12 @@ export class RecursionTree extends BaseView {
     this.#nodeById.clear();
 
     if (this.#roots.length === 0) {
-      container.innerHTML = '<div class="rt-wrap"><p class="placeholder">再帰呼び出しがありません</p></div>';
+      container.innerHTML = '<div class="rt-wrap"><p class="placeholder">No recursive calls</p></div>';
       this.#svgEl = null;
       return;
     }
 
-    container.innerHTML = '<div class="rt-wrap"><svg class="rt-svg" role="img" aria-label="再帰呼び出しツリー" xmlns="http://www.w3.org/2000/svg"></svg></div>';
+    container.innerHTML = '<div class="rt-wrap"><svg class="rt-svg" role="img" aria-label="Recursion tree" xmlns="http://www.w3.org/2000/svg"></svg></div>';
     this.#svgEl = container.querySelector('.rt-svg');
 
     // 全ノードを id → object に登録

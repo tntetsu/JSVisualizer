@@ -65,6 +65,8 @@ export class ViewSwitcher {
     this.#builder   = builder;
     this.#lastState = state;
 
+    this.#updateGrayout(builder);
+
     // キーボードショートカットを登録
     this.#registerKeyboard();
 
@@ -109,9 +111,31 @@ export class ViewSwitcher {
     this.#containerEl.innerHTML = '';
     this.#lastState = null;
     this.#builder   = null;
+    this.#clearGrayout();
   }
 
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
+
+  /**
+   * 各ビューの hasContent() を呼んでコンテンツ空のタブをグレーアウトする。
+   */
+  #updateGrayout(builder) {
+    for (const [id, entry] of this.#registry) {
+      const tab = this.#tabsEl.querySelector(`[data-view="${id}"]`);
+      if (!tab) continue;
+      const empty = typeof entry.ViewClass.hasContent === 'function'
+        ? !entry.ViewClass.hasContent(builder)
+        : false;
+      tab.classList.toggle('view-tab--empty', empty);
+    }
+  }
+
+  /** グレーアウトをすべて解除する（リセット時）。 */
+  #clearGrayout() {
+    this.#tabsEl.querySelectorAll('.view-tab--empty').forEach(btn => {
+      btn.classList.remove('view-tab--empty');
+    });
+  }
 
   /**
    * タブボタンを生成して追加する。

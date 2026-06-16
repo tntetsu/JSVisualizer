@@ -398,6 +398,15 @@ html, body {
   background: color-mix(in srgb, var(--changed) 80%, var(--text-dim) 20%);
 }
 
+/* エラー行ブリンク（active line に box-shadow を適用; CM テーマは background のみ上書きするため干渉しない） */
+@keyframes cm-error-line-blink {
+  0%, 100% { box-shadow: none; }
+  30%,  70% { box-shadow: inset 0 0 0 9999px rgba(220, 38, 38, 0.18); }
+}
+.cm-error-blink .cm-activeLine {
+  animation: cm-error-line-blink 0.55s ease 3 !important;
+}
+
 /* ── 右ペイン: デバッグ情報 ───────────────────────────────────── */
 .debug-pane {
   flex: 1;
@@ -406,6 +415,7 @@ html, body {
 
 .view-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 6px 8px 0;
   flex-shrink: 0;
@@ -429,6 +439,15 @@ html, body {
   background: var(--surface2);
   color: var(--text);
   border-color: var(--border);
+}
+
+.view-tab--empty {
+  opacity: 0.38;
+}
+.view-tab--empty:not(.view-tab--active):hover {
+  background: transparent;
+  color: var(--text-muted);
+  cursor: default;
 }
 
 .debug-scroll {
@@ -727,6 +746,20 @@ html, body {
   border-color: var(--border);
 }
 .btn-secondary:hover { background: var(--border); }
+
+/* Edit / Run トグルボタン */
+.btn-mode {
+  background: var(--surface2);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.btn-mode:hover { background: var(--border); color: var(--text); }
+.btn-mode--active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.btn-mode--active:hover { filter: brightness(1.1); }
 
 /* ── セレクト共通 ──────────────────────────────────────────────── */
 #sample-select {
@@ -2288,7 +2321,7 @@ html, body {
 .lf-bc {
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2302,8 +2335,7 @@ html, body {
   font-weight: 700;
   color: var(--text);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
   line-height: 1.3;
 }
 
@@ -2323,7 +2355,7 @@ html, body {
   font-size: 10px;
   line-height: 1.3;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .lf-bc-var--changed .lf-bc-vn,
@@ -2333,7 +2365,7 @@ html, body {
 
 .lf-bc-vn  { color: var(--accent); }
 .lf-bc-eq  { color: var(--text-muted); flex-shrink: 0; }
-.lf-bc-vv  { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+.lf-bc-vv  { color: var(--text); }
 
 /* ── ControlFlow — 構造的フローチャート (.cf-*) ──────────────────────────── */
 

@@ -72,7 +72,7 @@ export class Timeline extends BaseView {
     this.#svgEl   = container.querySelector('.tl-svg');
 
     if (this.#allVarMeta.length === 0) {
-      this.#chipsEl.innerHTML = '<span class="tl-empty">数値変数が見つかりません</span>';
+      this.#chipsEl.innerHTML = '<span class="tl-empty">No numeric variables found</span>';
       return;
     }
 

@@ -26,7 +26,7 @@ function _esc(str) {
 
 export const SAMPLES = {
   fibonacci: {
-    label: 'フィボナッチ数列（再帰）',
+    label: 'Fibonacci (recursive)',
     code: `\
 function fib(n) {
   if (n <= 1) return n;
@@ -36,7 +36,7 @@ fib(5);`,
   },
 
   factorial: {
-    label: '階乗（再帰）',
+    label: 'Factorial (recursive)',
     code: `\
 function factorial(n) {
   if (n <= 1) return 1;
@@ -46,7 +46,7 @@ factorial(6);`,
   },
 
   euclidLoop: {
-    label: 'ユークリッド互除法（ループ）',
+    label: 'Euclid GCD (loop)',
     code: `\
 let x = 851;
 let y = 629;
@@ -57,7 +57,7 @@ let gcd = x;`,
   },
 
   euclidRecursive: {
-    label: 'ユークリッド互除法（再帰）',
+    label: 'Euclid GCD (recursive)',
     code: `\
 function gcd(a, b) {
   if (b === 0) return a;
@@ -67,7 +67,7 @@ gcd(851, 629);`,
   },
 
   bubbleSort: {
-    label: 'バブルソート',
+    label: 'Bubble Sort',
     code: `\
 function bubbleSort(arr) {
   const n = arr.length;
@@ -86,7 +86,7 @@ bubbleSort([5, 3, 8, 1, 2]);`,
   },
 
   selectionSort: {
-    label: '選択ソート',
+    label: 'Selection Sort',
     code: `\
 function selectionSort(arr) {
   const n = arr.length;
@@ -103,7 +103,7 @@ selectionSort([6, 5, 4, 1, 0, 2, 3]);`,
   },
 
   linearSearch: {
-    label: '線形探索',
+    label: 'Linear Search',
     code: `\
 function linearSearch(arr, target) {
   for (let i = 0; i < arr.length; i++) {
@@ -115,7 +115,7 @@ linearSearch([3, 7, 1, 9, 4, 6], 9);`,
   },
 
   binarySearch: {
-    label: '二分探索',
+    label: 'Binary Search',
     code: `\
 function binarySearch(arr, target) {
   let lo = 0;
@@ -132,7 +132,7 @@ binarySearch([1, 3, 5, 7, 9, 11, 13], 7);`,
   },
 
   quickSort: {
-    label: 'クイックソート',
+    label: 'Quick Sort',
     code: `\
 function quickSort(arr, lo = 0, hi = arr.length - 1) {
   if (lo >= hi) return arr;
@@ -153,7 +153,7 @@ quickSort([5, 3, 8, 1, 2, 7, 4]);`,
   },
 
   mergeSort: {
-    label: 'マージソート',
+    label: 'Merge Sort',
     code: `\
 function mergeSort(arr) {
   if (arr.length <= 1) return arr;
@@ -175,7 +175,7 @@ mergeSort([5, 3, 8, 1, 2]);`,
   },
 
   sortByNumericKey: {
-    label: 'オブジェクトのソート（数値キー）',
+    label: 'Sort objects (numeric key)',
     code: `\
 const students = [
   { name: 'Alice', score: 82 },
@@ -188,7 +188,7 @@ sorted;`,
   },
 
   sortByStringKey: {
-    label: 'オブジェクトのソート（文字列キー）',
+    label: 'Sort objects (string key)',
     code: `\
 const fruits = [
   { name: 'banana',     color: 'yellow' },
@@ -203,7 +203,7 @@ sorted;`,
   },
 
   closure: {
-    label: 'クロージャ',
+    label: 'Closure',
     code: `\
 function makeCounter(start) {
   let count = start ?? 0;
@@ -219,7 +219,7 @@ counter();`,
   },
 
   binaryTree: {
-    label: '二分木構築・探索',
+    label: 'Binary Tree',
     code: `\
 function insert(tree, value) {
   if (tree === null) return { value, left: null, right: null };
@@ -238,7 +238,7 @@ search(tree, 4);`,
   },
 
   fibonacciDP: {
-    label: 'フィボナッチ（DP/メモ化）',
+    label: 'Fibonacci (DP)',
     code: `\
 function fibDP(n) {
   const dp = [0, 1];
@@ -251,7 +251,7 @@ fibDP(8);`,
   },
 
   classExample: {
-    label: 'クラスと継承',
+    label: 'Class & Inheritance',
     code: `\
 class Animal {
   constructor(name) {
@@ -280,7 +280,7 @@ dog.speak();`,
   },
 
   linkedList: {
-    label: '連結リスト',
+    label: 'Linked List',
     code: `\
 function node(val, next = null) {
   return { val, next };
@@ -342,10 +342,13 @@ export class CodeEditor {
   #runBtn;
 
   /** @type {HTMLButtonElement} */
-  #resetBtn;
+  #editBtn;
 
   /** @type {HTMLElement} */
   #errorEl;
+
+  /** @type {{line:number,column:number}|null} 現在表示中のエラー位置（クリック再ジャンプ用） */
+  #errorLoc = null;
 
   /** @type {HTMLElement|null} プログラム名表示要素（修正4で使用） */
   #programNameEl = null;
@@ -364,17 +367,17 @@ export class CodeEditor {
    * @param {HTMLElement}            opts.container     CodeMirror を mount する div
    * @param {HTMLSelectElement}      opts.sampleSelect
    * @param {HTMLButtonElement}      opts.runBtn
-   * @param {HTMLButtonElement}      opts.resetBtn
+   * @param {HTMLButtonElement}      opts.editBtn
    * @param {HTMLElement}            opts.errorEl
    * @param {HTMLElement}           [opts.programNameEl]  プログラム名表示要素
    * @param {(code: string) => void} opts.onRun
    * @param {() => void}             opts.onReset
    */
-  constructor({ container, sampleSelect, runBtn, resetBtn, errorEl, programNameEl, onRun, onReset }) {
+  constructor({ container, sampleSelect, runBtn, editBtn, errorEl, programNameEl, onRun, onReset }) {
     this.#container    = container;
     this.#sampleSelect = sampleSelect;
     this.#runBtn       = runBtn;
-    this.#resetBtn     = resetBtn;
+    this.#editBtn      = editBtn;
     this.#errorEl      = errorEl;
     this.#programNameEl = programNameEl ?? null;
     this.#onRun        = onRun;
@@ -400,29 +403,74 @@ export class CodeEditor {
    * エラーメッセージを表示する（null で非表示）。
    * @param {string|null} msg
    * @param {'parse'|'runtime'|null} [errorType]
+   * @param {{line:number,column:number}|null} [loc]  エラー位置（1始まり）
    */
-  showError(msg, errorType = null) {
+  showError(msg, errorType = null, loc = null) {
     if (msg) {
-      const typeLabel = errorType === 'parse'   ? '構文エラー'
-                      : errorType === 'runtime' ? '実行エラー'
+      const typeLabel = errorType === 'parse'   ? 'Syntax Error'
+                      : errorType === 'runtime' ? 'Runtime Error'
                       : null;
       this.#errorEl.innerHTML = typeLabel
         ? `<span class="error-badge">${typeLabel}</span> ${_esc(msg)}`
         : _esc(msg);
       this.#errorEl.dataset.errorType = errorType ?? '';
       this.#errorEl.hidden = false;
+
+      this.#errorLoc = (loc && loc.line > 0) ? loc : null;
+      if (this.#errorLoc) {
+        this.#errorEl.style.cursor = 'pointer';
+        this.#errorEl.title = `Click to jump to line ${loc.line}`;
+        this.#moveCursorToError(this.#errorLoc);
+      } else {
+        this.#errorEl.style.cursor = '';
+        this.#errorEl.title = '';
+      }
     } else {
       this.#errorEl.innerHTML = '';
       this.#errorEl.hidden = true;
+      this.#errorLoc = null;
+      this.#errorEl.style.cursor = '';
+      this.#errorEl.title = '';
     }
   }
 
-  /** 実行中モード（エディタ非表示・Reset ボタン表示）に切り替える */
+  /** エラー位置にカーソルを移動しブリンクアニメーションを実行する */
+  #moveCursorToError(loc) {
+    // 編集モードでエディタが表示されているときのみ有効
+    if (this.#container.hidden) return;
+
+    const doc     = this.#view.state.doc;
+    const lineNo  = Math.max(1, Math.min(loc.line, doc.lines));
+    const lineObj = doc.line(lineNo);
+    const col     = Math.max(0, Math.min(loc.column ?? 0, lineObj.length));
+    const pos     = lineObj.from + col;
+
+    // カーソルをエラー位置に移動してスクロール
+    this.#view.dispatch({
+      selection:      { anchor: pos, head: pos },
+      scrollIntoView: true,
+    });
+    // フォーカスを与えてカーソルを可視化
+    this.#view.focus();
+
+    // active line を box-shadow で点滅させる
+    // double-RAF で CM の描画サイクル（.cm-activeLine 配置）完了後にアニメーション起動
+    const editorEl = this.#view.dom;
+    editorEl.classList.remove('cm-error-blink');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      editorEl.classList.add('cm-error-blink');
+      setTimeout(() => editorEl.classList.remove('cm-error-blink'), 1800);
+    }));
+  }
+
+  /** Edit / Run モードの切り替え（ボタンのアクティブ状態と編集エリア表示を更新） */
   setRunningMode(running) {
-    this.#container.hidden    = running;
-    this.#runBtn.hidden       = running;
-    this.#resetBtn.hidden     = !running;
+    this.#container.hidden      = running;
     this.#sampleSelect.disabled = running;
+    this.#editBtn.classList.toggle('btn-mode--active', !running);
+    this.#editBtn.classList.toggle('btn-mode', running);
+    this.#runBtn.classList.toggle('btn-mode--active', running);
+    this.#runBtn.classList.toggle('btn-mode', !running);
   }
 
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
@@ -467,13 +515,13 @@ export class CodeEditor {
 
   #buildSampleOptions() {
     const groups = [
-      { label: '─ 探索 ─',               keys: ['linearSearch', 'binarySearch'] },
-      { label: '─ ソート（基本） ─',      keys: ['bubbleSort', 'selectionSort'] },
-      { label: '─ ソート（高度） ─',      keys: ['quickSort', 'mergeSort'] },
-      { label: '─ ソート（オブジェクト） ─', keys: ['sortByNumericKey', 'sortByStringKey'] },
-      { label: '─ 数学・アルゴリズム ─',  keys: ['euclidLoop', 'euclidRecursive', 'factorial', 'fibonacci', 'fibonacciDP'] },
-      { label: '─ データ構造 ─',          keys: ['binaryTree', 'linkedList'] },
-      { label: '─ スコープ・オブジェクト ─', keys: ['closure', 'classExample'] },
+      { label: '─ Search ─',             keys: ['linearSearch', 'binarySearch'] },
+      { label: '─ Sort (basic) ─',        keys: ['bubbleSort', 'selectionSort'] },
+      { label: '─ Sort (advanced) ─',     keys: ['quickSort', 'mergeSort'] },
+      { label: '─ Sort (objects) ─',      keys: ['sortByNumericKey', 'sortByStringKey'] },
+      { label: '─ Math / Algorithms ─',   keys: ['euclidLoop', 'euclidRecursive', 'factorial', 'fibonacci', 'fibonacciDP'] },
+      { label: '─ Data Structures ─',     keys: ['binaryTree', 'linkedList'] },
+      { label: '─ Scope / Objects ─',     keys: ['closure', 'classExample'] },
     ];
 
     for (const { label, keys } of groups) {
@@ -490,6 +538,14 @@ export class CodeEditor {
   }
 
   #bindEvents() {
+    // エラーメッセージクリック: mousedown でフォーカス移動を阻止してカーソルジャンプ
+    this.#errorEl.addEventListener('mousedown', (e) => {
+      if (this.#errorLoc) e.preventDefault(); // エディタのフォーカスを奪われない
+    });
+    this.#errorEl.addEventListener('click', () => {
+      if (this.#errorLoc) this.#moveCursorToError(this.#errorLoc);
+    });
+
     this.#sampleSelect.addEventListener('change', () => {
       const key = this.#sampleSelect.value;
       if (key && SAMPLES[key]) {
@@ -514,7 +570,7 @@ export class CodeEditor {
       this.#onRun(this.getCode());
     });
 
-    this.#resetBtn.addEventListener('click', () => {
+    this.#editBtn.addEventListener('click', () => {
       this.#onReset();
     });
   }

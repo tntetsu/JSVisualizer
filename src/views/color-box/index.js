@@ -25,6 +25,20 @@ function valueToBoxColor(val, maxVal) {
 }
 
 export class ColorBox extends BaseView {
+  static hasContent(builder) {
+    if (!builder) return false;
+    for (const idx of builder.getHumanStepList()) {
+      const ev = builder.trace[idx];
+      if (!ev?.env) continue;
+      for (const scope of ev.env) {
+        for (const [k, v] of Object.entries(scope)) {
+          if (!BUILTIN_NAMES.has(k) && Array.isArray(v)) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   /** @type {HTMLElement|null} */
   #container   = null;
 
@@ -69,7 +83,7 @@ export class ColorBox extends BaseView {
     this.#boxAreaEl = container.querySelector('.cb-box-area');
 
     if (this.#allArrayVars.length === 0) {
-      this.#boxAreaEl.innerHTML = '<p class="cb-empty">配列変数が見つかりません</p>';
+      this.#boxAreaEl.innerHTML = '<p class="cb-empty">No array variables found</p>';
     } else {
       this.#renderChips();
     }

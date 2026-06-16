@@ -45,7 +45,7 @@ const editorArea      = $('editor-area');
 const errorMsg        = $('error-msg');
 const sampleSelect    = $('sample-select');
 const btnRun          = $('btn-run');
-const btnReset        = $('btn-reset');
+const btnEdit         = $('btn-edit');
 const viewTabsEl      = $('view-tabs');
 const viewContainerEl = $('view-container');
 const btnSettings     = $('btn-settings');
@@ -111,22 +111,22 @@ codeView.init(codeDisplay);
 
 // 右ペイン: ViewSwitcher でタブ切り替え管理
 const switcher = new ViewSwitcher(viewTabsEl, viewContainerEl);
-switcher.register('state',     '変数・スタック',   StateView);
-switcher.register('trace',     'トレース表',       LineTrace);
-switcher.register('exectrace','実行トレース',     ExecTrace);
-switcher.register('subst',    '代入展開',         SubstTrace);
-switcher.register('exprtrace','式評価',           ExprTrace);
-switcher.register('table',     '全ステップ',       TraceTable);
-switcher.register('bar',       '棒グラフ',         BarChart);
-switcher.register('colorbox',  '配列',             ColorBox);
-switcher.register('timeline',  '時系列',           Timeline);
-switcher.register('heatmap',   'ヒートマップ',     Heatmap);
-switcher.register('recursion', '再帰ツリー',       RecursionTree);
-switcher.register('calltree',  '呼び出しツリー',   CallTree);
-switcher.register('lifetime',  'ライフタイム',     Lifetime);
-switcher.register('controlflow','制御フロー',       ControlFlow);
-switcher.register('memory',    'メモリモデル',     MemoryView);
-switcher.register('objgraph',  'オブジェクト',     ObjectGraph);
+switcher.register('state',     'State',        StateView);
+switcher.register('trace',     'Trace',        LineTrace);
+switcher.register('exectrace', 'Exec Trace',   ExecTrace);
+switcher.register('subst',     'Subst',        SubstTrace);
+switcher.register('exprtrace', 'Expr',         ExprTrace);
+switcher.register('table',     'All Steps',    TraceTable);
+switcher.register('bar',       'Bar Chart',    BarChart);
+switcher.register('colorbox',  'Arrays',       ColorBox);
+switcher.register('timeline',  'Timeline',     Timeline);
+switcher.register('heatmap',   'Heatmap',      Heatmap);
+switcher.register('recursion', 'Rec. Tree',    RecursionTree);
+switcher.register('calltree',  'Call Tree',    CallTree);
+switcher.register('lifetime',  'Lifetime',     Lifetime);
+switcher.register('controlflow','Control Flow', ControlFlow);
+switcher.register('memory',    'Memory',       MemoryView);
+switcher.register('objgraph',  'Objects',      ObjectGraph);
 
 // ── UI コンポーネントの初期化 ──────────────────────────────────────────────
 
@@ -134,7 +134,7 @@ const editor = new CodeEditor({
   container:      editorCmEl,
   sampleSelect:   sampleSelect,
   runBtn:         btnRun,
-  resetBtn:       btnReset,
+  editBtn:        btnEdit,
   errorEl:        errorMsg,
   programNameEl:  $('program-name'),
   onRun:          (code) => runCode(code),
@@ -180,8 +180,8 @@ adapter.addEventListener('ready', (e) => {
 });
 
 adapter.addEventListener('error', (e) => {
-  const { message, errorType } = e.detail;
-  editor.showError(message, errorType);
+  const { message, errorType, loc } = e.detail;
+  editor.showError(message, errorType, loc);
 });
 
 adapter.addEventListener('step', (e) => {

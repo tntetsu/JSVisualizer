@@ -3,8 +3,10 @@
 **プロジェクト名**: JSVisualizer  
 **バージョン**: 1.0  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-08  
+**最終更新**: 2026-06-16  
 **作成者**: Tetsuo Tanaka
+
+> [English version](functional-spec.en.md)
 
 ---
 

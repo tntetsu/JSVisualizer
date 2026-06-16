@@ -288,6 +288,11 @@ export class SubstTrace extends BaseView {
   #lines     = null;
   #activeIdx = -1;
 
+  static hasContent(builder) {
+    const sourceLines = (builder.source ?? '').split('\n');
+    return buildSubstitutionLines(builder.trace, sourceLines).length > 0;
+  }
+
   init(container, builder) {
     this.#container = container;
     this.#activeIdx = -1;
@@ -296,7 +301,7 @@ export class SubstTrace extends BaseView {
     this.#lines = buildSubstitutionLines(builder.trace, sourceLines);
 
     if (this.#lines.length === 0) {
-      container.innerHTML = '<div class="stx-wrap"><p class="stx-empty">関数呼び出しが検出されませんでした</p></div>';
+      container.innerHTML = '<div class="stx-wrap"><p class="stx-empty">No function calls detected</p></div>';
       this.#lineEls = [];
       return;
     }
@@ -319,7 +324,7 @@ export class SubstTrace extends BaseView {
 
       const exprHtml = buildLineHtml(text, expStart, expEnd, penStart, penEnd);
       const inner = lineNo != null
-        ? `<span class="stx-lineno">${lineNo}</span><span class="stx-arrow"> → </span>${exprHtml}`
+        ? `<span class="stx-lineno">Line ${lineNo}</span><span class="stx-arrow"> → </span>${exprHtml}`
         : exprHtml;
       html += `<div class="stx-line" data-idx="${idx}">${inner}</div>`;
     }

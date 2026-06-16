@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,28 +25,28 @@
       <h1 class="app-title">JSVisualizer</h1>
     </div>
     <div class="header-right">
-      <select id="sample-select" title="サンプルコードを選択">
-        <option value="">— サンプル —</option>
+      <select id="sample-select" title="Select a sample">
+        <option value="">— Sample —</option>
       </select>
-      <button id="btn-settings" class="btn-icon" title="設定">⚙</button>
+      <button id="btn-settings" class="btn-icon" title="Settings">⚙</button>
     </div>
   </header>
 
   <!-- 設定パネル（固定配置・初期非表示） -->
-  <div id="settings-panel" class="settings-panel hidden" role="dialog" aria-label="設定">
-    <div class="settings-header">設定</div>
+  <div id="settings-panel" class="settings-panel hidden" role="dialog" aria-label="Settings">
+    <div class="settings-header">Settings</div>
     <div class="settings-body">
       <div class="settings-section">
-        <div class="settings-section-title">テーマ</div>
+        <div class="settings-section-title">Theme</div>
         <label class="settings-option">
           <input type="radio" name="theme" value="light" checked>
           <span class="settings-option-icon">☀️</span>
-          <span>ライト</span>
+          <span>Light</span>
         </label>
         <label class="settings-option">
           <input type="radio" name="theme" value="dark">
           <span class="settings-option-icon">🌙</span>
-          <span>ダーク</span>
+          <span>Dark</span>
         </label>
       </div>
     </div>
@@ -66,8 +66,8 @@
           <span id="program-name" class="pane-subtitle">フィボナッチ数列（再帰）</span>
         </div>
         <div class="editor-actions">
-          <button id="btn-run"   class="btn btn-primary">▶ Run</button>
-          <button id="btn-reset" class="btn btn-secondary" hidden>⟳ Reset</button>
+          <button id="btn-edit" class="btn btn-mode btn-mode--active" title="Edit mode">✏ Edit</button>
+          <button id="btn-run"  class="btn btn-mode" title="Run">▶ Run</button>
         </div>
       </div>
 
@@ -85,7 +85,7 @@
     </section>
 
     <!-- ── 仕切り（ドラッグでリサイズ） ── -->
-    <div id="pane-divider" class="pane-divider" title="ドラッグしてサイズ変更"></div>
+    <div id="pane-divider" class="pane-divider" title="Drag to resize"></div>
 
     <!-- ── 右ペイン: ビュー切り替えエリア ── -->
     <section class="pane debug-pane">
@@ -98,7 +98,7 @@
 
       <!-- 常時表示コンソール -->
       <div id="console-panel" class="console-panel">
-        <div id="console-resizer" class="console-resizer" title="ドラッグして高さ変更"></div>
+        <div id="console-resizer" class="console-resizer" title="Drag to resize"></div>
         <div class="console-panel-header">
           Console
           <span id="console-count" class="console-count"></span>
@@ -119,61 +119,61 @@
   <footer class="step-bar">
 
     <button id="btn-start" class="ctrl-btn ctrl-btn--nav"
-            title="先頭へ (Home)" disabled>⏮</button>
+            title="Go to start (Home)" disabled>⏮</button>
 
-    <!-- 2行×4列グリッド
-         行1: 文(外) 式(内) 式(内) 文(外)
-         行2: 関(外) 人(内) 人(内) 関(外) -->
+    <!-- 2-row × 4-col grid
+         row1: Stmt(outer) Expr(inner) Expr(inner) Stmt(outer)
+         row2: Func(outer) Human(inner) Human(inner) Func(outer) -->
     <div class="ctrl-grid">
 
-      <!-- 行1: 後退◀ ─── ─── ───▶前進 -->
+      <!-- row1: ◀back ─── ─── ───▶forward -->
       <button id="btn-stmt-back"     class="ctrl-btn ctrl-btn--stmt"
-              title="文単位で戻る (V)" disabled>
+              title="Step back stmt (V)" disabled>
         <span class="btn-arrows">◀◀</span>
-        <span class="btn-label-sm">文</span>
+        <span class="btn-label-sm">Stmt</span>
       </button>
       <button id="btn-expr-back"     class="ctrl-btn ctrl-btn--expr"
-              title="式単位で戻る (← / b)" disabled>
+              title="Step back expr (← / b)" disabled>
         <span class="btn-arrows">◀</span>
-        <span class="btn-label-sm">式</span>
+        <span class="btn-label-sm">Expr</span>
       </button>
       <button id="btn-expr-forward"  class="ctrl-btn ctrl-btn--expr"
-              title="式単位で進む (→ / n)" disabled>
+              title="Step forward expr (→ / n)" disabled>
         <span class="btn-arrows">▶</span>
-        <span class="btn-label-sm">式</span>
+        <span class="btn-label-sm">Expr</span>
       </button>
       <button id="btn-stmt-forward"  class="ctrl-btn ctrl-btn--stmt"
-              title="文単位で進む (v)" disabled>
+              title="Step forward stmt (v)" disabled>
         <span class="btn-arrows">▶▶</span>
-        <span class="btn-label-sm">文</span>
+        <span class="btn-label-sm">Stmt</span>
       </button>
 
-      <!-- 行2: 後退◀ ─── ─── ───▶前進 -->
+      <!-- row2: ◀back ─── ─── ───▶forward -->
       <button id="btn-call-back"     class="ctrl-btn ctrl-btn--call"
-              title="関数単位で戻る (F)" disabled>
+              title="Step back func (F)" disabled>
         <span class="btn-arrows">⏪</span>
-        <span class="btn-label-sm">関</span>
+        <span class="btn-label-sm">Func</span>
       </button>
       <button id="btn-human-back"    class="ctrl-btn ctrl-btn--human"
-              title="人間単位で戻る (H)" disabled>
+              title="Step back human (H)" disabled>
         <span class="btn-arrows">◁</span>
-        <span class="btn-label-sm">人</span>
+        <span class="btn-label-sm">Human</span>
       </button>
       <button id="btn-human-forward" class="ctrl-btn ctrl-btn--human"
-              title="人間単位で進む (h)" disabled>
+              title="Step forward human (h)" disabled>
         <span class="btn-arrows">▷</span>
-        <span class="btn-label-sm">人</span>
+        <span class="btn-label-sm">Human</span>
       </button>
       <button id="btn-call-forward"  class="ctrl-btn ctrl-btn--call"
-              title="関数単位で進む (f)" disabled>
+              title="Step forward func (f)" disabled>
         <span class="btn-arrows">⏩</span>
-        <span class="btn-label-sm">関</span>
+        <span class="btn-label-sm">Func</span>
       </button>
 
     </div><!-- /ctrl-grid -->
 
     <button id="btn-end" class="ctrl-btn ctrl-btn--nav"
-            title="末尾へ (End)" disabled>⏭</button>
+            title="Go to end (End)" disabled>⏭</button>
 
     <input type="range" id="step-slider" class="step-slider"
            min="0" max="0" value="0" disabled>

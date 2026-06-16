@@ -254,7 +254,14 @@ class TraceBuilder {
 | 構文エラー | `SyntaxError` クラス / `[Parser]` プレフィックス | 「構文エラー」（赤バッジ） |
 | 実行エラー | それ以外 | 「実行エラー」（オレンジバッジ） |
 
-`CodeEditor.showError(msg, errorType)` が `<span class="error-badge">` を挿入します。
+`CodeEditor.showError(msg, errorType, loc)` が `<span class="error-badge">` を挿入します。
+
+**エラー位置ジャンプ＆ブリンク**: `loc` が存在する場合、`showError()` は自動的にカーソルをエラー行に移動し、ブリンクアニメーションでハイライトします。エラーバッジをクリックすると再度ジャンプ＆ブリンクします。
+
+- **loc 抽出**: `err.loc` → `err.line/column` → メッセージの `[Parser|Lexer|Runtime] N:M:` 正規表現フォールバックの順で抽出
+- **ブリンク実装**: `box-shadow: inset 0 0 0 9999px rgba(220,38,38,0.18)` をアニメーション。CodeMirror テーマが `background: transparent !important` を設定するため `background` アニメーションは無効なので `box-shadow: inset` を使用
+- **ダブル RAF パターン**: `requestAnimationFrame(() => requestAnimationFrame(() => { ... }))` で CodeMirror のレンダリングサイクル後に `.cm-activeLine` が確定してからブリンクを開始
+- **フォーカス維持**: エラーバッジの `mousedown` で `e.preventDefault()` してエディタのフォーカスを維持（フォーカスを失うと CM が `.cm-activeLine` を削除するため）
 
 ### 色覚多様性対応
 
@@ -308,6 +315,10 @@ class TraceBuilder {
 - **再帰ツリー引数表示改善**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式で表示。NODE_W=160/NODE_H=80 に拡大。cost プロパティ（subtree サイズ）を左下角に `cost:N` 形式で表示。再帰呼び出しがない場合は「再帰呼び出しがありません」を表示
 - **分割代入**: JSInterpreter の `assignTo()` が `ArrayExpression` / `ObjectExpression` を処理するよう拡張（`[a,b]=[b,a]` 等）。詳細は [JSInterpreter#interpreter.js](../JSInterpreter/src/interpreter/interpreter.js)
 - **エラー種別判定**: JSInterpreter は `[Parser]` プレフィックスのメッセージでパースエラーを示すため、正規表現で判定する
+- **タブ折り返し表示**: `.view-tabs` に `flex-wrap: wrap` を適用。ウィンドウが狭いとき全タブを 2 行以上に折り返して表示（全タブが常に見える状態を維持）
+- **Lifetime 動的幅計算**: 固定 `PX_PER_STEP` を廃止し、セグメントごとにラベル幅（`approxChars * CHAR_PX + BAR_PAD`）から必要チャート幅（`neededW = approxLabelPx * MAX_HI / span`）を計算。`MIN_CHART_W`（580px）〜`MIN_CHART_W * 3`（1740px）でクランプ。定数は `CHAR_PX=5`（モノスペース 11px の約 0.7×）、`BAR_PAD=14`
+- **BarChart hasContent Map 修正**: `flattenEnv()` が `Map` を返すため `for (const [k, v] of Object.entries(vars))` は空を返す。正しくは `for (const [k, v] of vars)` で Map を直接イテレート
+- **英語ドキュメント**: `README.en.md`・`docs/functional-spec.en.md` を新規追加。`README.md` および `docs/functional-spec.md` と相互リンク（`> [English README](README.en.md)` 形式）
 - **対象ブラウザ**: モダンブラウザ（Chrome/Firefox/Safari 最新版）
 - **デプロイ**: GitHub Pages、`main` ブランチ push で Actions が JSInterpreter をクローン→ビルド→自動デプロイ
 

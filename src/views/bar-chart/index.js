@@ -29,6 +29,21 @@ function valueToHsl(val, maxVal) {
 }
 
 export class BarChart extends BaseView {
+  static hasContent(builder) {
+    if (!builder) return false;
+    for (const idx of builder.getHumanStepList()) {
+      const ev = builder.trace[idx];
+      if (!ev?.env) continue;
+      const vars = flattenEnv(ev.env);
+      for (const [k, v] of vars) {
+        if (BUILTIN_NAMES.has(k)) continue;
+        if (typeof v === 'number') return true;
+        if (Array.isArray(v) && v.some(e => typeof e === 'number')) return true;
+      }
+    }
+    return false;
+  }
+
   /** @type {HTMLElement|null} */
   #container = null;
 
@@ -71,7 +86,7 @@ export class BarChart extends BaseView {
     this.#chartEl = container.querySelector('.bc-chart');
 
     if (this.#allVarMeta.length === 0) {
-      this.#chartEl.innerHTML = '<p class="bc-empty">数値変数・配列が見つかりません</p>';
+      this.#chartEl.innerHTML = '<p class="bc-empty">No numeric variables or arrays found</p>';
     } else {
       this.#renderChips();
     }
@@ -245,7 +260,7 @@ export class BarChart extends BaseView {
     if (!anyRendered && this.#groupEls.size === 0) {
       const msg = document.createElement('p');
       msg.className   = 'bc-empty bc-empty-step';
-      msg.textContent = 'ステップを進めると棒グラフが現れます';
+      msg.textContent = 'Step forward to see the bar chart';
       this.#chartEl.appendChild(msg);
     }
   }

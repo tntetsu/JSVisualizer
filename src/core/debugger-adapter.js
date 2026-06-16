@@ -130,10 +130,23 @@ export class DebuggerAdapter extends EventTarget {
         || err?.name === 'SyntaxError'
         || /^\[Parser\]/i.test(msg)
         || /^(Unexpected token|Unexpected end of|SyntaxError|Invalid or unexpected)/i.test(msg);
+      // エラー位置情報を抽出
+      // 優先順: RuntimeError.loc → ParseError/LexError .line/.column → メッセージ解析フォールバック
+      let errLoc = null;
+      if (err?.loc && typeof err.loc.line === 'number' && err.loc.line > 0) {
+        errLoc = err.loc;
+      } else if (typeof err?.line === 'number' && err.line > 0) {
+        errLoc = { line: err.line, column: err.column ?? 0 };
+      } else {
+        // "[Parser] 5:10: ..." / "[Lexer] 3:2: ..." / "[Runtime] 7:4: ..." 形式をパース
+        const m = msg.match(/^\[(?:Parser|Lexer|Runtime)\]\s+(\d+):(\d+):/);
+        if (m) errLoc = { line: +m[1], column: +m[2] };
+      }
       this.dispatchEvent(new CustomEvent('error', {
         detail: {
           message:   err.message ?? String(err),
           errorType: isParseError ? 'parse' : 'runtime',
+          loc:       errLoc,
         },
       }));
     }

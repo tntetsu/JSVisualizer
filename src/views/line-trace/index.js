@@ -193,7 +193,7 @@ export class LineTrace extends BaseView {
 
     const source = builder?.source ?? '';
     if (!source) {
-      container.innerHTML = '<div class="lt-outer"><p class="placeholder">ソースコードが利用できません</p></div>';
+      container.innerHTML = '<div class="lt-outer"><p class="placeholder">Source code unavailable</p></div>';
       return;
     }
 

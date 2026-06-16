@@ -31,7 +31,7 @@ export class StateView extends BaseView {
         <div class="debug-card">
           <div class="card-header">Current Step</div>
           <div class="sv-current current-step">
-            <p class="placeholder">実行待ち</p>
+            <p class="placeholder">Ready…</p>
           </div>
         </div>
 
@@ -67,7 +67,7 @@ export class StateView extends BaseView {
   reset() {
     this.#lastState = null;
     if (!this.#container) return;
-    this.#currentStepEl.innerHTML = '<p class="placeholder">実行待ち</p>';
+    this.#currentStepEl.innerHTML = '<p class="placeholder">Ready…</p>';
     this.#variablesEl.innerHTML   = '<p class="placeholder">—</p>';
     this.#callstackEl.innerHTML   = '<p class="placeholder">—</p>';
   }
@@ -86,7 +86,7 @@ export class StateView extends BaseView {
   #renderCurrentStep(state) {
     const { event, done } = state;
     if (done || !event) {
-      this.#currentStepEl.innerHTML = '<p class="placeholder">実行完了</p>';
+      this.#currentStepEl.innerHTML = '<p class="placeholder">Done</p>';
       return;
     }
     const phase    = event.phase === 'enter' ? '▶ enter' : '◀ exit';
@@ -119,7 +119,7 @@ export class StateView extends BaseView {
 
     const entries = Object.entries(variables).filter(([k]) => !BUILTIN_NAMES.has(k));
     if (!entries.length) {
-      this.#variablesEl.innerHTML = '<p class="placeholder">変数なし</p>';
+      this.#variablesEl.innerHTML = '<p class="placeholder">No variables</p>';
       return;
     }
 
@@ -152,7 +152,7 @@ export class StateView extends BaseView {
         </div>
         <div class="scv-vars">`;
       if (!entries.length) {
-        html += '<span class="scv-empty">（変数なし）</span>';
+        html += '<span class="scv-empty">(no variables)</span>';
       } else {
         for (const [name, val] of entries) {
           const flash = changed.has(name) ? ' var-row--changed' : '';

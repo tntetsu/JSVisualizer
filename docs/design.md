@@ -3,7 +3,7 @@
 **プロジェクト名**: JSVisualizer  
 **バージョン**: 1.0  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-16  
+**最終更新**: 2026-06-16 (v1.7)  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -28,6 +28,7 @@
 | 1.5 | 2026-06-16 | (1) `format.js` に `formatValueDiff(val, prevVal)` を追加（差分強調 HTML 生成）。LineTrace の `update()` でアクティブ行の変数セルに適用。ExecTrace の `init()` で全行に一括適用（`let prevEnvMap = new Map()` で前行の env を追跡）。CSS: `--v-diff`（ライト `#c05000`・ダーク `#ff9f5e`）と `.v-diff` クラスを追加。(2) ObjectGraph を力学的レイアウトから階層型レイアウトに全面改訂。`hierarchicalLayout(nodes, edges)` で Kahn トポソート + 最長パス法、`layoutGraph(nodes, edges)` で BFS 連結成分分離 + 縦積み上げ。肘型エッジコネクタ・ポートスプレッド（`srcPort`/`dstPort` Map）・ノード背景 6 色パレット・連結成分点線境界矩形（`.og-comp-bg`）を実装。(3) JSInterpreter `Environment.snapshot()` / `snapshotOwn()` を修正: 変数ごとに独立した `seen` WeakMap で `deepClone` を呼んでいた設計を、スコープチェーン全体で `seen` を共有するよう変更。同一元オブジェクトが複数変数から参照されるとき同一クローンにマッピングされ、ObjectGraph・MemoryView の WeakMap 追跡が正しく機能するよう修正 |
 | 1.6 | 2026-06-16 | JSInterpreter の `var`/`let`/`const` セマンティクスを ES2022 仕様に準拠させる大規模修正。`Environment` に `kind`（`'block'`/`'function'`/`'global'`）・`immutables: Set<string>`・`getFunctionScope()`・`markConst()` を追加、`TDZ_SENTINEL = Symbol('TDZ')` を導入。`hoistVars`（var 宣言の関数スコープ巻き上げ）・`hoistLexicals`（let/const の TDZ 事前定義）・`checkNoRedecl`（let/const 再宣言検出）・`markConstNames`（const 不変マーク）を追加。`ForStatement` の `for (let …)` でイテレーションごとの `iterEnv`（クロージャ用）と `updateEnv`（更新式専用コピー）を生成し、クロージャが正しく各イテレーションの値を捕捉することを保証。全 249 テストがパス。詳細は § 1.3 を参照 |
 | 1.3 | 2026-06-05 | SubstTrace（代入展開）・ExprTrace（式評価）ビューを新規追加。タブ登録数 14 → 16。SubstTrace: `computeReturnExpr` が ReturnStatement 引数を Identifier/CallExpression 逐次置換し `buildSubstitutionLines` で展開行を構築。CSS `.stx-*`。ExprTrace: `buildSectionRows` が exit イベントを走査して置換リスト（`addSubstitution`/`applySubstitutions`）を更新し行を生成。`srcPosToDispPos` / `srcRangeToDispRange` でソース座標→表示座標変換。CSS `.xev-*`。両ビューに expanded（橙）/ pending（青太字）の 2 色ハイライトを実装。app.js に SubstTrace・ExprTrace のタブ登録を追加 |
+| 1.7 | 2026-06-16 | (1) **エラー位置ジャンプ＆ブリンク**: `debugger-adapter.js` の `load()` でエラー発生時に `loc`（行・列）を抽出し `CustomEvent('error')` の detail に付与（抽出順: `err.loc` → `err.line/column` → メッセージ正規表現 `[Parser|Lexer|Runtime] N:M:`）。`app.js` が `loc` を `editor.showError()` に転送。`code-editor.js` の `showError(msg, errorType, loc)` が `#moveCursorToError(loc)` を呼び出してカーソルをエラー行に移動。ブリンクは `box-shadow: inset 0 0 0 9999px rgba(220,38,38,0.18)` のキーフレームアニメーション（CSS `background` は CM テーマが `transparent !important` で上書きするため box-shadow を使用）。ダブル RAF パターンで CM レンダリング後に `.cm-activeLine` 確定を待ってからブリンク開始。エラーバッジ `mousedown` で `e.preventDefault()` によりフォーカスを維持。エラーバッジクリックで `#moveCursorToError()` を再呼び出し（再ジャンプ＆再ブリンク）。(2) **タブ折り返し**: `.view-tabs` に `flex-wrap: wrap` 追加。ウィンドウ幅不足時にタブを複数行で表示。(3) **Lifetime 動的幅計算**: 固定 `PX_PER_STEP=100` を廃止。セグメントごとにラベル文字数からチャート必要幅を計算し `MIN_CHART_W`（580px）〜`MIN_CHART_W*3`（1740px）でクランプ（`CHAR_PX=5`、`BAR_PAD=14`）。(4) **BarChart hasContent バグ修正**: `flattenEnv()` が返す `Map` を `Object.entries()` でイテレートしていた誤りを `for (const [k,v] of vars)` に修正。(5) **英語ドキュメント**: `README.en.md`・`docs/functional-spec.en.md` を新規追加。各日本語版と相互リンク |
 
 ---
 

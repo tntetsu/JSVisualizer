@@ -288,6 +288,20 @@ function nodeHeight(node) {
 // ── ObjectGraph ビュー ────────────────────────────────────────────────────
 
 export class ObjectGraph extends BaseView {
+  static hasContent(builder) {
+    if (!builder) return false;
+    for (const idx of builder.getHumanStepList()) {
+      const ev = builder.trace[idx];
+      if (!ev?.env) continue;
+      for (const scope of ev.env) {
+        for (const [k, v] of Object.entries(scope)) {
+          if (!BUILTIN_NAMES.has(k) && isHeapObj(v)) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   #container = null;
   #svgEl     = null;
   #wrapEl    = null;
@@ -309,14 +323,14 @@ export class ObjectGraph extends BaseView {
 
     const { variables, scopes } = state;
     if (!variables || !scopes || scopes.length === 0) {
-      this.#showPlaceholder('変数がありません');
+      this.#showPlaceholder('No variables');
       return;
     }
 
     const { nodes, edges, rootVars } = buildGraph(variables, scopes);
 
     if (nodes.length === 0 && !rootVars.some(rv => rv.type === 'prim')) {
-      this.#showPlaceholder('オブジェクトがありません');
+      this.#showPlaceholder('No objects');
       return;
     }
 
@@ -351,7 +365,7 @@ export class ObjectGraph extends BaseView {
     this.#svgEl.innerHTML = '';
 
     if (nodes.length === 0) {
-      this.#showPlaceholder('オブジェクトがありません');
+      this.#showPlaceholder('No objects');
       return;
     }
 

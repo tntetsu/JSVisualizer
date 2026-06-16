@@ -45,7 +45,7 @@ export class Heatmap extends BaseView {
     const trace      = builder.trace;
 
     if (!source) {
-      container.innerHTML = '<div class="hm-wrap"><p class="hm-empty">ソースコードが利用できません</p></div>';
+      container.innerHTML = '<div class="hm-wrap"><p class="hm-empty">Source code unavailable</p></div>';
       return;
     }
 

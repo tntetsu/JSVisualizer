@@ -2,6 +2,8 @@
 
 > 🚀 **[Live Demo](https://tntetsu.github.io/JSVisualizer/)** — GitHub Pages でホスト中
 
+> [English README](README.en.md)
+
 JavaScript プログラムの実行過程をインタラクティブに可視化する教育用 Web アプリケーションです。
 
 式・文・関数呼び出しの各粒度でステップ実行しながら、**16 種類の可視化ビュー**でプログラムの動作（時間の経過とともにメモリの内容がどう変化するか）を直感的に理解できます。

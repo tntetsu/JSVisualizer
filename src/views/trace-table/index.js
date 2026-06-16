@@ -86,10 +86,10 @@ export class TraceTable extends BaseView {
           <thead>
             <tr>
               <th class="tt-th tt-col-num">#</th>
-              <th class="tt-th tt-col-line">行</th>
-              <th class="tt-th tt-col-type">イベント</th>
-              <th class="tt-th tt-col-target">対象</th>
-              <th class="tt-th tt-col-val">値</th>
+              <th class="tt-th tt-col-line">Line</th>
+              <th class="tt-th tt-col-type">Event</th>
+              <th class="tt-th tt-col-target">Target</th>
+              <th class="tt-th tt-col-val">Value</th>
             </tr>
           </thead>
           <tbody class="tt-tbody"></tbody>

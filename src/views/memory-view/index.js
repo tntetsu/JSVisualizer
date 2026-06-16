@@ -115,11 +115,11 @@ export class MemoryView extends BaseView {
       <div class="mv-wrap">
         <div class="mv-layout">
           <div class="mv-panel mv-stack-panel">
-            <div class="mv-panel-title">スタック</div>
+            <div class="mv-panel-title">Stack</div>
             <div class="mv-stack-content"></div>
           </div>
           <div class="mv-panel mv-heap-panel">
-            <div class="mv-panel-title">ヒープ</div>
+            <div class="mv-panel-title">Heap</div>
             <div class="mv-heap-content"></div>
           </div>
         </div>
