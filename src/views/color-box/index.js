@@ -41,11 +41,12 @@ export class ColorBox extends BaseView {
   #allArrayVars  = [];
 
   /**
-   * ソース解析で「配列要素の値を受け取る変数」と判定された名前のセット。
-   * `const tmp = arr[j]` のような代入で RHS が配列アクセスである変数は
-   * インデックス（ポインタ）ではなく値を保持しているためポインタ表示から除外する。
+   * ソース中で実際に配列添字として使われている変数名のセット（ホワイトリスト）。
+   * `arr[j]` や `arr[j + 1]` に登場する識別子を収集する。
+   * このセットに含まれない変数は、値が偶然インデックス範囲に収まっていても
+   * ポインタとして表示しない。
    */
-  #arrayValueVars = new Set();
+  #subscriptVars = new Set();
 
   /** 最後に描画した変数値マップ */
   #lastVars = null;
@@ -103,15 +104,13 @@ export class ColorBox extends BaseView {
     const trace      = this.#builder.trace;
     const metaMap    = new Map();
 
-    // ソース中で `identifier = arrayExpr[...]` の形で配列の値を受け取る変数を収集する。
-    // このような変数はインデックスではなく値を保持するためポインタ表示から除外する。
-    // lookbehind (?<!\[) で `arr[j] = arr[...]` の左辺 j を誤検出しない。
-    const ARRAY_VALUE_RE = /(?<!\[)\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*[a-zA-Z_$][a-zA-Z0-9_$]*\[/g;
-    this.#arrayValueVars = new Set();
-    for (const m of (this.#builder.source ?? '').matchAll(ARRAY_VALUE_RE)) {
-      this.#arrayValueVars.add(m[1]);
+    // ソース中で `identifier[varName` の形（配列添字位置）に登場する識別子を収集する。
+    // `\w\[` とすることで配列リテラル `[a, b]` の `a` を誤検出しない。
+    const SUBSCRIPT_RE = /\w\[([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+    this.#subscriptVars = new Set();
+    for (const m of (this.#builder.source ?? '').matchAll(SUBSCRIPT_RE)) {
+      this.#subscriptVars.add(m[1]);
     }
-    // 配列変数自体は除外リストに含めない（後のフィルタで別途除外される）
 
     // 第1パス: 配列変数と最大絶対値を収集
     for (const si of humanSteps) {
@@ -146,7 +145,7 @@ export class ColorBox extends BaseView {
         let ptrCount = 0;
         for (const [name, val] of vars) {
           if (BUILTIN_NAMES.has(name) || arrayVarNames.has(name)) continue;
-          if (this.#arrayValueVars.has(name)) continue;
+          if (!this.#subscriptVars.has(name)) continue;
           if (typeof val === 'number' && Number.isInteger(val) && val >= 0 && val < len) ptrCount++;
         }
         const m = metaMap.get(arrName);
@@ -222,7 +221,7 @@ export class ColorBox extends BaseView {
       for (const [name, val] of vars) {
         if (BUILTIN_NAMES.has(name)) continue;
         if (arrayVarNames.has(name)) continue;
-        if (this.#arrayValueVars.has(name)) continue;
+        if (!this.#subscriptVars.has(name)) continue;
         if (
           typeof val === 'number'
           && Number.isInteger(val)
