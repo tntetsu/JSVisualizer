@@ -2818,6 +2818,15 @@ html, body {
   fill: var(--text-muted);
 }
 
+/* 連結成分の外接矩形（複数成分がある場合に表示） */
+.og-comp-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+  opacity: 0.6;
+}
+
 /* プレースホルダー */
 .og-placeholder {
   font-size: 13px;

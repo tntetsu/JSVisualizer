@@ -27,6 +27,7 @@ const ROW_H       = 13;  // プロパティ1行の高さ
 const MAX_PROPS   = 8;   // 1ノードに表示するプロパティの最大数
 const COLUMN_GAP  = 80;  // 列間の水平間隔（エッジラベルが8文字以上収まる幅）
 const ROW_GAP     = 16;  // 同列内ノード間の垂直間隔
+const COMP_GAP    = 24;  // 連結成分間の垂直間隔
 
 // ノード背景色パレット（CSS 変数 → style.css で定義）
 const NODE_BG = [
@@ -217,6 +218,58 @@ function hierarchicalLayout(nodes, edges) {
   }
 }
 
+/**
+ * 連結成分ごとに独立した階層レイアウトを行い、縦に積み上げる。
+ * 各成分の外接矩形が他と重ならない（Y 方向に COMP_GAP を挟む）。
+ *
+ * @param {{ id, x, y }[]} nodes
+ * @param {{ from, to }[]}  edges
+ * @returns {{ nodes, edges }[]} 成分ごとの配列（背景矩形描画用）
+ */
+function layoutGraph(nodes, edges) {
+  if (nodes.length === 0) return [];
+
+  // 無向グラフで連結成分を BFS 検出
+  const unadj  = new Map(nodes.map(n => [n.id, []]));
+  for (const e of edges) {
+    unadj.get(e.from)?.push(e.to);
+    unadj.get(e.to)?.push(e.from);
+  }
+  const nodeById = new Map(nodes.map(n => [n.id, n]));
+  const visited  = new Set();
+  const comps    = [];
+
+  for (const n of nodes) {
+    if (visited.has(n.id)) continue;
+    const ids = [];
+    const q   = [n.id];
+    visited.add(n.id);
+    while (q.length) {
+      const id = q.shift();
+      ids.push(id);
+      for (const nid of (unadj.get(id) ?? [])) {
+        if (!visited.has(nid)) { visited.add(nid); q.push(nid); }
+      }
+    }
+    const cNodes = ids.map(id => nodeById.get(id));
+    const idSet  = new Set(ids);
+    const cEdges = edges.filter(e => idSet.has(e.from));
+    comps.push({ nodes: cNodes, edges: cEdges });
+  }
+
+  // 各成分を独立に階層レイアウト → Y オフセットで縦積み
+  let yOffset = 0;
+  for (const comp of comps) {
+    hierarchicalLayout(comp.nodes, comp.edges);
+    let compH = 0;
+    for (const n of comp.nodes) compH = Math.max(compH, n.y + nodeHeight(n));
+    for (const n of comp.nodes) n.y += yOffset;
+    yOffset += compH + COMP_GAP;
+  }
+
+  return comps;
+}
+
 // ── SVG 描画 ──────────────────────────────────────────────────────────────
 
 function svgEl(tag, attrs = {}) {
@@ -267,11 +320,11 @@ export class ObjectGraph extends BaseView {
       return;
     }
 
-    // 階層型レイアウト
-    hierarchicalLayout(nodes, edges);
+    // 連結成分ごとに独立レイアウト → 縦積み
+    const comps = layoutGraph(nodes, edges);
 
     // SVG 描画
-    this.#render(nodes, edges, rootVars);
+    this.#render(nodes, edges, rootVars, comps);
   }
 
   reset() {}
@@ -294,7 +347,7 @@ export class ObjectGraph extends BaseView {
     this.#svgEl.appendChild(t);
   }
 
-  #render(nodes, edges, rootVars) {
+  #render(nodes, edges, rootVars, comps = []) {
     this.#svgEl.innerHTML = '';
 
     if (nodes.length === 0) {
@@ -332,8 +385,30 @@ export class ObjectGraph extends BaseView {
     defs.appendChild(marker);
     this.#svgEl.appendChild(defs);
 
-    const edgesG = svgEl('g', { class: 'og-edges' });
-    const nodesG = svgEl('g', { class: 'og-nodes' });
+    const compBgG = svgEl('g', { class: 'og-comps' });
+    const edgesG  = svgEl('g', { class: 'og-edges' });
+    const nodesG  = svgEl('g', { class: 'og-nodes' });
+
+    // ── 連結成分の背景矩形（複数成分がある場合のみ） ──
+    if (comps.length > 1) {
+      const CPAD = 8;  // 成分外接矩形の内側パディング
+      for (const { nodes: cNodes } of comps) {
+        let cx0 = Infinity, cy0 = Infinity, cx1 = -Infinity, cy1 = -Infinity;
+        for (const n of cNodes) {
+          cx0 = Math.min(cx0, n.x);
+          cy0 = Math.min(cy0, n.y);
+          cx1 = Math.max(cx1, n.x + NODE_W);
+          cy1 = Math.max(cy1, n.y + nodeHeight(n));
+        }
+        compBgG.appendChild(svgEl('rect', {
+          class: 'og-comp-bg',
+          x: cx0 - CPAD, y: cy0 - CPAD,
+          width:  (cx1 - cx0) + CPAD * 2,
+          height: (cy1 - cy0) + CPAD * 2,
+          rx: 8,
+        }));
+      }
+    }
 
     // ── エッジ描画（エルボーコネクタ: 右→縦→右） ──
     for (const e of edges) {
@@ -454,20 +529,21 @@ export class ObjectGraph extends BaseView {
       nodesG.appendChild(g);
     }
 
-    // プリミティブ変数の一覧（右下ラベル）
+    // プリミティブ変数の一覧（右上ラベル）
+    let primG = null;
     const primVars = rootVars.filter(rv => rv.type === 'prim');
     if (primVars.length > 0) {
-      const gp = svgEl('g', { class: 'og-prim-vars', transform: `translate(${minX + 8},${minY + 8})` });
+      primG = svgEl('g', { class: 'og-prim-vars', transform: `translate(${minX + 8},${minY + 8})` });
       let lineY = 14;
       for (const pv of primVars) {
         const t = svgEl('text', { class: 'og-prim-label', x: 0, y: lineY });
         t.textContent = `${pv.name} = ${fmtVal(pv.val)}`;
-        gp.appendChild(t);
+        primG.appendChild(t);
         lineY += ROW_H;
       }
-      this.#svgEl.appendChild(gp);
     }
 
-    this.#svgEl.append(edgesG, nodesG);
+    // 描画順: 成分背景 → エッジ → ノード → プリミティブラベル
+    this.#svgEl.append(compBgG, edgesG, nodesG, ...(primG ? [primG] : []));
   }
 }
