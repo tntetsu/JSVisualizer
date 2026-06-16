@@ -90,7 +90,7 @@ export function formatValueDiff(val, prevVal) {
     const prev  = Array.isArray(prevVal) ? prevVal : [];
     const items = val.slice(0, 8).map((x, i) => {
       const cell = formatValue(x, 1);
-      return valEqual(x, prev[i]) ? cell : `<b>${cell}</b>`;
+      return valEqual(x, prev[i]) ? cell : `<b class="v-diff">${cell}</b>`;
     });
     const more = val.length > 8
       ? `, <span class="v-muted">+${val.length - 8}</span>` : '';
@@ -103,14 +103,14 @@ export function formatValueDiff(val, prevVal) {
     const entries = Object.entries(val).slice(0, 4);
     const items   = entries.map(([k, v]) => {
       const fmt = `<span class="v-key">${esc(k)}</span>: ${formatValue(v, 1)}`;
-      return valEqual(v, prev[k]) ? fmt : `<b>${fmt}</b>`;
+      return valEqual(v, prev[k]) ? fmt : `<b class="v-diff">${fmt}</b>`;
     });
     const more = Object.keys(val).length > 4 ? ', …' : '';
     return `<span class="v-obj">{ ${items.join(', ')}${more} }</span>`;
   }
 
   // スカラー（number, boolean, string）
-  return valEqual(val, prevVal) ? formatValue(val) : `<b>${formatValue(val)}</b>`;
+  return valEqual(val, prevVal) ? formatValue(val) : `<b class="v-diff">${formatValue(val)}</b>`;
 }
 
 /**

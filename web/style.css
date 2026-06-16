@@ -41,6 +41,7 @@
   --v-undef:  #808080;   /* undefined */
   --v-fn:     #795e26;   /* 関数: ゴールドブラウン */
   --v-obj:    #267f99;   /* オブジェクト: ティール */
+  --v-diff:   #c05000;   /* 変化した値: オレンジ */
 
   /* 式・呼び出し元ハイライト（白背景でも視認できるよう濃いめ） */
   --hl-expr:     rgba(255, 165,   0, 0.25);
@@ -97,6 +98,7 @@
   --v-undef:  #6c7086;
   --v-fn:     #cba6f7;
   --v-obj:    #f9e2af;
+  --v-diff:   #ff9f5e;   /* 変化した値: 明るいオレンジ */
 
   /* 式・呼び出し元ハイライト */
   --hl-expr:     rgba(250, 179, 135, 0.30);
@@ -514,6 +516,17 @@ html, body {
 .v-undef { color: var(--v-undef); font-style: italic; }
 .v-fn    { color: var(--v-fn);    }
 .v-obj   { color: var(--v-obj);   }
+
+/* 変化した値の強調（内側の型色スパンも上書き） */
+.v-diff,
+.v-diff .v-num,
+.v-diff .v-str,
+.v-diff .v-bool,
+.v-diff .v-obj,
+.v-diff .v-key,
+.v-diff .v-fn,
+.v-diff .v-null,
+.v-diff .v-undef { color: var(--v-diff); }
 
 /* スコープトグル */
 .scope-toggle {
