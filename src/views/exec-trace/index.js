@@ -13,7 +13,7 @@
  */
 
 import { BaseView } from '../base-view.js';
-import { flattenEnv, BUILTIN_NAMES, formatValue, esc } from '../../utils/format.js';
+import { flattenEnv, BUILTIN_NAMES, formatValue, formatValueDiff, esc } from '../../utils/format.js';
 
 // ── 条件式ヘルパー（LineTrace と共通ロジック） ──────────────────────────────
 
@@ -175,6 +175,8 @@ export class ExecTrace extends BaseView {
     }
     html += '</tr></thead><tbody class="et-tbody">';
 
+    let prevEnvMap = new Map();
+
     for (let hi = 0; hi < humanSteps.length; hi++) {
       const si    = humanSteps[hi];
       const ev    = trace[si];
@@ -191,11 +193,11 @@ export class ExecTrace extends BaseView {
       html += `<td class="et-td et-col-line">${lineNo}</td>`;
       html += `<td class="et-td et-col-code">${esc(snippet)}</td>`;
 
-      // 変数列
+      // 変数列（前ステップとの差分をボールドで強調）
       for (const name of varNames) {
-        const v   = envMap.get(name);                // Map.get() で取得
-        const fmt = v === undefined ? '' : formatValue(v);
-        html += `<td class="et-td et-col-var">${v === undefined ? '<span class="lt-empty">—</span>' : fmt}</td>`;
+        const v    = envMap.get(name);
+        const prev = prevEnvMap.get(name);
+        html += `<td class="et-td et-col-var">${v === undefined ? '<span class="lt-empty">—</span>' : formatValueDiff(v, prev)}</td>`;
       }
 
       // 条件列（この step が該当条件を評価したときだけ値を表示）
@@ -208,6 +210,7 @@ export class ExecTrace extends BaseView {
       }
 
       html += '</tr>';
+      prevEnvMap = envMap;
     }
 
     html += '</tbody></table></div>';

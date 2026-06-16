@@ -11,7 +11,7 @@
  */
 
 import { BaseView }                           from '../base-view.js';
-import { flattenEnv, BUILTIN_NAMES, formatValue, esc } from '../../utils/format.js';
+import { flattenEnv, BUILTIN_NAMES, formatValue, formatValueDiff, esc } from '../../utils/format.js';
 
 // ── シンタックスハイライト（code-view と同一ロジック） ─────────────────────
 
@@ -287,7 +287,8 @@ export class LineTrace extends BaseView {
     const lineCondStates = new Map();  // lineNo → Map<condText, boolean>
     const newVarNames    = [];
     const varSeen        = new Set();
-    let   prevVars       = null;
+    let   prevVars          = null;
+    let   prevVarsAtCursor  = null;
     const changedVars    = new Set();
     let   hi             = 0;
 
@@ -314,6 +315,7 @@ export class LineTrace extends BaseView {
         }
 
         if (si === cursor && prevVars !== null) {
+          prevVarsAtCursor = prevVars;
           for (const name of newVarNames) {
             if (!valEqual(prevVars.get(name), vars.get(name))) changedVars.add(name);
           }
@@ -347,8 +349,9 @@ export class LineTrace extends BaseView {
         const name    = this.#varMeta[i].name;
         const val     = vars?.get(name);
         const changed = isActive && changedVars.has(name);
+        const prevVal = changed ? prevVarsAtCursor?.get(name) : undefined;
         cellEl.innerHTML = val !== undefined
-          ? formatValue(val)
+          ? (changed ? formatValueDiff(val, prevVal) : formatValue(val))
           : '<span class="lt-empty">—</span>';
         cellEl.classList.remove('lt-flash');
         if (changed) { void cellEl.offsetWidth; cellEl.classList.add('lt-flash'); }

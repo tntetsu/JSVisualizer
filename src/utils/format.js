@@ -63,6 +63,56 @@ export function formatValue(v, depth = 0) {
   return `<span>${esc(String(v))}</span>`;
 }
 
+/** 深い等価比較（JSON.stringify ベース） */
+function valEqual(a, b) {
+  if (a === b) return true;
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+}
+
+/**
+ * prevVal と比較して変化した部分を <b> で強調した HTML を返す。
+ * 配列・オブジェクトは要素単位で比較し、変化した要素だけを <b> で包む。
+ * スカラー値は全体を <b> で包む。
+ * prevVal が undefined の場合（初登場）は全体を強調する。
+ *
+ * @param {any} val     現在の値
+ * @param {any} prevVal 前ステップの値（undefined = 初登場）
+ * @returns {string}  HTML 文字列
+ */
+export function formatValueDiff(val, prevVal) {
+  if (val === undefined) return '<span class="v-undef">undefined</span>';
+  if (val === null)      return '<span class="v-null">null</span>';
+  if (isJSFunction(val)) return `<span class="v-fn">ƒ ${esc(val.name || '(anonymous)')}</span>`;
+  if (isJSClass(val))    return `<span class="v-fn">class ${esc(val.name || '(anonymous)')}</span>`;
+  if (typeof val === 'function') return '<span class="v-fn">[native]</span>';
+
+  if (Array.isArray(val)) {
+    const prev  = Array.isArray(prevVal) ? prevVal : [];
+    const items = val.slice(0, 8).map((x, i) => {
+      const cell = formatValue(x, 1);
+      return valEqual(x, prev[i]) ? cell : `<b>${cell}</b>`;
+    });
+    const more = val.length > 8
+      ? `, <span class="v-muted">+${val.length - 8}</span>` : '';
+    return `<span class="v-obj">[${items.join(', ')}${more}]</span>`;
+  }
+
+  if (typeof val === 'object') {
+    const prev    = (prevVal !== null && typeof prevVal === 'object' && !Array.isArray(prevVal))
+      ? prevVal : {};
+    const entries = Object.entries(val).slice(0, 4);
+    const items   = entries.map(([k, v]) => {
+      const fmt = `<span class="v-key">${esc(k)}</span>: ${formatValue(v, 1)}`;
+      return valEqual(v, prev[k]) ? fmt : `<b>${fmt}</b>`;
+    });
+    const more = Object.keys(val).length > 4 ? ', …' : '';
+    return `<span class="v-obj">{ ${items.join(', ')}${more} }</span>`;
+  }
+
+  // スカラー（number, boolean, string）
+  return valEqual(val, prevVal) ? formatValue(val) : `<b>${formatValue(val)}</b>`;
+}
+
 /**
  * env スナップショット（スコープチェーン配列）をフラット Map に変換する。
  * env[0] が最内スコープ。内側が外側を上書き。
