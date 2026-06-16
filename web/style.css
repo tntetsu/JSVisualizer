@@ -2184,7 +2184,7 @@ html, body {
 [data-theme="dark"] .ct-node--active .ct-rect { fill:rgba(76,155,232,0.22); }
 [data-theme="dark"] .ct-node--done   .ct-rect { fill:rgba(76,232,132,0.16); }
 
-/* ── Lifetime (.lf-*) ──────────────────────────────────────────────────────*/
+/* ── Lifetime / フレームグラフ (.lf-*) ─────────────────────────────────────*/
 
 .lf-wrap {
   width: 100%;
@@ -2214,16 +2214,39 @@ html, body {
   fill: var(--text-muted);
 }
 
-.lf-label {
+/* 行区切り線 */
+.lf-row-sep {
+  stroke: var(--border);
+  stroke-width: 0.5;
+}
+
+/* 深さ番号ラベル（Y 軸） */
+.lf-depth-label {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+/* フレームバー（fill は JS で設定） */
+.lf-bar {
+  opacity: 0.75;
+  transition: opacity 0.08s, stroke-width 0.08s;
+}
+
+/* カーソル位置のアクティブバー */
+.lf-bar--active {
+  opacity: 1;
+  stroke: var(--text);
+  stroke-width: 1.5;
+}
+
+/* バー内の関数名ラベル */
+.lf-frame-label {
   font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
   font-size: 11px;
   fill: var(--text);
-  white-space: pre; /* インデントを保持 */
-}
-
-.lf-bar {
-  /* fill は JS で直接設定 */
-  rx: 3;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* カーソル縦線 */
@@ -2233,6 +2256,57 @@ html, body {
   stroke-dasharray: 5 3;
   pointer-events: none;
 }
+
+/* バー内コンテンツ（foreignObject 内 div） */
+.lf-bc {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+}
+
+/* 関数名（実引数付き） */
+.lf-bc-name {
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+/* 変数一覧コンテナ */
+.lf-bc-vars {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* 変数 1 行 */
+.lf-bc-var {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.lf-bc-var--changed .lf-bc-vn,
+.lf-bc-var--changed .lf-bc-vv {
+  color: var(--hl-changed, #e06c75);
+}
+
+.lf-bc-vn  { color: var(--accent); }
+.lf-bc-eq  { color: var(--text-muted); flex-shrink: 0; }
+.lf-bc-vv  { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 
 /* ── ControlFlow — 構造的フローチャート (.cf-*) ──────────────────────────── */
 
