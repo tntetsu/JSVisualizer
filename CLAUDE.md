@@ -304,6 +304,7 @@ class TraceBuilder {
 - **while/for 条件式の humanStep 追加**: `TraceBuilder.buildHumanIndices()` で WhileStatement/DoWhileStatement の条件式 exit（深さ D+1）をイテレーションごとに humanStep として追加（`matchIdx` で範囲を限定）。ForStatement は条件式 exit と更新式 exit も同様に追加。WhileStatement/ForStatement の enter 自体は humanStep から除外（条件式評価で代替）。LineTrace・ExecTrace の `buildConditionExitSet` も同ロジックで while/for 条件列を正しく表示
 - **Timeline**: 変数チップ選択変更時に選択変数の値のみで Y 軸 min/max を動的再計算（`#renderSVG()` 内で dynMin/dynMax を計算）
 - **super() バグ修正**: JSInterpreter の `CallExpression` ハンドラで callee.type === 'Super' を検出し、親クラス constructor を現在の `this` に対して直接実行することで継承コンストラクターを正しく処理
+- **var/let/const セマンティクス修正（JSInterpreter）**: `var` は関数スコープ・巻き上げ（`hoistVars` で `undefined` 事前定義）。`let`/`const` は TDZ（`TDZ_SENTINEL = Symbol('TDZ')` で事前登録、宣言前アクセスは RuntimeError）・同一スコープ再宣言禁止（`checkNoRedecl`）。`const` は再代入禁止（`Environment.immutables` Set + `set()` 内チェック）。`for (let …)` はイテレーション独立バインディング（`iterEnv` + `updateEnv` の分離）。詳細は [JSInterpreter#environment.js](../JSInterpreter/src/interpreter/environment.js)
 - **再帰ツリー引数表示改善**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式で表示。NODE_W=160/NODE_H=80 に拡大。cost プロパティ（subtree サイズ）を左下角に `cost:N` 形式で表示。再帰呼び出しがない場合は「再帰呼び出しがありません」を表示
 - **分割代入**: JSInterpreter の `assignTo()` が `ArrayExpression` / `ObjectExpression` を処理するよう拡張（`[a,b]=[b,a]` 等）。詳細は [JSInterpreter#interpreter.js](../JSInterpreter/src/interpreter/interpreter.js)
 - **エラー種別判定**: JSInterpreter は `[Parser]` プレフィックスのメッセージでパースエラーを示すため、正規表現で判定する

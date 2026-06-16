@@ -1,7 +1,7 @@
 # JSVisualizer — アーキテクチャ決定記録（ADR）
 
 このディレクトリには、JSVisualizer の設計で行った重要な決定を記録した ADR（Architecture Decision Record）が含まれています。  
-git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2026-06-14 に作成。2026-06-15 に ADR-016〜019 を追加。
+git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2026-06-14 に作成。2026-06-15 に ADR-016〜019 を追加。2026-06-16 に ADR-020〜023 を追加。
 
 ## 一覧
 
@@ -26,3 +26,7 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [017](ADR-017-error-classification.md) | エラーハンドリングの二分類（構文エラー vs 実行エラー） | 2026-05-25 |
 | [018](ADR-018-controlflow-ast-refactor.md) | 制御フロービューの AST ベース構造的フローチャートへの刷新 | 2026-06-04 |
 | [019](ADR-019-weakmap-object-identity.md) | MemoryView・ObjectGraph でのオブジェクト同一性追跡（WeakMap） | 2026-05-26 |
+| [020](ADR-020-try-catch-host-exception.md) | try-catch におけるホスト例外の ThrowSignal 変換 | 2026-06-15 |
+| [021](ADR-021-objectgraph-hierarchical-layout.md) | ObjectGraph の階層型レイアウト（Kahn トポソート + 最長パス法） | 2026-06-16 |
+| [022](ADR-022-formatvaluediff-diff-highlight.md) | formatValueDiff による差分強調表示 | 2026-06-16 |
+| [023](ADR-023-var-let-const-semantics.md) | var/let/const スコープセマンティクスの正確な実装 | 2026-06-16 |

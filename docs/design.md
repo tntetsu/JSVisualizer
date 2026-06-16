@@ -3,7 +3,7 @@
 **プロジェクト名**: JSVisualizer  
 **バージョン**: 1.0  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-08  
+**最終更新**: 2026-06-16  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -26,6 +26,7 @@
 | 1.2 | 2026-06-04 | `buildHumanIndices()` に while/do-while/for 条件式・更新式 exit をイテレーションごと追加（`matchIdx` 範囲内の深さ D+1 exit を走査）。WhileStatement/ForStatement enter は humanStep から除外。LineTrace・ExecTrace に `buildConditionExitSet()` + 改訂 `buildCondInfo()` を追加し条件列を正確表示。ExecTrace（実行トレースタブ）を設計文書化。タブ登録順: 実行トレース → 全ステップ（app.js で入れ替え）。Heatmap: `.hm-btn-lines` トグルボタン廃止。`#drawConnectLines()` を `init()` 内で rAF 経由で呼び出し常時表示へ変更。`.hm-overlay-svg`（position:absolute）＋ `<line class="hm-vline">` で異なる行間を縦線表示。ColorBox: `#scanTrace()` を 2 パス化し配列ごとの `maxWidth`/`maxGridHeight` を事前計算。`#render()` で `.cb-grid` に `min-width`/`min-height` を設定（空配列時も同様）。`.cb-box-area` を `flex-wrap:wrap` 化・`.cb-array-block` に枠線＋背景色・`.cb-grid` の `min-width:100%` 削除。JSInterpreter `formatLogArg(v, depth=0)`: `depth > 0` の文字列を `'str'` 形式で表示（Node.js 互換）|
 | 1.4 | 2026-06-08 | ExprTrace 改善: (1) VariableDeclaration: VariableDeclarator イベントが trace に存在しないため位置取得をソース正規表現＋trace スキャンに変更。(2) セクション検出対象を拡張（IfStatement test・WhileStatement test イテレーション別・ReturnStatement 引数・ForStatement init/test/update イテレーション別）。(3) extractVarNames: 式テキスト内の識別子のみ（env 全変数追加の B を削除）。(4) buildSectionRows: Row 0 = enterIdx env、中間行 = exit 時点 env、最終行（rows≥2）= exitIdx env。(5) ExprTrace クラスに #trace フィールドを追加し、update() でアクティブ行の TD を trace[cursor].env からリアルタイム書き換え |
 | 1.5 | 2026-06-16 | (1) `format.js` に `formatValueDiff(val, prevVal)` を追加（差分強調 HTML 生成）。LineTrace の `update()` でアクティブ行の変数セルに適用。ExecTrace の `init()` で全行に一括適用（`let prevEnvMap = new Map()` で前行の env を追跡）。CSS: `--v-diff`（ライト `#c05000`・ダーク `#ff9f5e`）と `.v-diff` クラスを追加。(2) ObjectGraph を力学的レイアウトから階層型レイアウトに全面改訂。`hierarchicalLayout(nodes, edges)` で Kahn トポソート + 最長パス法、`layoutGraph(nodes, edges)` で BFS 連結成分分離 + 縦積み上げ。肘型エッジコネクタ・ポートスプレッド（`srcPort`/`dstPort` Map）・ノード背景 6 色パレット・連結成分点線境界矩形（`.og-comp-bg`）を実装。(3) JSInterpreter `Environment.snapshot()` / `snapshotOwn()` を修正: 変数ごとに独立した `seen` WeakMap で `deepClone` を呼んでいた設計を、スコープチェーン全体で `seen` を共有するよう変更。同一元オブジェクトが複数変数から参照されるとき同一クローンにマッピングされ、ObjectGraph・MemoryView の WeakMap 追跡が正しく機能するよう修正 |
+| 1.6 | 2026-06-16 | JSInterpreter の `var`/`let`/`const` セマンティクスを ES2022 仕様に準拠させる大規模修正。`Environment` に `kind`（`'block'`/`'function'`/`'global'`）・`immutables: Set<string>`・`getFunctionScope()`・`markConst()` を追加、`TDZ_SENTINEL = Symbol('TDZ')` を導入。`hoistVars`（var 宣言の関数スコープ巻き上げ）・`hoistLexicals`（let/const の TDZ 事前定義）・`checkNoRedecl`（let/const 再宣言検出）・`markConstNames`（const 不変マーク）を追加。`ForStatement` の `for (let …)` でイテレーションごとの `iterEnv`（クロージャ用）と `updateEnv`（更新式専用コピー）を生成し、クロージャが正しく各イテレーションの値を捕捉することを保証。全 249 テストがパス。詳細は § 1.3 を参照 |
 | 1.3 | 2026-06-05 | SubstTrace（代入展開）・ExprTrace（式評価）ビューを新規追加。タブ登録数 14 → 16。SubstTrace: `computeReturnExpr` が ReturnStatement 引数を Identifier/CallExpression 逐次置換し `buildSubstitutionLines` で展開行を構築。CSS `.stx-*`。ExprTrace: `buildSectionRows` が exit イベントを走査して置換リスト（`addSubstitution`/`applySubstitutions`）を更新し行を生成。`srcPosToDispPos` / `srcRangeToDispRange` でソース座標→表示座標変換。CSS `.xev-*`。両ビューに expanded（橙）/ pending（青太字）の 2 色ハイライトを実装。app.js に SubstTrace・ExprTrace のタブ登録を追加 |
 
 ---
@@ -150,6 +151,95 @@ const frameEnvs = this.frameEnvStack.map(e => e.snapshotOwn());
 
 `frameEnvStack` には `callEnv`（`bindParams` でパラメータを束縛した後の live な `Environment`）が積まれるため、
 関数実行中に変化する変数（デフォルト引数、function-body `let/const/var`）もステップごとに正確に取得できる。
+
+### 1.3 JSInterpreter 内部設計（`var`/`let`/`const` スコープ実装）
+
+ES2022 仕様に従い、3 種の変数宣言を正しく区別するために以下の拡張を行った。
+
+#### `TDZ_SENTINEL`（`environment.js`）
+
+`let`/`const` は宣言前アクセスで `ReferenceError`（TDZ）を投げる必要がある。
+宣言前のバインディングを `undefined` ではなく専用の sentinel 値で区別する:
+
+```js
+const TDZ_SENTINEL = Symbol('TDZ');
+```
+
+`Environment.get()` は取得値が `TDZ_SENTINEL` の場合 `RuntimeError` を投げる:
+
+```js
+get(name, loc) {
+  if (this.bindings.has(name)) {
+    const v = this.bindings.get(name);
+    if (v === TDZ_SENTINEL)
+      throw new RuntimeError(`変数 '${name}' は初期化前にはアクセスできません`, ...);
+    return v;
+  }
+  ...
+}
+```
+
+#### `Environment` の拡張（`environment.js`）
+
+| フィールド / メソッド | 型 | 説明 |
+|--------|-----|------|
+| `kind` | `'block'`/`'function'`/`'global'` | スコープ種別。コンストラクタで指定 |
+| `immutables` | `Set<string>` | `const` でバインドされた名前。`set()` で再代入を禁止 |
+| `getFunctionScope()` | `() → Environment` | `kind === 'block'` の間親をたどり、最初の function/global スコープを返す |
+| `markConst(name)` | `(string) → void` | `immutables` に名前を追加 |
+
+`set()` での const チェック:
+
+```js
+set(name, value, loc) {
+  if (this.bindings.has(name)) {
+    if (this.immutables.has(name))
+      throw new RuntimeError(`代入できません: '${name}' は const です`, ...);
+    ...
+  }
+}
+```
+
+#### 巻き上げ処理（`interpreter.js`）
+
+| 関数 | タイミング | 動作 |
+|------|-----------|------|
+| `hoistVars(node, funcEnv)` | `Program` enter・`callFunction` 前 | AST 全体を走査し `var` 宣言を `undefined` で `funcEnv` に事前定義 |
+| `hoistLexicals(node, env)` | `Program`・`BlockStatement` enter | 直接子の `let`/`const` 宣言を `TDZ_SENTINEL` で `env` に事前定義 |
+| `checkNoRedecl(pattern, env)` | `VariableDeclaration` 処理時 | パターン内の名前が `env` 内に `TDZ_SENTINEL` 以外で既存なら `RuntimeError` |
+| `markConstNames(pattern, env)` | `const` 宣言の `bindPattern` 後 | パターン内の全名前を `env.markConst()` |
+
+`var` は常に `env.getFunctionScope()` にバインドされる:
+
+```js
+const targetEnv = node.kind === 'var' ? env.getFunctionScope() : env;
+```
+
+#### `for (let …)` のイテレーション別バインディング
+
+クロージャが各イテレーションの変数値を正しく捕捉するため、3 つの環境を使い分ける:
+
+| 環境 | 役割 |
+|------|------|
+| `forEnv` | `init` 式の評価・`test` 式の評価・次イテレーションへの値引き継ぎ |
+| `iterEnv` | 各イテレーションのボディと、そのイテレーション内で定義されるクロージャが捕捉する環境 |
+| `updateEnv` | `update` 式（`i++` 等）を実行するための一時コピー。`iterEnv` を変更せずに次の値を計算し、結果を `forEnv` に書き戻す |
+
+`iterEnv` が変更されないことで、`update` 実行後もクロージャは「更新前の値」を参照できる:
+
+```js
+// 概略
+const iterEnv = new Environment(env, 'block');
+for (const name of loopVars) iterEnv.define(name, forEnv.bindings.get(name));
+// → ボディ・クロージャは iterEnv を使う
+
+const updateEnv = new Environment(env, 'block');
+for (const name of loopVars) updateEnv.define(name, iterEnv.bindings.get(name));
+evaluate(node.update, updateEnv, ...);
+// → 結果を forEnv に書き戻すが iterEnv は不変のまま
+for (const name of loopVars)
+  if (updateEnv.bindings.has(name)) forEnv.bindings.set(name, updateEnv.bindings.get(name));
+```
 
 ---
 
