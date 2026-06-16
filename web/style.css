@@ -1811,8 +1811,6 @@ html, body {
 
 .cb-cell--hl {
   border: 2px solid var(--accent) !important;
-  background: var(--accent-bg) !important;
-  color: var(--accent);
 }
 
 .cb-cell--ptr {

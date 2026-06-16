@@ -259,7 +259,7 @@ export class ColorBox extends BaseView {
       for (let i = 0; i < arr.length; i++) {
         const v      = arr[i];
         const isHl   = highlightedSet.has(i);
-        const bgColor = typeof v === 'number' && !isHl
+        const bgColor = typeof v === 'number'
           ? `background:${valueToBoxColor(v, maxVal)};`
           : '';
         const hlCls  = isHl ? ' cb-cell--hl' : '';
