@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "JSVisualizer: Interactive JavaScript Execution Visualizer"
+abstract: >
+  An educational web application that interactively visualizes JavaScript
+  program execution. Built on JSInterpreter's JSDebugger API, it provides
+  step execution at expression, statement, human-friendly, and function-call
+  granularities, with 16 visualization views including trace tables,
+  recursion trees, memory models, and substitution-model displays.
+authors:
+  - family-names: Tanaka
+    given-names: Tetsuo
+    email: tntetsu@gmail.com
+repository-code: "https://github.com/tntetsu/JSVisualizer"
+url: "https://tntetsu.github.io/JSVisualizer/"
+license: MIT
+date-released: "2026-06-16"
+version: "1.7.0"
+
+# preferred-citation はこちらに論文情報を追記してください（採録後）
+# preferred-citation:
+#   type: conference-paper
+#   title: ""
+#   authors:
+#     - family-names: Tanaka
+#       given-names: Tetsuo
+#   conference:
+#     name: ""
+#   year: 2026
