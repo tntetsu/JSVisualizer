@@ -410,34 +410,63 @@ export class ObjectGraph extends BaseView {
       }
     }
 
+    // ── エッジポート位置を事前計算（同ノード複数エッジが重ならないよう分散） ──
+    // 出口ポート: ソース右辺を宛先 Y 順に等分
+    const srcPort = new Map();  // e.id → absolute y
+    const byFrom  = new Map();
+    for (const e of edges) {
+      if (!byFrom.has(e.from)) byFrom.set(e.from, []);
+      byFrom.get(e.from).push(e);
+    }
+    for (const [fromId, es] of byFrom) {
+      const s = nodeById.get(fromId);
+      if (!s) continue;
+      const h = nodeHeight(s);
+      es.sort((a, b) => (nodeById.get(a.to)?.y ?? 0) - (nodeById.get(b.to)?.y ?? 0));
+      es.forEach((e, i) => srcPort.set(e.id, s.y + (i + 1) * h / (es.length + 1)));
+    }
+    // 入口ポート: 宛先左辺をソース Y 順に等分
+    const dstPort = new Map();  // e.id → absolute y
+    const byTo    = new Map();
+    for (const e of edges) {
+      if (!byTo.has(e.to)) byTo.set(e.to, []);
+      byTo.get(e.to).push(e);
+    }
+    for (const [toId, es] of byTo) {
+      const d = nodeById.get(toId);
+      if (!d) continue;
+      const h = nodeHeight(d);
+      es.sort((a, b) => (nodeById.get(a.from)?.y ?? 0) - (nodeById.get(b.from)?.y ?? 0));
+      es.forEach((e, i) => dstPort.set(e.id, d.y + (i + 1) * h / (es.length + 1)));
+    }
+
     // ── エッジ描画（エルボーコネクタ: 右→縦→右） ──
     for (const e of edges) {
       const src = nodeById.get(e.from);
       const dst = nodeById.get(e.to);
       if (!src || !dst) continue;
 
-      const srcH = nodeHeight(src);
-      const dstH = nodeHeight(dst);
-      const x1   = src.x + NODE_W;
-      const y1   = Math.round(src.y + srcH / 2);
-      const x2   = dst.x;
-      const y2   = Math.round(dst.y + dstH / 2);
+      const x1 = src.x + NODE_W;
+      const y1 = Math.round(srcPort.get(e.id) ?? (src.y + nodeHeight(src) / 2));
+      const x2 = dst.x;
+      const y2 = Math.round(dstPort.get(e.id) ?? (dst.y + nodeHeight(dst) / 2));
 
-      let pathD;
-      let labelX, labelY;
+      let pathD, labelX, labelY, labelAnchor;
       if (x2 > x1 + 4) {
         // 前向きエッジ: エルボーコネクタ（中間 x で折れる）
-        const mx = Math.round((x1 + x2) / 2);
-        pathD  = `M ${x1},${y1} H ${mx} V ${y2} H ${x2}`;
-        // ラベルは第一水平スタブ（x1→mx）の中央、スタブ上方に配置
-        labelX = Math.round(x1 + (mx - x1) / 2);
-        labelY = y1 - 3;
+        const mx   = Math.round((x1 + x2) / 2);
+        pathD      = `M ${x1},${y1} H ${mx} V ${y2} H ${x2}`;
+        // ラベルは縦セグメントの左側・縦中央（エッジごとに y が異なるため重ならない）
+        labelX      = mx - 2;
+        labelY      = Math.round((y1 + y2) / 2);
+        labelAnchor = 'end';
       } else {
         // 後向き・同列エッジ: 右へ張り出したベジェ弧
-        const bow = Math.max(28, Math.abs(y2 - y1) * 0.4);
-        pathD  = `M ${x1},${y1} C ${x1+bow},${y1} ${x2+bow},${y2} ${x2},${y2}`;
-        labelX = x1 + bow / 2;
-        labelY = Math.round((y1 + y2) / 2) - 3;
+        const bow  = Math.max(28, Math.abs(y2 - y1) * 0.4);
+        pathD      = `M ${x1},${y1} C ${x1+bow},${y1} ${x2+bow},${y2} ${x2},${y2}`;
+        labelX      = x1 + bow * 0.5;
+        labelY      = Math.round((y1 + y2) / 2) - 3;
+        labelAnchor = 'middle';
       }
 
       edgesG.appendChild(svgEl('path', {
@@ -447,12 +476,11 @@ export class ObjectGraph extends BaseView {
         'marker-end': 'url(#og-arr)',
       }));
 
-      // エッジラベル: 第一スタブ中央の上方に配置（最大8文字が収まる幅確保）
       if (e.label) {
         const lt = svgEl('text', {
           class: 'og-edge-label',
           x: labelX, y: labelY,
-          'text-anchor': 'middle',
+          'text-anchor': labelAnchor,
         });
         lt.textContent = e.label.length > 10 ? e.label.slice(0, 9) + '…' : e.label;
         edgesG.appendChild(lt);
