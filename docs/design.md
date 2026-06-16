@@ -25,6 +25,7 @@
 | 1.1 | 2026-06-04 | ScopeView・CallStackView をタブ非登録（非アクティブ）に変更。LineTrace を 2 ペイン構成から単一ペイン＋行番号スニペット（`lt-lineno-num` + `lt-lineno-snippet`、先頭 15 文字）構成に刷新（`#srcPanel`・`#srcLines`・`#setupScrollSync`・`#setupSrcResizer` および jsv-lt-src-w を削除）。ColorBox: タブ名「配列」・複数配列同時選択（`#selectedArrays: Set<string>`）・ポインタ変数を変数ごと個別行表示・文字列切り詰めなし。Timeline: `#renderSVG()` 内で選択変数のみの `dynMin`/`dynMax` を計算して Y 軸を動的スケール化。Heatmap: `#buildDots()` で SVG polyline を含む `.hm-connect-svg` を生成し「連結線」ボタン（`.hm-btn-lines`）で `.hm-show-lines` クラスをトグル。JSInterpreter `super()` 呼び出しバグ修正（`CallExpression` ハンドラに `node.callee.type === 'Super'` の早期リターンを追加）。`tests/core/samples.test.js` 新規追加（17 サンプル全エラーなし・trace ≥ 1 を確認）。テスト総数 49 → 66 件。view-switcher 登録ビュー数 15 → 13（ScopeView・CallStackView 非登録）|
 | 1.2 | 2026-06-04 | `buildHumanIndices()` に while/do-while/for 条件式・更新式 exit をイテレーションごと追加（`matchIdx` 範囲内の深さ D+1 exit を走査）。WhileStatement/ForStatement enter は humanStep から除外。LineTrace・ExecTrace に `buildConditionExitSet()` + 改訂 `buildCondInfo()` を追加し条件列を正確表示。ExecTrace（実行トレースタブ）を設計文書化。タブ登録順: 実行トレース → 全ステップ（app.js で入れ替え）。Heatmap: `.hm-btn-lines` トグルボタン廃止。`#drawConnectLines()` を `init()` 内で rAF 経由で呼び出し常時表示へ変更。`.hm-overlay-svg`（position:absolute）＋ `<line class="hm-vline">` で異なる行間を縦線表示。ColorBox: `#scanTrace()` を 2 パス化し配列ごとの `maxWidth`/`maxGridHeight` を事前計算。`#render()` で `.cb-grid` に `min-width`/`min-height` を設定（空配列時も同様）。`.cb-box-area` を `flex-wrap:wrap` 化・`.cb-array-block` に枠線＋背景色・`.cb-grid` の `min-width:100%` 削除。JSInterpreter `formatLogArg(v, depth=0)`: `depth > 0` の文字列を `'str'` 形式で表示（Node.js 互換）|
 | 1.4 | 2026-06-08 | ExprTrace 改善: (1) VariableDeclaration: VariableDeclarator イベントが trace に存在しないため位置取得をソース正規表現＋trace スキャンに変更。(2) セクション検出対象を拡張（IfStatement test・WhileStatement test イテレーション別・ReturnStatement 引数・ForStatement init/test/update イテレーション別）。(3) extractVarNames: 式テキスト内の識別子のみ（env 全変数追加の B を削除）。(4) buildSectionRows: Row 0 = enterIdx env、中間行 = exit 時点 env、最終行（rows≥2）= exitIdx env。(5) ExprTrace クラスに #trace フィールドを追加し、update() でアクティブ行の TD を trace[cursor].env からリアルタイム書き換え |
+| 1.5 | 2026-06-16 | (1) `format.js` に `formatValueDiff(val, prevVal)` を追加（差分強調 HTML 生成）。LineTrace の `update()` でアクティブ行の変数セルに適用。ExecTrace の `init()` で全行に一括適用（`let prevEnvMap = new Map()` で前行の env を追跡）。CSS: `--v-diff`（ライト `#c05000`・ダーク `#ff9f5e`）と `.v-diff` クラスを追加。(2) ObjectGraph を力学的レイアウトから階層型レイアウトに全面改訂。`hierarchicalLayout(nodes, edges)` で Kahn トポソート + 最長パス法、`layoutGraph(nodes, edges)` で BFS 連結成分分離 + 縦積み上げ。肘型エッジコネクタ・ポートスプレッド（`srcPort`/`dstPort` Map）・ノード背景 6 色パレット・連結成分点線境界矩形（`.og-comp-bg`）を実装。(3) JSInterpreter `Environment.snapshot()` / `snapshotOwn()` を修正: 変数ごとに独立した `seen` WeakMap で `deepClone` を呼んでいた設計を、スコープチェーン全体で `seen` を共有するよう変更。同一元オブジェクトが複数変数から参照されるとき同一クローンにマッピングされ、ObjectGraph・MemoryView の WeakMap 追跡が正しく機能するよう修正 |
 | 1.3 | 2026-06-05 | SubstTrace（代入展開）・ExprTrace（式評価）ビューを新規追加。タブ登録数 14 → 16。SubstTrace: `computeReturnExpr` が ReturnStatement 引数を Identifier/CallExpression 逐次置換し `buildSubstitutionLines` で展開行を構築。CSS `.stx-*`。ExprTrace: `buildSectionRows` が exit イベントを走査して置換リスト（`addSubstitution`/`applySubstitutions`）を更新し行を生成。`srcPosToDispPos` / `srcRangeToDispRange` でソース座標→表示座標変換。CSS `.xev-*`。両ビューに expanded（橙）/ pending（青太字）の 2 色ハイライトを実装。app.js に SubstTrace・ExprTrace のタブ登録を追加 |
 
 ---
@@ -104,12 +105,33 @@ step-controller.js
 ```js
 snapshotOwn() {
   const frame = {};
+  const seen = new WeakMap();  // フレーム内で共有（同一オブジェクトを同一クローンにマッピング）
   for (const [k, v] of this.bindings) {
-    frame[k] = deepClone(v);  // 自スコープのバインディングのみ（親チェーン不含）
+    frame[k] = deepClone(v, seen);
   }
   return frame;
 }
 ```
+
+**`Environment.snapshot()`** (`environment.js`):
+```js
+snapshot() {
+  const frames = [];
+  const seen = new WeakMap();  // スコープチェーン全体で共有（← v1.5 での重要な修正）
+  let cur = this;
+  while (cur) {
+    const frame = {};
+    for (const [k, v] of cur.bindings) {
+      frame[k] = deepClone(v, seen);  // 同一元オブジェクト → 同一クローン参照
+    }
+    frames.push(frame);
+    cur = cur.parent;
+  }
+  return frames;
+}
+```
+
+> **v1.5 修正**: 旧実装では各 `deepClone(v)` 呼び出しが独立した `seen` WeakMap を持つため、グローバルスコープの `list` と関数スコープの `head` が同じ元オブジェクトでも別々のクローンとなり、ObjectGraph・MemoryView の WeakMap 追跡が機能しなかった。`seen` を全バインディングで共有することで同一元オブジェクトは常に同一クローンにマッピングされる。
 
 **`Recorder.frameEnvStack`** (`interpreter.js`):
 ```js
@@ -463,7 +485,7 @@ Phase 4 / Phase 5 の SVG ビューは共通パターンに従って実装され
 | **動的 SVG** | `init()` でレイアウト計算＆生成、`update()` で位置・色を更新 | Timeline, ObjectGraph |
 | **SVG オーバーレイ矢印** | DOM 要素上に `position: absolute` の SVG を重ねてベジェ曲線を描画 | MemoryView |
 | **rAF 遅延描画** | DOM レイアウト確定後に `requestAnimationFrame` で矢印座標を計算 | MemoryView |
-| **Fruchterman-Reingold** | 反発力・引力・温度クーリングによる力学的レイアウト（80 反復, 冷却率 0.92） | ObjectGraph |
+| **階層型レイアウト** | Kahn トポソート + 最長パス法で列割当。同じプロパティエッジが左→右に統一 | ObjectGraph |
 
 **SVG 座標系の共通規則**:
 - `PAD_X` / `PAD_Y` で描画領域にパディングを確保
@@ -659,6 +681,8 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
 - `update()` は `et-row--active` クラスの付け替えと scrollIntoView のみ（O(n)）
 
 **列構成**: # | 行 | コード（先頭 30 文字）| 変数値列（出現順）| 条件式列（出現順）
+
+**差分強調**: `init()` 時に `let prevEnvMap = new Map()` で前行の env を追跡し、変数セルを `formatValueDiff(v, prevEnvMap.get(name))` で描画する。
 
 **条件式列の実装**（LineTrace と共通ロジック）:
 
@@ -1058,35 +1082,54 @@ requestAnimationFrame → getBoundingClientRect() → layoutEl 基準の座標�
 
 #### `object-graph/` — オブジェクトグラフ ✅
 
-**グラフ構築** (`buildGraph(scopes)`):
+**レイアウト定数**:
+```js
+const NODE_W     = 110;   // ノード幅
+const NODE_H_MIN = 32;    // ノード最小高
+const ROW_H      = 13;    // プロパティ行高
+const MAX_PROPS  = 8;     // 表示プロパティ上限
+const COLUMN_GAP = 80;    // 列間水平間隔（エッジラベル 8 文字以上）
+const ROW_GAP    = 16;    // 同列内ノード間垂直間隔
+const COMP_GAP   = 24;    // 連結成分間垂直間隔
+const NODE_BG    = ['var(--og-bg-0)', ..., 'var(--og-bg-5)'];  // 6 色パレット
+```
+
+**グラフ構築** (`buildGraph(variables, scopes)`):
 - `WeakMap<ref, id>` でオブジェクト同一性を追跡（循環参照・共有参照対応）
 - 再帰深さ上限 6
-- プリミティブ変数は `og-prim-label` としてコーナーに表示
+- プリミティブ変数は `rootVars`（type='prim'）として左上に一覧表示
 - ルート変数名は対応ノードの上に `og-root-label` として表示
 
-**力学的レイアウト** (`forceDirectedLayout(nodes, edges)`, 80 反復):
+**階層型レイアウト** (`hierarchicalLayout(nodes, edges)`):
 ```js
-function forceDirectedLayout(nodes, edges) {
-  const K    = Math.sqrt((NODE_W + H_SPACING) * (NODE_H_MIN + V_SPACING) * nodes.length);
-  let   temp = INITIAL_SPREAD;  // 200
-
-  // 初期配置: グリッド状
-  nodes.forEach((n, i) => {
-    n.x = (i % cols) * (NODE_W + H_SPACING) - totalW / 2;
-    n.y = Math.floor(i / cols) * (NODE_H_MIN + V_SPACING);
-  });
-
-  for (let iter = 0; iter < 80; iter++) {
-    const disp = nodes.map(() => ({ x: 0, y: 0 }));
-    // 反発力: K² / dist （全ペア）
-    // 引力:   dist² / K （エッジで繋がったペア）
-    // temp でクランプして適用
-    temp = Math.max(1, temp * 0.92);
-  }
+function hierarchicalLayout(nodes, edges) {
+  // 1. Kahn のトポロジカルソート（in-degree = 0 から BFS）
+  // 2. 最長パス法: col[n] = max(col[predecessor]) + 1
+  // 3. 列番号 → x = col * (NODE_W + COLUMN_GAP)
+  // 4. 同列内は上から ROW_GAP 間隔で配置
 }
 ```
 
-**ノード表示内容**: オブジェクトは `{key: val}` 形式、配列は `[v0, v1, ...]` 形式でセル表示。参照フィールドは `→#id` インジケーター
+**連結成分分離** (`layoutGraph(nodes, edges)`):
+```js
+function layoutGraph(nodes, edges) {
+  // 無向 BFS で連結成分を検出
+  // 各成分を hierarchicalLayout() で独立配置
+  // 成分ごとに yOffset を COMP_GAP ずつ増やして縦積み上げ
+  // return: [{nodes, edges}]（成分配列）
+}
+```
+
+**エッジ描画**:
+- 肘型コネクタ: `M x1,y1 H mx V y2 H x2`（出口右→縦→入口右）
+- ポートスプレッド: 同一ノードから複数エッジが出る場合、出口 y 座標をノード高さ内で均等分散（`srcPort`/`dstPort` Map）
+- ラベル: 縦セグメント左側（`x = mx - 2, text-anchor = 'end'`）
+
+**連結成分境界矩形**: 成分 ≥2 のとき `<rect class="og-comp-bg">` で点線境界を描画
+
+**ノード背景色**: `rect.style.fill = NODE_BG[ni % 6]` でノード順に色を循環割り当て
+
+**ノード表示内容**: オブジェクトは `{key: val}` 形式、配列は `[v0, v1, ...]` 形式でセル表示。参照フィールドは `→ Obj` / `→ Array` インジケーター
 
 ---
 
@@ -1313,7 +1356,7 @@ JSVisualizer/
 │   │   ├── step-controller.js         ← 粒度別ステップ操作（10メソッド）
 │   │   └── trace-builder.js           ← humanStepList・buildHeatmap・buildRecursionTree・buildLifetime・buildControlFlow
 │   ├── utils/
-│   │   └── format.js                  ← formatValue / flattenEnv / BUILTIN_NAMES / esc / formatFrameLabel / mergeScopesForDisplay
+│   │   └── format.js                  ← formatValue / formatValueDiff / flattenEnv / BUILTIN_NAMES / esc / formatFrameLabel / mergeScopesForDisplay
 │   ├── views/
 │   │   ├── base-view.js               ← BaseView 基底クラス
 │   │   ├── code-view/
@@ -1351,7 +1394,7 @@ JSVisualizer/
 │   │   ├── memory-view/
 │   │   │   └── index.js              ✅ スタック/ヒープ + SVG 矢印
 │   │   └── object-graph/
-│   │       └── index.js              ✅ 力学的レイアウト SVG グラフ
+│   │       └── index.js              ✅ 階層型レイアウト SVG グラフ（連結成分分離・ポートスプレッド）
 │   └── components/
 │       ├── code-editor.js             ← コードエディタ
 │       ├── step-controls.js           ← ステップ操作バー（10ボタン）
@@ -1535,7 +1578,43 @@ CSS カスタムプロパティで 2 テーマを管理する。
 .rt-node--done   .rt-state-icon { fill: #4ce884; }
 ```
 
-### 6.7 ControlFlow 戻りエッジ（Phase 6 確認）
+### 6.7 差分強調スタイル（v1.5 追加）
+
+```css
+/* ライト */
+:root { --v-diff: #c05000; }
+/* ダーク */
+[data-theme="dark"] { --v-diff: #ff9f5e; }
+
+/* v-diff クラスと子スパンの色を上書き */
+b.v-diff,
+b.v-diff .v-num, b.v-diff .v-str, b.v-diff .v-bool,
+b.v-diff .v-obj, b.v-diff .v-null, b.v-diff .v-undef {
+  color: var(--v-diff);
+}
+```
+
+### 6.8 ObjectGraph 新規スタイル（v1.5 追加）
+
+```css
+/* ノード背景色パレット（6色） */
+:root {
+  --og-bg-0: rgba(100,149,237,0.18);  --og-bg-1: rgba(144,238,144,0.18);
+  --og-bg-2: rgba(255,165, 96,0.18);  --og-bg-3: rgba(221,160,221,0.18);
+  --og-bg-4: rgba(240,230,140,0.18);  --og-bg-5: rgba(135,206,235,0.18);
+}
+
+/* 連結成分の境界矩形 */
+.og-comp-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+  opacity: 0.6;
+}
+```
+
+### 6.9 ControlFlow 戻りエッジ（Phase 6 確認）
 
 ```css
 /* 戻りエッジ（ループバック）: 橙色の破線 */

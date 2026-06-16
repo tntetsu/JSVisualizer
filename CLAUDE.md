@@ -39,7 +39,7 @@ JSVisualizer/
 │   │   ├── lifetime/             # 変数ライフタイム Gantt チャート（SVG）                ✅
 │   │   ├── control-flow/         # 制御フロービュー（SVG フローチャート）           ✅
 │   │   ├── memory-view/          # メモリモデルビュー（スタック/ヒープ + SVG矢印）  ✅
-│   │   ├── object-graph/         # オブジェクト参照グラフ（SVG 力学的レイアウト）   ✅
+│   │   ├── object-graph/         # オブジェクト参照グラフ（SVG 階層型レイアウト・連結成分分離）✅
 │   │   ├── subst-trace/          # 代入展開ビュー（再帰置換モデル・ハイライト付き）  ✅  ← タブ「代入展開」
 │   │   ├── expr-trace/           # 式評価トレースビュー（部分式逐次置換）           ✅  ← タブ「式評価」
 │   │   └── animated-trace/       # アニメーション付きトレース表（実装済み・非アクティブ）
@@ -194,7 +194,7 @@ class TraceBuilder {
 | Lifetime | 線形（X=humanStep, Y=変数行） | カーソル線の x1/x2 を移動 |
 | ControlFlow | first-seen 順の縦並び（前向きエッジ右・後向きエッジ左） | activeNode の className を更新 |
 | MemoryView | 2カラム（stack \| heap）+ SVG オーバーレイ矢印 | DOM 再描画 → rAF で矢印を再計算 |
-| ObjectGraph | Fruchterman-Reingold 力学的レイアウト（80iter, cool=0.92） | update() ごとに SVG 全体を再描画 |
+| ObjectGraph | 階層型レイアウト（Kahn トポソート + 最長パス法で列割当、左→右）連結成分を BFS で分離し縦スタック | update() ごとに SVG 全体を再描画 |
 
 `isFunctionVal(v)` は LineTrace・TraceBuilder・MemoryView・ObjectGraph で共通で使用し、
 `v.__type__ === 'JSFunction'` / `'JSClass'` またはネイティブ関数を除外します。
@@ -284,9 +284,12 @@ class TraceBuilder {
 - **ペインリサイザー**: `.app-main` の CSS 変数 `--editor-pct` をマウスドラッグで更新。`localStorage('jsv-editor-pct')` に永続化し、15% 〜 75% でクランプ
 - **Console 常時表示**: StateView からは Console カードを取り除き、`debug-pane` 下部に固定の `#console-panel` を配置。`app.js` の `updateConsolePanel()` が `'ready'` / `'step'` イベントごとに更新する。上端の `#console-resizer` をドラッグして高さ変更可（40〜400px、`localStorage('jsv-console-h')` に永続化）
 - **可視化ライブラリ**: 使用しない（DOM + CSS アニメーション + SVG 手動描画で実装）。CodeMirror 6 が唯一の外部 UI ライブラリ
-- **SVG レイアウト**: 再帰ツリーは再帰的幅計算、ObjectGraph は Fruchterman-Reingold 力学的レイアウト
+- **SVG レイアウト**: 再帰ツリーは再帰的幅計算、ObjectGraph は階層型レイアウト（Kahn トポロジカルソート + 最長パス法で列を決定、左→右配置。エッジは肘型コネクタ）
+- **ObjectGraph 連結成分分離**: 無向 BFS で連結成分を検出し、各成分を独立に `hierarchicalLayout()` で配置後 y 軸方向に COMP_GAP=24px で積み上げる。成分が 2 つ以上のとき点線の境界矩形を描画
+- **ObjectGraph ポートスプレッド**: 1 ノードから複数のエッジが出るとき、出口 y 座標をノード高さ内で均等分散（`srcPort`/`dstPort` マップ）してエッジ・ラベル重複を回避
+- **差分強調（`formatValueDiff`）**: `src/utils/format.js` の `formatValueDiff(val, prevVal)` が前ステップとの差分を `<b class="v-diff">` でラップして橙色（`--v-diff`）で強調。配列・オブジェクトは要素/プロパティ単位で比較し変化した部分のみ強調。LineTrace（`update()` 時アクティブ行）と ExecTrace（`init()` 時全行）で使用
 - **差分検出**: 前後 `env` スナップショットを比較し変化した変数名のセットを生成
-- **オブジェクト同一性**: MemoryView・ObjectGraph では `WeakMap` でオブジェクト参照を追跡し重複ヒープ登録を防ぐ
+- **オブジェクト同一性**: MemoryView・ObjectGraph では `WeakMap` でオブジェクト参照を追跡し重複ヒープ登録を防ぐ。JSInterpreter の `Environment.snapshot()` が `seen` WeakMap をスコープチェーン全体で共有するため、同一元オブジェクトは同一クローンにマッピングされ WeakMap 追跡が正しく機能する
 - **LineTrace vs AnimatedTrace**: `animated-trace/` ディレクトリは実装済みだが、タブには現在 `line-trace/`（ソース行×変数マトリクス表）を使用
 - **LineTrace の構成**: 行番号列に `lt-lineno-num`（数字）+ `lt-lineno-snippet`（先頭15文字スニペット）を表示、右側に変数テーブル。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装。（以前の2ペイン構成・ソースパネル・リサイザーは削除済み）
 - **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[callStack.length-1].name(args)` 形式、ReturnStatement は `'return'` を表示

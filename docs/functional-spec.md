@@ -25,6 +25,7 @@
 | 1.1 | 2026-06-04 | ScopeView（V-04）・CallStackView（V-05）をタブ非登録（非アクティブ）に変更。LineTrace（V-02）を 2 ペイン構成から単一ペイン＋行番号スニペット構成に刷新（jsv-lt-src-w 削除）。ColorBox（V-07）をタブ名「配列」に変更・複数配列同時選択・ポインタ変数を変数ごと個別行表示・文字列の切り詰めなし表示に変更。Timeline（V-08）でチップ選択変数のみの Y 軸動的スケール計算を追加。Heatmap（V-09）に「連結線」トグルボタン（ドット間 SVG polyline）を追加。JSInterpreter の `super()` 呼び出しバグを修正（CallExpression ハンドラで Super を直接処理）。サンプルコード全 17 種を網羅する回帰テスト（samples.test.js）を追加。テスト総数 49 → 66 件 |
 | 1.2 | 2026-06-04 | while/for 条件式の評価を humanStep に追加（TraceBuilder.buildHumanIndices）。LineTrace・ExecTrace の条件式列で while/for 各イテレーションの条件値を正確に表示。ExecTrace（V-02b）をタブ「実行トレース」として文書化。タブ登録順を「実行トレース」→「全ステップ」に変更。Heatmap の連結線をトグルボタン廃止・常時表示に変更（オーバーレイ SVG + rAF）。ColorBox に最大サイズ事前計算（`maxWidth`/`maxGridHeight`）・空配列時も占有領域確保・幅超過時の折り返し（flex-wrap）・配列ブロックの枠線＋背景色を追加。JSInterpreter `formatLogArg` に `depth` 引数を追加し配列・オブジェクト内の文字列をシングルクォート付きで表示（Node.js 互換）|
 | 1.4 | 2026-06-08 | ExprTrace（V-02d）改善: (1) VariableDeclaration 位置取得をソース正規表現ベースに変更（VariableDeclarator イベントが trace に存在しないため）。(2) セクション検出対象に IfStatement test・WhileStatement test（イテレーションごと）・ReturnStatement 引数・ForStatement init/test/update（イテレーションごと）を追加。(3) extractVarNames を式テキスト内識別子のみに絞り込み（env 全変数追加の "B" を削除）。(4) 変数値の時系列表示: Row 0 = enterIdx env・中間行 = exit 時点 env・最終行（≥2行）= exitIdx env。(5) update() でアクティブ行の TD を trace[cursor].env からリアルタイム書き換え（#trace フィールドを追加）。単一行セクション（let x = 851 等）でも束縛の瞬間に値が 851 に変わることを確認可能 |
+| 1.5 | 2026-06-16 | (1) **差分強調表示**: `format.js` に `formatValueDiff(val, prevVal)` を追加。前ステップと異なる値を `<b class="v-diff">` で橙色強調。配列・オブジェクトは要素/プロパティ単位で比較し変化箇所のみ強調。LineTrace（アクティブ行の各変数セル）・ExecTrace（全行の変数セル、`init()` 時一括）に適用。CSS: `--v-diff` カスタムプロパティ + `.v-diff` クラス（ライト `#c05000`・ダーク `#ff9f5e`）。(2) **ObjectGraph 階層型レイアウト**: 力学的レイアウト（Fruchterman-Reingold）を廃止し、Kahn トポロジカルソート + 最長パス法による左→右の階層型レイアウトに置換。エッジは肘型コネクタ（`M x1,y1 H mx V y2 H x2`）。ノードは NODE_W=110/NODE_H_MIN=32/ROW_H=13。列間 COLUMN_GAP=80px でエッジラベルが可視。ノード背景を 6 色パレット（`--og-bg-0` ～ `--og-bg-5`）で色分け。(3) **ObjectGraph 連結成分分離**: 無向 BFS で連結成分を検出し縦方向に COMP_GAP=24px で積み上げ。成分 ≥2 のとき点線境界矩形（`.og-comp-bg`）を描画。(4) **ObjectGraph ポートスプレッド**: 同一ノードからの複数エッジを出口 y 座標で均等分散し重複を解消。エッジラベルを縦セグメント左側に配置。(5) **オブジェクト同一性バグ修正**: JSInterpreter `Environment.snapshot()` が変数ごとに独立した `seen` WeakMap で `deepClone()` を呼ぶため、同一元オブジェクトが複数の変数から参照されるとき別クローンとなり ObjectGraph・MemoryView に重複ノードが出ていた。`snapshot()` と `snapshotOwn()` を `seen` WeakMap を全バインディングで共有するよう修正し、スコープチェーン全体で同一元オブジェクトが同一クローンにマッピングされることを保証 |
 | 1.3 | 2026-06-05 | V-02c SubstTrace（代入展開）・V-02d ExprTrace（式評価）を新規追加・文書化。タブ登録数 14 → 16。SubstTrace: 再帰関数の置換モデル逐次展開（`computeReturnExpr` + `buildSubstitutionLines`）。ExprTrace: 1行の式の部分式逐次置換トレース表（`buildSectionRows` + `srcPosToDispPos`・`addSubstitution`・`applySubstitutions` ヘルパー群）。両ビューに展開ハイライト（橙）・評価待ちハイライト（青太字）を実装 |
 
 ---
@@ -173,6 +174,7 @@
 - 変数が宣言されるたびに列が右に追加される（動的列追加）
 - 各セルはその行を「最後に実行した時点」での変数値を表示
 - cursor が進むと、変化したセルにフラッシュアニメーション（オレンジ）
+- **差分強調**: アクティブ行（`lt-row--active`）の変数セルで、前ステップと値が変わった場合に `formatValueDiff()` で橙太字（`--v-diff`）表示。配列・オブジェクトは要素/プロパティ単位で比較し変化箇所のみ強調
 - 関数・クラス値は列に載せない
 - 現在実行行をテーブル上でハイライトしてスクロール追従
 - **列の表示/非表示**: ヘッダー上部のツールバーボタンで各変数列を個別に表示/非表示切り替え可
@@ -192,7 +194,7 @@
 - `init()` 時に全 humanStep を一括描画
 - `update()` は現在行のハイライト移動と scrollIntoView のみ（O(n)）
 - 列構成: # | 行 | コード（先頭 30 文字）| 変数値列（出現順）| 条件式列（出現順）
-  - **変数値列**: 各 humanStep 時点の変数値を `flattenEnv` で取得して表示
+  - **変数値列**: 各 humanStep 時点の変数値を `flattenEnv` で取得して表示。`formatValueDiff()` で前ステップとの差分を橙太字で強調（`init()` 時に全行一括適用）
   - **条件式列**: `buildConditionExitSet` でループ条件式の exit を事前収集し、`buildCondInfo` で以下の 2 ケースを判定
     - Case 1（while/do-while/for の条件式 exit）: イベント自体が条件式評価結果。値を直接取得
     - Case 2（IfStatement/ConditionalExpression の enter）: 直後の boolean exit を探して値を取得
@@ -487,10 +489,13 @@
 タブ名: **オブジェクト**
 
 - ノード＝オブジェクト・配列（`WeakMap` で循環参照を検出・再帰 6 段まで追跡）
-- エッジ＝プロパティが別オブジェクトを指す参照
+- エッジ＝プロパティが別オブジェクトを指す参照（ラベル = プロパティ名）
 - ルートノード上部に変数名ラベルを表示
 - プリミティブ変数は左上コーナーに一覧表示
-- 力学的レイアウト（Fruchterman-Reingold 簡易版: 80 iteration, 冷却係数 0.92）
+- **レイアウト**: 階層型（Kahn トポロジカルソート + 最長パス法で列番号を決定し、同じプロパティエッジが左→右方向に統一）
+- **エッジ**: 肘型コネクタ（`M x1,y1 H mx V y2 H x2`）。同一ノードからの複数エッジは出口ポートを均等分散（ポートスプレッド）してラベル・エッジ重複を回避
+- **連結成分分離**: 無向 BFS で連結成分を検出し、各成分を独立に配置後 y 軸方向に積み上げ。成分 ≥2 のとき点線境界矩形（`.og-comp-bg`）を表示
+- **ノード色分け**: 6 色パレット（`--og-bg-0` ～ `--og-bg-5`）でノードごとに背景色を割り当て
 
 **入力**: `state.variables`, `state.scopes`
 

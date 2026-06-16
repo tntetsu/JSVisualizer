@@ -43,3 +43,29 @@ function getOrCreateHeapId(obj) {
 - MemoryView・ObjectGraph のいずれも `init()` 時に `WeakMap` を初期化し、`destroy()` でも明示的なクリーンアップは不要
 - 同一オブジェクトを参照する複数の変数を **共有ノード** として可視化でき、JavaScript の参照セマンティクスを正確に表現できるようになった
 - `isFunctionVal(v)` でフィルタされた関数値はヒープに登録しない（`JSFunction`・`JSClass`・ネイティブ関数を除外）
+
+## フォローアップ修正（2026-06-16）
+
+WeakMap 追跡は機能的には正しいが、**前提条件に問題**があることが判明した。
+
+`Environment.snapshot()` が各変数 `v` に対して `deepClone(v)` を**別々の `seen` WeakMap** で呼んでいたため、同一元オブジェクト（例: グローバルの `list` と関数引数の `head` が同じリストノードを指す場合）が **別クローン** として生成されていた。
+
+WeakMap はクローンの JS オブジェクト参照をキーとするため、論理的には同一でも JS 参照が異なると別ノードとして登録してしまっていた。
+
+**修正**: `snapshot()` と `snapshotOwn()` を `seen` WeakMap をスコープチェーン全体（または各フレーム内）で共有するよう変更した（`../JSInterpreter/src/interpreter/environment.js`）。
+
+```js
+// 修正後
+snapshot() {
+  const seen = new WeakMap();  // 全バインディングで共有
+  let cur = this;
+  while (cur) {
+    for (const [k, v] of cur.bindings) {
+      frame[k] = deepClone(v, seen);  // 同一元オブジェクト → 同一クローン
+    }
+    cur = cur.parent;
+  }
+}
+```
+
+これにより ObjectGraph・MemoryView の WeakMap 追跡が正しく機能し、連結リストの `prepend` 呼び出し中に既存ノードが重複表示されていたバグが解消された。
