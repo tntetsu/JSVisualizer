@@ -17,6 +17,8 @@ import { ViewSwitcher }     from './components/view-switcher.js';
 import { SettingsPanel }    from './components/settings-panel.js';
 import { PaneResizer }      from './components/pane-resizer.js';
 import { esc }              from './utils/format.js';
+import { sessionLogger }   from './core/session-logger.js'; // STUDY: logRun/logReset のため残置
+import './components/study-panel.js'; // STUDY: 実験UI（削除手順は study-panel.js 冒頭を参照）
 import { CodeView }         from './views/code-view/index.js';
 import { StateView }        from './views/state-view/index.js';
 import { LineTrace }        from './views/line-trace/index.js';
@@ -164,6 +166,13 @@ adapter.addEventListener('ready', (e) => {
   const source  = editor.getCode();
   const builder = new TraceBuilder(adapter.getTrace(), source, adapter.getAST());
 
+  // サンプル名を取得（選択中のオプションのテキスト、または 'custom'）
+  const selectedOpt = sampleSelect.options[sampleSelect.selectedIndex];
+  const sampleName  = (selectedOpt && selectedOpt.value)
+    ? selectedOpt.text
+    : 'custom';
+  sessionLogger.logRun(sampleName, adapter.getTrace().length); // STUDY:
+
   // ViewSwitcher に builder + 初期 state を通知（builder 付きで再マウント）
   switcher.onReady(state, builder);
 
@@ -230,4 +239,7 @@ function resetAll() {
   editor.setRunningMode(false);
   editor.showError(null);
   updateConsolePanel(null);
+
+  sessionLogger.logReset(); // STUDY:
 }
+

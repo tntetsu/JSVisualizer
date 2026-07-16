@@ -303,6 +303,93 @@ list = prepend(list, 2);
 list = prepend(list, 1);
 toArray(list);`,
   },
+
+  // ── Study Tasks ────────────────────────────────────────────────────────────
+
+  studyWarmup: {
+    label: '[Warm-up] Factorial (loop)',
+    code: `\
+// [Warm-up] 階乗（繰り返し版）
+// Run してからステップを進め、result の値がどう変化するか確認してください。
+// いくつかのビューを切り替えて、使い方に慣れましょう。
+
+function factorial(n) {
+  let result = 1;
+  for (let i = 1; i <= n; i++) {
+    result = result * i;
+  }
+  return result;
+}
+
+console.log(factorial(5));`,
+  },
+
+  studyTask1: {
+    label: '[Task 1] Selection Sort — find the bug',
+    code: `\
+// [Task 1] このコードにはバグがあります。
+// 実行すると結果が [1, 2, 3, 5, 8, 9] になりません。
+// ツールを使ってバグの原因を見つけ、どの行を修正すべきか答えてください。
+
+function selectionSort(arr) {
+  const n = arr.length;
+  for (let i = 0; i < n - 1; i++) {
+    let minIdx = i + 1;
+    for (let j = i + 1; j < n; j++) {
+      if (arr[j] < arr[minIdx]) {
+        minIdx = j;
+      }
+    }
+    let temp = arr[i];
+    arr[i] = arr[minIdx];
+    arr[minIdx] = temp;
+  }
+  return arr;
+}
+
+const arr = [5, 3, 8, 1, 9, 2];
+console.log(selectionSort(arr));`,
+  },
+
+  studyTask2: {
+    label: '[Task 2] Fibonacci — count function calls',
+    code: `\
+// [Task 2] fib(4) を実行するとき、
+// fib という関数は合計で何回呼ばれますか？
+// （最初の fib(4) の呼び出しも 1 回として数えてください）
+
+function fib(n) {
+  if (n <= 1) return n;
+  return fib(n - 1) + fib(n - 2);
+}
+
+fib(4);`,
+  },
+
+  studyTask3: {
+    label: '[Task 3] Bubble Sort — trace intermediate state',
+    code: `\
+// [Task 3] 外側のループの 2 回目（i = 1）が完了した直後、
+// 配列 arr の中身はどうなっていますか？
+// （最終結果ではなく、途中の状態を答えてください）
+
+function bubbleSort(arr) {
+  const n = arr.length;
+  for (let i = 0; i < n - 1; i++) {
+    for (let j = 0; j < n - 1 - i; j++) {
+      if (arr[j] > arr[j + 1]) {
+        let temp = arr[j];
+        arr[j] = arr[j + 1];
+        arr[j + 1] = temp;
+      }
+    }
+  }
+  return arr;
+}
+
+const arr = [5, 3, 8, 1, 9];
+bubbleSort(arr);`,
+  },
 };
 
 // ── カスタム CodeMirror テーマ（ライトモード用） ─────────────────────────────
@@ -522,6 +609,7 @@ export class CodeEditor {
       { label: '─ Math / Algorithms ─',   keys: ['euclidLoop', 'euclidRecursive', 'factorial', 'fibonacci', 'fibonacciDP'] },
       { label: '─ Data Structures ─',     keys: ['binaryTree', 'linkedList'] },
       { label: '─ Scope / Objects ─',     keys: ['closure', 'classExample'] },
+      { label: '─ Study Tasks ─',          keys: ['studyWarmup', 'studyTask1', 'studyTask2', 'studyTask3'] },
     ];
 
     for (const { label, keys } of groups) {

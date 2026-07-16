@@ -21,7 +21,8 @@ JSVisualizer/
 │   ├── core/
 │   │   ├── debugger-adapter.js   # JSDebugger ラッパー・差分検出・エラー種別判定
 │   │   ├── step-controller.js    # ステップ粒度の統合管理（4粒度×前後 + start/end）
-│   │   └── trace-builder.js      # 全トレースデータの事前集計（6メソッド）
+│   │   ├── trace-builder.js      # 全トレースデータの事前集計（6メソッド）
+│   │   └── session-logger.js     # 操作ログ記録（評価実験用）JSON/CSV エクスポート
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
 │   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅
 │   │   ├── state-view/           # 変数・コールスタック統合パネル（Console は常時パネルへ移動）✅
@@ -44,11 +45,12 @@ JSVisualizer/
 │   │   ├── expr-trace/           # 式評価トレースビュー（部分式逐次置換）           ✅  ← タブ「式評価」
 │   │   └── animated-trace/       # アニメーション付きトレース表（実装済み・非アクティブ）
 │   ├── components/
-│   │   ├── code-editor.js        # CodeMirror 6 エディタ（17種サンプル・プログラム名・テーマ連動）
+│   │   ├── code-editor.js        # CodeMirror 6 エディタ（21種サンプル・プログラム名・テーマ連動）
 │   │   ├── pane-resizer.js       # ペインリサイザー（ドラッグで editor/viz 幅を変更・localStorage 永続化）
 │   │   ├── step-controls.js      # ステップ操作バー（2行×4列ボタン＋キーボード）
 │   │   ├── view-switcher.js      # ビュー切り替えタブ（1〜9キー・localStorage復元）
-│   │   └── settings-panel.js     # 設定パネル（テーマ切り替え・localStorage 永続化）
+│   │   ├── settings-panel.js     # 設定パネル（テーマ切り替え・localStorage 永続化）
+│   │   └── study-panel.js        # 評価実験 UI（Session Log 配線 + ワンクリックマーカー）← STUDY: 削除可
 │   └── app.js                    # エントリポイント・全体協調（Console 常時パネル更新を含む）
 ├── web/
 │   ├── index.html                # FOUC防止スクリプト・設定パネル HTML を含む
@@ -57,11 +59,16 @@ JSVisualizer/
 │   └── core/
 │       ├── trace-builder.test.js # TraceBuilder 全7メソッドのユニットテスト
 │       ├── step-controller.test.js
-│       └── samples.test.js       # 17サンプルコード全エラーなし・trace ≥ 1 確認
+│       └── samples.test.js       # 21サンプルコード全エラーなし・trace ≥ 1 確認
 ├── docs/
 │   ├── functional-spec.md        # 機能仕様書
 │   ├── design.md                 # 詳細設計書
-│   └── development-plan.md       # 開発計画書
+│   ├── development-plan.md       # 開発計画書
+│   ├── adr/                      # Architecture Decision Records（ADR-001〜ADR-024）
+│   └── study/                    # 評価実験資料（CELDA 2026 向け）← STUDY: 削除可
+│       ├── participant-guide.md  #   参加者向け説明資料（同意書・操作説明）
+│       ├── questionnaire.md      #   アンケート（SUS + カスタム項目 + タスク別回答欄）
+│       └── experimenter-protocol.md # 実験者用（進行スクリプト・正解・SUS採点シート）
 ├── CLAUDE.md                     # このファイル
 ├── README.md
 └── package.json
@@ -321,6 +328,9 @@ class TraceBuilder {
 - **英語ドキュメント**: `README.en.md`・`docs/functional-spec.en.md` を新規追加。`README.md` および `docs/functional-spec.md` と相互リンク（`> [English README](README.en.md)` 形式）
 - **対象ブラウザ**: モダンブラウザ（Chrome/Firefox/Safari 最新版）
 - **デプロイ**: GitHub Pages、`main` ブランチ push で Actions が JSInterpreter をクローン→ビルド→自動デプロイ
+- **操作ログ（SessionLogger）**: `src/core/session-logger.js` にモジュールレベルシングルトン `sessionLogger` を実装。`startSession()` 呼び出し後のみエントリを蓄積し、非アクティブ時は全コール no-op。`step-controller.js`・`view-switcher.js`・`app.js` から `logStep` / `logView` / `logRun` / `logReset` を呼び出す。JSON・CSV エクスポート対応（`Blob` + `<a>` タグ）。詳細は ADR-024
+- **評価実験 UI の隔離（study-panel.js）**: 評価実験固有の UI（Session Log 配線・ワンクリックマーカーボタン 9 個）を `src/components/study-panel.js` に集約。実験後の削除手順: ①このファイルを削除、② `app.js` の `// STUDY:` import 行を削除、③ `index.html` の `<!-- STUDY MODE -->` ブロックを削除。`session-logger.js` 本体と各モジュールの `logStep`/`logView` 呼び出しは no-op のため残置可
+- **Study Tasks サンプル**: `code-editor.js` に `─ Study Tasks ─` グループ（studyWarmup / studyTask1 / studyTask2 / studyTask3）を追加（CELDA 2026 評価実験用）。実験後は SAMPLES の 4 エントリと `#buildSampleOptions()` の 1 行を削除
 
 ## 依存 JSInterpreter の主要 API
 

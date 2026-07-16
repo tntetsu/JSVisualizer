@@ -8,6 +8,8 @@
  *   call  … callDepth 変化点           関数呼び出し/リターン境界（最粗粒度）
  */
 
+import { sessionLogger } from './session-logger.js';
+
 /** @typedef {'expr'|'stmt'|'call'|'human'} Granularity */
 
 export class StepController {
@@ -44,16 +46,20 @@ export class StepController {
   stepExprForward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.isDone()) return;
+    const before = dbg.cursor;
     dbg.stepIn();
     this.#adapter.moveTo(dbg.cursor);
+    sessionLogger.logStep('exprFwd', before, dbg.cursor);
   }
 
   /** 式単位で 1 ステップ後退（stepBack） */
   stepExprBackward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.cursor === 0) return;
+    const before = dbg.cursor;
     dbg.stepBack();
     this.#adapter.moveTo(dbg.cursor);
+    sessionLogger.logStep('exprBack', before, dbg.cursor);
   }
 
   // ── ステップ操作（文単位） ────────────────────────────────────────────────
@@ -62,16 +68,20 @@ export class StepController {
   stepStmtForward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.isDone()) return;
+    const before = dbg.cursor;
     dbg.stepOver();
     this.#adapter.moveTo(dbg.cursor);
+    sessionLogger.logStep('stmtFwd', before, dbg.cursor);
   }
 
   /** 文単位で 1 ステップ後退（stepOver の逆） */
   stepStmtBackward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.cursor === 0) return;
+    const before = dbg.cursor;
     this.#stepOverBack(dbg);
     this.#adapter.moveTo(dbg.cursor);
+    sessionLogger.logStep('stmtBack', before, dbg.cursor);
   }
 
   // ── ステップ操作（人間単位） ──────────────────────────────────────────────
@@ -80,16 +90,20 @@ export class StepController {
   stepHumanForward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.isDone()) return;
+    const before = dbg.cursor;
     dbg.humanStep();
     this.#adapter.moveTo(dbg.cursor);
+    sessionLogger.logStep('humanFwd', before, dbg.cursor);
   }
 
   /** 人間単位で 1 ステップ後退（humanStepBack） */
   stepHumanBackward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.cursor === 0) return;
+    const before = dbg.cursor;
     dbg.humanStepBack();
     this.#adapter.moveTo(dbg.cursor);
+    sessionLogger.logStep('humanBack', before, dbg.cursor);
   }
 
   // ── ステップ操作（関数呼び出し単位） ─────────────────────────────────────
@@ -102,13 +116,16 @@ export class StepController {
   stepCallForward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.isDone()) return;
+    const before      = dbg.cursor;
     const trace       = dbg.trace;
     const startDepth  = trace[dbg.cursor]?.callDepth ?? 0;
     let   next        = dbg.cursor + 1;
     while (next < trace.length && trace[next].callDepth === startDepth) {
       next++;
     }
-    this.#adapter.moveTo(Math.min(next, trace.length));
+    const target = Math.min(next, trace.length);
+    this.#adapter.moveTo(target);
+    sessionLogger.logStep('callFwd', before, target);
   }
 
   /**
@@ -118,6 +135,7 @@ export class StepController {
   stepCallBackward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.cursor === 0) return;
+    const before     = dbg.cursor;
     const trace      = dbg.trace;
     const startDepth = trace[dbg.cursor]?.callDepth ?? 0;
     let   prev       = dbg.cursor - 1;
@@ -125,6 +143,7 @@ export class StepController {
       prev--;
     }
     this.#adapter.moveTo(prev);
+    sessionLogger.logStep('callBack', before, prev);
   }
 
   // ── 後方互換: 粒度指定ステップ ───────────────────────────────────────────
@@ -175,22 +194,29 @@ export class StepController {
 
   /** 先頭（cursor = 0）へ移動 */
   goToStart() {
+    const before = this.#adapter.getDebugger()?.cursor ?? 0;
     this.#adapter.moveTo(0);
+    sessionLogger.logStep('goStart', before, 0);
   }
 
   /** 末尾（cursor = trace.length）へ移動 */
   goToEnd() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg) return;
-    this.#adapter.moveTo(dbg.trace.length);
+    const before = dbg.cursor;
+    const target = dbg.trace.length;
+    this.#adapter.moveTo(target);
+    sessionLogger.logStep('goEnd', before, target);
   }
 
   /**
-   * 任意の cursor 位置へジャンプ
+   * 任意の cursor 位置へジャンプ（スライダー操作）
    * @param {number} cursor
    */
   jumpTo(cursor) {
+    const before = this.#adapter.getDebugger()?.cursor ?? 0;
     this.#adapter.moveTo(cursor);
+    sessionLogger.logStep('slider', before, cursor);
   }
 
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────

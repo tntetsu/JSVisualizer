@@ -1410,6 +1410,108 @@ html, body {
   line-height: 1;
 }
 
+.settings-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+/* ── Session Log UI ─────────────────────────────────────────── */
+
+.log-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 6px 6px;
+}
+
+.log-status--active {
+  color: var(--accent);
+}
+
+.log-btn {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.log-btn:hover:not(:disabled) {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+
+.log-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.log-marker-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.log-marker-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+}
+
+.log-marker-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.log-btn--inline {
+  width: auto;
+  flex-shrink: 0;
+  margin-bottom: 0;
+  padding: 4px 10px;
+}
+
+.log-export-row {
+  display: flex;
+  gap: 4px;
+}
+
+.log-btn--export {
+  flex: 1;
+  text-align: center;
+  margin-bottom: 0;
+  font-weight: 600;
+}
+
+/* ── Study Mode: preset marker buttons ── */
+
+.study-marker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  margin-bottom: 6px;
+}
+
+.study-marker-btn {
+  display: block;
+  width: 100%;
+  padding: 4px 2px;
+  font-size: 10px;
+  text-align: center;
+  margin-bottom: 0;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    LineTrace — ソース行×変数トレース表  .lt-*
 ═══════════════════════════════════════════════════════════════ */

@@ -49,6 +49,28 @@
           <span>Dark</span>
         </label>
       </div>
+
+      <!-- ── STUDY MODE: remove this block to disable experimental features ── -->
+      <hr class="settings-divider">
+
+      <div class="settings-section">
+        <div class="settings-section-title">Session Log</div>
+        <div id="log-status" class="log-status">● Inactive</div>
+        <button id="btn-log-start" class="log-btn">Start Session</button>
+
+        <div id="study-marker-grid" class="study-marker-grid"></div>
+
+        <div class="log-marker-row">
+          <input type="text" id="log-marker-text" class="log-marker-input"
+                 placeholder="自由マーカー（任意）">
+          <button id="btn-log-marker" class="log-btn log-btn--inline">Add</button>
+        </div>
+        <div class="log-export-row">
+          <button id="btn-log-json" class="log-btn log-btn--export" disabled>JSON</button>
+          <button id="btn-log-csv"  class="log-btn log-btn--export" disabled>CSV</button>
+        </div>
+      </div>
+      <!-- ── /STUDY MODE ── -->
     </div>
   </div>
 

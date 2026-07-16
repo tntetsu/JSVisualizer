@@ -8,6 +8,8 @@
  *   1〜9  … 登録順の N 番目のタブへ切り替え
  */
 
+import { sessionLogger } from '../core/session-logger.js';
+
 const STORAGE_KEY_TAB = 'jsv-active-tab';
 
 export class ViewSwitcher {
@@ -195,6 +197,8 @@ export class ViewSwitcher {
 
     // アクティブタブを localStorage に保存
     try { localStorage.setItem(STORAGE_KEY_TAB, id); } catch { /* ignore */ }
+
+    sessionLogger.logView(id);
 
     // タブのアクティブ状態を更新
     this.#tabsEl.querySelectorAll('.view-tab').forEach(btn => {
