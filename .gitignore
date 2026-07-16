@@ -1,3 +1,6 @@
 node_modules/
 web/interpreter.bundle.js
 web/app.bundle.js
+
+# 評価実験資料（正解・ヒント等を含むため非公開）
+docs/study/
