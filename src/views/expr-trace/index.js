@@ -28,17 +28,25 @@ function isFunctionVal(v) {
   return false;
 }
 
-function fmtPlain(v) {
+function fmtPlain(v, depth = 0) {
   if (v === undefined) return 'undefined';
   if (v === null)      return 'null';
   if (typeof v === 'boolean' || typeof v === 'number') return String(v);
   if (typeof v === 'string') return JSON.stringify(v);
+  if (isFunctionVal(v) || typeof v === 'function') return 'ƒ';
   if (Array.isArray(v)) {
+    if (depth >= 3) return '[…]';
     if (v.length === 0) return '[]';
-    const elems = v.slice(0, 4).map(fmtPlain).join(', ');
-    return '[' + elems + (v.length > 4 ? ', …' : '') + ']';
+    const elems = v.slice(0, 6).map(x => fmtPlain(x, depth + 1)).join(', ');
+    return '[' + elems + (v.length > 6 ? ', …' : '') + ']';
   }
-  if (typeof v === 'object') return '{…}';
+  if (typeof v === 'object') {
+    if (depth >= 3) return '{…}';
+    const vals = Object.values(v).filter(x => !isFunctionVal(x) && typeof x !== 'function');
+    if (vals.length === 0) return '{}';
+    const items = vals.slice(0, 6).map(x => fmtPlain(x, depth + 1)).join(', ');
+    return '{' + items + (vals.length > 6 ? ', …' : '') + '}';
+  }
   return String(v);
 }
 

@@ -3,7 +3,7 @@
 **Project**: JSVisualizer  
 **Version**: 1.0  
 **Created**: 2026-05-25  
-**Last updated**: 2026-06-16  
+**Last updated**: 2026-07-17  
 **Author**: Tetsuo Tanaka
 
 > [日本語版はこちら](functional-spec.md)
@@ -29,6 +29,7 @@
 | 1.3 | 2026-06-05 | V-02c SubstTrace and V-02d ExprTrace added; tab count 14 → 16 |
 | 1.4 | 2026-06-08 | ExprTrace improvements: VariableDeclaration position via regex; more statement types; variable value timeline; real-time update in `update()` |
 | 1.5 | 2026-06-16 | Diff highlighting (`formatValueDiff`); ObjectGraph hierarchical layout (Kahn topo-sort + longest-path) with elbow connectors, port spread, connected-component separation; object-identity bug fix in `Environment.snapshot()` |
+| 1.6 | 2026-07-17 | (1) **Tab cleanup**: V-03 TraceTable, V-06 BarChart, V-08 Timeline set as inactive (tab count 16 → 13). (2) **ControlFlow rework**: replaced `buildControlFlow()` with `buildCFG()` — AST-based DOM flowchart with if/else shown as side-by-side true/false columns and loops as condition + body; unexecuted nodes grayed out (`cf-node--dead`); execution count badge (`×N`) per node. (3) **execCount fix**: `CfgBuilder` now counts line executions by transition (only when line changes), not all AST enter events. (4) **SubstTrace & ExprTrace object expansion**: `fmtPlain()` gains `depth` arg; depth < 3 expands object values recursively (keys omitted: `{3, null}`, `{2, {3, null}}`); depth ≥ 3 abbreviates as `{…}`; function-valued properties filtered out. (5) **Sample expansion**: 4 Study Tasks added for CELDA 2026 evaluation experiment; sample count 17 → 21; test count 66 → 70 |
 
 ---
 
@@ -235,9 +236,9 @@ Button colors: fine-grained (Expr/Human) = accent blue; coarse-grained (Stmt/Fun
 
 ---
 
-#### V-03: All Steps Table (TraceTable) ✅
+#### V-03: All Steps Table (TraceTable) ✅ (tab inactive)
 
-**Tab label**: All Steps
+**Tab label**: All Steps (currently unregistered)
 
 - All humanSteps rendered at `init()` time
 - `update()` only moves the highlight row and scrolls into view — O(1)
@@ -263,9 +264,9 @@ Button colors: fine-grained (Expr/Human) = accent blue; coarse-grained (Stmt/Fun
 
 ---
 
-#### V-06: Bar Chart (BarChart) ✅
+#### V-06: Bar Chart (BarChart) ✅ (tab inactive)
 
-**Tab label**: Bar Chart
+**Tab label**: Bar Chart (currently unregistered)
 
 - Numeric variables and numeric arrays shown as vertical bar charts
 - Value changes animated as bar-height CSS transitions
@@ -295,9 +296,9 @@ Button colors: fine-grained (Expr/Human) = accent blue; coarse-grained (Stmt/Fun
 
 ---
 
-#### V-08: Variable Timeline (Timeline) ✅
+#### V-08: Variable Timeline (Timeline) ✅ (tab inactive)
 
-**Tab label**: Timeline
+**Tab label**: Timeline (currently unregistered)
 
 - All humanSteps scanned at `init()` to build each variable's value history
 - X-axis = humanStep index; Y-axis = variable value

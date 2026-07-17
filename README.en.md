@@ -6,7 +6,7 @@
 
 An interactive, educational web application that visualizes JavaScript program execution step by step.
 
-Step through your code at four levels of granularity and watch the program's behavior unfold across **16 visualization views**.
+Step through your code at four levels of granularity and watch the program's behavior unfold across **13 visualization views**.
 
 ---
 
@@ -46,7 +46,7 @@ The code panel simultaneously displays three highlight layers:
 | Expression highlight | 🟧 Orange (semi-transparent) | Character range of the expression being evaluated |
 | Call-site highlight | 🟣 Purple (dashed underline) | While inside a function, highlights the call expression that invoked it |
 
-### Visualization Views (16 tabs)
+### Visualization Views (13 tabs)
 
 | Category | Tab | Description |
 |----------|-----|-------------|
@@ -55,15 +55,12 @@ The code panel simultaneously displays three highlight layers:
 | | Exec Trace | All humanStep events in execution order. Variable columns + condition columns. while/for condition values shown per iteration |
 | | Subst | Recursive calls shown as substitution-model expansion. Each `return` expression replaced step by step, with expansion (orange) and pending (blue-bold) highlights |
 | | Expr | Sub-expression evaluation: one statement's expression is progressively substituted toward its final value. Two-color highlights. Variable values updated in real time |
-| | All Steps | All humanSteps listed. "Target" column shows variable name, function name, or `return` |
-| **Graph** | Bar Chart | Numeric variable / array changes as animated bar chart (CSS transition) |
-| | Arrays | Multiple arrays displayed as color-coded indexed boxes. Pointer variables shown in individual rows. Blocks separated by border + background, wrap when too wide |
-| | Timeline | Variable value history as SVG line chart. Y-axis rescales dynamically on chip selection |
+| **Graph** | Arrays | Multiple arrays displayed as color-coded indexed boxes. Pointer variables shown in individual rows. Blocks separated by border + background, wrap when too wide |
 | | Heatmap | Execution count per line shown as "N/M times" + background color, updated per step. Execution timeline dots with SVG connector lines between transitions |
 | **Structure** | Rec. Tree | **Recursive calls only** rendered as SVG tree. Subtree cost (`cost:N`) shown per node |
 | | Call Tree | All function calls (recursive and non-recursive) as SVG tree |
-| | Lifetime | Variable lifetime as SVG Gantt chart (flame graph). Bars show function name + args |
-| | Control Flow | Executed source lines as SVG flowchart. Back-edges (loops) shown as orange dashed arrows |
+| | Lifetime | Variable lifetime as SVG Gantt chart. |
+| | Control Flow | AST-based flowchart: if/else shown as side-by-side true/false branches; loops as condition + body. Unexecuted nodes grayed out — untaken branches visible at a glance |
 | | Memory | Stack (scope frames) and heap (objects/arrays) in separate columns with SVG reference arrows |
 | | Objects | Object/array reference graph as SVG (hierarchical layout, connected components auto-separated, nodes color-coded by depth) |
 

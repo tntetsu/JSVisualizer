@@ -118,10 +118,10 @@ switcher.register('trace',     'Trace',        LineTrace);
 switcher.register('exectrace', 'Exec Trace',   ExecTrace);
 switcher.register('subst',     'Subst',        SubstTrace);
 switcher.register('exprtrace', 'Expr',         ExprTrace);
-switcher.register('table',     'All Steps',    TraceTable);
-switcher.register('bar',       'Bar Chart',    BarChart);
+// switcher.register('table',     'All Steps',    TraceTable);   // 非アクティブ
+// switcher.register('bar',       'Bar Chart',    BarChart);      // 非アクティブ
 switcher.register('colorbox',  'Arrays',       ColorBox);
-switcher.register('timeline',  'Timeline',     Timeline);
+// switcher.register('timeline',  'Timeline',     Timeline);      // 非アクティブ
 switcher.register('heatmap',   'Heatmap',      Heatmap);
 switcher.register('recursion', 'Rec. Tree',    RecursionTree);
 switcher.register('calltree',  'Call Tree',    CallTree);

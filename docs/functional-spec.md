@@ -3,7 +3,7 @@
 **プロジェクト名**: JSVisualizer  
 **バージョン**: 1.0  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-16  
+**最終更新**: 2026-07-17  
 **作成者**: Tetsuo Tanaka
 
 > [English version](functional-spec.en.md)
@@ -29,6 +29,7 @@
 | 1.4 | 2026-06-08 | ExprTrace（V-02d）改善: (1) VariableDeclaration 位置取得をソース正規表現ベースに変更（VariableDeclarator イベントが trace に存在しないため）。(2) セクション検出対象に IfStatement test・WhileStatement test（イテレーションごと）・ReturnStatement 引数・ForStatement init/test/update（イテレーションごと）を追加。(3) extractVarNames を式テキスト内識別子のみに絞り込み（env 全変数追加の "B" を削除）。(4) 変数値の時系列表示: Row 0 = enterIdx env・中間行 = exit 時点 env・最終行（≥2行）= exitIdx env。(5) update() でアクティブ行の TD を trace[cursor].env からリアルタイム書き換え（#trace フィールドを追加）。単一行セクション（let x = 851 等）でも束縛の瞬間に値が 851 に変わることを確認可能 |
 | 1.5 | 2026-06-16 | (1) **差分強調表示**: `format.js` に `formatValueDiff(val, prevVal)` を追加。前ステップと異なる値を `<b class="v-diff">` で橙色強調。配列・オブジェクトは要素/プロパティ単位で比較し変化箇所のみ強調。LineTrace（アクティブ行の各変数セル）・ExecTrace（全行の変数セル、`init()` 時一括）に適用。CSS: `--v-diff` カスタムプロパティ + `.v-diff` クラス（ライト `#c05000`・ダーク `#ff9f5e`）。(2) **ObjectGraph 階層型レイアウト**: 力学的レイアウト（Fruchterman-Reingold）を廃止し、Kahn トポロジカルソート + 最長パス法による左→右の階層型レイアウトに置換。エッジは肘型コネクタ（`M x1,y1 H mx V y2 H x2`）。ノードは NODE_W=110/NODE_H_MIN=32/ROW_H=13。列間 COLUMN_GAP=80px でエッジラベルが可視。ノード背景を 6 色パレット（`--og-bg-0` ～ `--og-bg-5`）で色分け。(3) **ObjectGraph 連結成分分離**: 無向 BFS で連結成分を検出し縦方向に COMP_GAP=24px で積み上げ。成分 ≥2 のとき点線境界矩形（`.og-comp-bg`）を描画。(4) **ObjectGraph ポートスプレッド**: 同一ノードからの複数エッジを出口 y 座標で均等分散し重複を解消。エッジラベルを縦セグメント左側に配置。(5) **オブジェクト同一性バグ修正**: JSInterpreter `Environment.snapshot()` が変数ごとに独立した `seen` WeakMap で `deepClone()` を呼ぶため、同一元オブジェクトが複数の変数から参照されるとき別クローンとなり ObjectGraph・MemoryView に重複ノードが出ていた。`snapshot()` と `snapshotOwn()` を `seen` WeakMap を全バインディングで共有するよう修正し、スコープチェーン全体で同一元オブジェクトが同一クローンにマッピングされることを保証 |
 | 1.3 | 2026-06-05 | V-02c SubstTrace（代入展開）・V-02d ExprTrace（式評価）を新規追加・文書化。タブ登録数 14 → 16。SubstTrace: 再帰関数の置換モデル逐次展開（`computeReturnExpr` + `buildSubstitutionLines`）。ExprTrace: 1行の式の部分式逐次置換トレース表（`buildSectionRows` + `srcPosToDispPos`・`addSubstitution`・`applySubstitutions` ヘルパー群）。両ビューに展開ハイライト（橙）・評価待ちハイライト（青太字）を実装 |
+| 1.6 | 2026-07-17 | (1) **タブ整理**: V-03 TraceTable（全ステップ）・V-06 BarChart（棒グラフ）・V-08 Timeline（時系列）をタブ非登録（非アクティブ）に変更。タブ登録数 16 → 13。(2) **ControlFlow 刷新**: `buildControlFlow()` を廃止し `buildCFG()` を導入。AST ベースの DOM フローチャートで if/else を true/false 列横並び・ループを条件＋本体の入れ子構造で描画。未実行ノードを `cf-node--dead` でグレーアウト表示（通らなかった分岐が一目でわかる）。実行回数バッジ（`×N`）を各ノードに表示。(3) **execCount 修正**: `CfgBuilder` の行実行回数カウントをすべての AST enter ではなく「行遷移時のみ」カウントに修正（前回 enter と異なる行のみ計上）。(4) **SubstTrace・ExprTrace オブジェクト展開**: `fmtPlain()` に `depth` 引数を追加。depth < 3 ではプロパティ値のみ（キーなし）を再帰展開（`{3, null}`, `{2, {3, null}}` 形式）、depth ≥ 3 で `{…}` に省略。関数値プロパティはフィルタ除外。(5) **サンプル拡充**: CELDA 2026 評価実験用 Study Tasks 4種追加（studyWarmup / studyTask1 / studyTask2 / studyTask3）。サンプル総数 17 → 21。テスト総数 66 → 70 件 |
 
 ---
 
@@ -280,9 +281,9 @@
 **入力**: `builder.trace`, `builder.source`
 ---
 
-#### V-03: 全ステップ表（TraceTable）✅ 実装済み
+#### V-03: 全ステップ表（TraceTable）✅ 実装済み（タブ非登録・非アクティブ）
 
-タブ名: **全ステップ**
+タブ名: **全ステップ**（現在タブ非登録）
 
 - 全 humanStep を `init()` 時に一括描画
 - `update()` は現在行のハイライト移動とスクロールのみ（O(1)）
@@ -326,9 +327,9 @@
 
 ---
 
-#### V-06: 棒グラフアニメーション（BarChart）✅ 実装済み
+#### V-06: 棒グラフアニメーション（BarChart）✅ 実装済み（タブ非登録・非アクティブ）
 
-タブ名: **棒グラフ**
+タブ名: **棒グラフ**（現在タブ非登録）
 
 - 指定した数値変数または数値配列を縦棒グラフで表示
 - 値の変化を棒の高さの CSS transition で滑らかにアニメーション
@@ -357,9 +358,9 @@
 
 ---
 
-#### V-08: 変数の時系列グラフ（Timeline）✅ 実装済み
+#### V-08: 変数の時系列グラフ（Timeline）✅ 実装済み（タブ非登録・非アクティブ）
 
-タブ名: **時系列**
+タブ名: **時系列**（現在タブ非登録）
 
 - `init()` 時に全 humanStep を走査して変数の値履歴を構築
 - X 軸＝humanStep インデックス、Y 軸＝変数値

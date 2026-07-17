@@ -445,10 +445,16 @@ class CfgBuilder {
   constructor(trace, source) {
     this.#lines  = source.split('\n');
     this.#execOf = new Map();
+    // 前回カウントした行と異なる行への enter 時だけカウントする。
+    // 同一行に複数の AST ノード enter が来ても 1 実行として扱う。
+    let prevLine = -1;
     for (const ev of trace) {
       if (ev.phase === 'enter' && ev.loc?.line) {
         const l = ev.loc.line;
-        this.#execOf.set(l, (this.#execOf.get(l) ?? 0) + 1);
+        if (l !== prevLine) {
+          this.#execOf.set(l, (this.#execOf.get(l) ?? 0) + 1);
+          prevLine = l;
+        }
       }
     }
   }

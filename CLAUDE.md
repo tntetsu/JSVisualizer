@@ -5,7 +5,7 @@
 ## プロジェクト概要
 
 **JSVisualizer** は、JavaScript プログラムの実行過程をインタラクティブに可視化する教育用 Web アプリケーションです。  
-[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、16 種類の可視化ビューを提供します。  
+[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、13 種類の可視化ビューを提供します。  
 GitHub Pages でホストされ、main ブランチへの push で自動デプロイされます。
 
 対象ユーザーはプログラミング入門〜中級の学習者および教員です。
@@ -30,15 +30,15 @@ JSVisualizer/
 │   │   ├── callstack-view/       # コールスタックビュー              ← タブ登録なし（非アクティブ）
 │   │   ├── line-trace/           # トレース表（行番号+スニペット列+変数表・列表示切替・D&D）  ✅  ← タブ「トレース表」
 │   │   ├── exec-trace/           # 実行順トレース表（humanStep 順・変数列+条件列）          ✅  ← タブ「実行トレース」
-│   │   ├── trace-table/          # 静的トレース表（全ステップ・対象列付き）               ✅  ← タブ「全ステップ」
-│   │   ├── bar-chart/            # 棒グラフアニメーション（数値・配列変化）         ✅
+│   │   ├── trace-table/          # 静的トレース表（全ステップ・対象列付き）               ✅  ← タブ登録なし（非アクティブ）
+│   │   ├── bar-chart/            # 棒グラフアニメーション（数値・配列変化）         ✅  ← タブ登録なし（非アクティブ）
 │   │   ├── color-box/            # 配列アニメーション（複数配列同時表示・ポインタ別行）✅  ← タブ「配列」
-│   │   ├── timeline/             # 変数の時系列グラフ（SVG折れ線・変数選択時Y軸動的更新）✅
+│   │   ├── timeline/             # 変数の時系列グラフ（SVG折れ線・変数選択時Y軸動的更新）✅  ← タブ登録なし（非アクティブ）
 │   │   ├── heatmap/              # 実行頻度ヒートマップ（連結線常時表示）            ✅
 │   │   ├── recursion-tree/       # 再帰呼び出しツリー（SVG・引数展開表示）                ✅
 │   │   ├── call-tree/            # 全関数呼び出しツリー（SVG・再帰に限らない）            ✅  ← タブ「呼び出しツリー」
 │   │   ├── lifetime/             # 変数ライフタイム Gantt チャート（SVG）                ✅
-│   │   ├── control-flow/         # 制御フロービュー（SVG フローチャート）           ✅
+│   │   ├── control-flow/         # 制御フロービュー（AST DOM フローチャート・未実行ノードグレー）✅
 │   │   ├── memory-view/          # メモリモデルビュー（スタック/ヒープ + SVG矢印）  ✅
 │   │   ├── object-graph/         # オブジェクト参照グラフ（SVG 階層型レイアウト・連結成分分離）✅
 │   │   ├── subst-trace/          # 代入展開ビュー（再帰置換モデル・ハイライト付き）  ✅  ← タブ「代入展開」
@@ -144,7 +144,8 @@ class TraceBuilder {
   buildRecursionTree()                // → TreeNode[]    再帰呼び出しのみのツリー（cost プロパティ付き）
   buildCallTree()                     // → TreeNode[]    全関数呼び出しツリー（#buildFullCallTree と独立キャッシュ）
   buildLifetime()                     // → LifetimeEntry[]  変数ライフタイム区間（startHi/endHi は humanStep インデックス）
-  buildControlFlow()                  // → { nodes, edges, humanSteps }  実行フローグラフ
+  buildCFG()                          // → ScopeNode[]   AST ベース制御フロー（スコープ単位・未実行ノード含む）
+  buildControlFlow()                  // → { nodes, edges, humanSteps }  旧実装（未使用・後方互換のため残置）
 
   get trace()                         // → TraceEvent[]  生の trace 配列
   get source()                        // → string        元ソースコード
@@ -155,7 +156,7 @@ class TraceBuilder {
 `buildRecursionTree()` は `#buildFullCallTree()` の結果から `child.funcName === parent.funcName` の子のみを残し、`cost = 1 + Σ子のcost` を付与。再帰なしなら空配列。  
 `buildCallTree()` は `#buildFullCallTree()` を使用（`buildRecursionTree()` とは完全に独立）。CallTree ビューが使用。  
 `buildLifetime()` は humanStep ごとの env を走査し `callDepth:varName` をキーにして区間を記録。  
-`buildControlFlow()` は humanStep の行番号遷移からノード（ユニーク行）とエッジ（行→行）を構築。  
+`buildCFG()` は AST を走査してスコープ（グローバル／関数）ごとの `CfgItem[]` を構築。`CfgItem` は `type: stmt|return|jump|if|while|for|do-while|seq` を持ち、`execCount` で実行回数を記録（未実行は 0）。`buildControlFlow()` は旧実装（エッジ/ノードベース）で現在未使用。  
 すべてキャッシュ付きで、2回目以降の呼び出しは O(1)。
 
 ### ステップ粒度とボタンレイアウト
@@ -192,14 +193,14 @@ class TraceBuilder {
 
 ### SVG ビューの設計パターン
 
-再帰ツリー・ライフタイム・制御フロー・オブジェクトグラフは SVG で描画します。
+再帰ツリー・ライフタイム・オブジェクトグラフは SVG で描画します。制御フロービューは DOM ベース（div 要素）で描画します。
 
 | ビュー | レイアウト方式 | update の方針 |
 |--------|--------------|--------------|
 | RecursionTree | 再帰的サブツリー幅計算（葉=NODE_W、内部=子の和＋gap） | ノードごとの className を cursor で更新 |
 | CallTree | 同上（RecursionTree と同じレイアウトアルゴリズム） | ノードごとの className を cursor で更新 |
 | Lifetime | 線形（X=humanStep, Y=変数行） | カーソル線の x1/x2 を移動 |
-| ControlFlow | first-seen 順の縦並び（前向きエッジ右・後向きエッジ左） | activeNode の className を更新 |
+| ControlFlow | AST ベース DOM フローチャート（if → true/false 列、while/for → 条件+body、未実行ノードは `cf-node--dead` でグレー） | activeNode の className を更新 |
 | MemoryView | 2カラム（stack \| heap）+ SVG オーバーレイ矢印 | DOM 再描画 → rAF で矢印を再計算 |
 | ObjectGraph | 階層型レイアウト（Kahn トポソート + 最長パス法で列割当、左→右）連結成分を BFS で分離し縦スタック | update() ごとに SVG 全体を再描画 |
 
@@ -279,7 +280,7 @@ class TraceBuilder {
 | RecursionTree | 未呼び出し | 破線ボーダー（`stroke-dasharray: 5 3`）＋「…」アイコン |
 | RecursionTree | 実行中 | 太い実線ボーダー（`stroke-width: 3`）＋「▶」アイコン |
 | RecursionTree | 完了 | 細い実線ボーダー＋「✓」アイコン |
-| ControlFlow | 戻りエッジ | 破線（`stroke-dasharray: 6 3`）＋オレンジ色 |
+| ControlFlow | 未実行ノード | `cf-node--dead` クラス（グレーアウト）＋ `cf-exec-badge` 非表示 |
 
 ## コーディング規約
 
