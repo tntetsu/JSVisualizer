@@ -31,6 +31,7 @@
 | 1.5 | 2026-06-16 | Diff highlighting (`formatValueDiff`); ObjectGraph hierarchical layout (Kahn topo-sort + longest-path) with elbow connectors, port spread, connected-component separation; object-identity bug fix in `Environment.snapshot()` |
 | 1.6 | 2026-07-17 | (1) **Tab cleanup**: V-03 TraceTable, V-06 BarChart, V-08 Timeline set as inactive (tab count 16 → 13). (2) **ControlFlow rework**: replaced `buildControlFlow()` with `buildCFG()` — AST-based DOM flowchart with if/else shown as side-by-side true/false columns and loops as condition + body; unexecuted nodes grayed out (`cf-node--dead`); execution count badge (`×N`) per node. (3) **execCount fix**: `CfgBuilder` now counts line executions by transition (only when line changes), not all AST enter events. (4) **SubstTrace & ExprTrace object expansion**: `fmtPlain()` gains `depth` arg; depth < 3 expands object values recursively (keys omitted: `{3, null}`, `{2, {3, null}}`); depth ≥ 3 abbreviates as `{…}`; function-valued properties filtered out. (5) **Sample expansion**: 4 Study Tasks added for CELDA 2026 evaluation experiment; sample count 17 → 21; test count 66 → 70 |
 | 1.7 | 2026-07-20 | (1) **Header layout redesign**: Edit mode shows Edit/Run buttons + sample select; Run mode shows Edit/Run buttons + step controls in the header center (footer removed). CSS visibility toggled via `.app-header.run-mode`. Header height changed to `auto` (min 44px); `app-main` uses `flex: 1`. (2) **Slider maximization & 2-row layout**: `.slider-area { min-width: 180px }` causes the slider to wrap to a second row on narrow windows. `body { min-width: 820px }` + `html { overflow-x: auto }` shows a horizontal scrollbar below the minimum width. (3) **View description bar**: `.view-desc` element auto-inserted below the tab bar. `ViewSwitcher.register()` accepts a 4th `description` argument; displayed on tab switch. All 13 views have descriptions. (4) **Light mode UI improvements**: active tab uses white background + blue top border + blue text + bold (`active tab` contrast enhancement via `:root:not([data-theme="dark"])`); console background set to white (`var(--bg)`) in light mode only. |
+| 1.8 | 2026-07-20 | **Language switching (i18n)**: New `src/i18n.js` module (`STRINGS` object, `t(key)` / `getLang()` / `setLang()` functions, `langchange` custom event). Language persisted to `localStorage('jsv-lang')` as `'ja'` or `'en'`; defaults to `'ja'`. EN/日 toggle button (`btn-lang`) added to the right of the header. Static HTML elements use `data-i18n="key"` attributes, batch-updated by `applyI18n()`. Tab labels and descriptions are passed to `ViewSwitcher.register()` as `{ ja: '...', en: '...' }` objects and re-rendered by `ViewSwitcher.setLang(lang)`. `resolveStr(v, lang)` helper resolves both plain strings and `{ja,en}` objects. |
 
 ---
 
@@ -92,8 +93,13 @@ Provide a web application that visualizes the execution of **any JavaScript code
 4. The last active tab is saved to `localStorage('jsv-active-tab')` and restored on next launch
 
 #### UC-04: Use a sample program
-1. User selects a learning scenario from the sample selector in the header (17 samples)
+1. User selects a learning scenario from the sample selector in the header (21 samples)
 2. The code is inserted into the editor automatically and is ready to run
+
+#### UC-06: Switch the display language
+1. User clicks the **EN** button (or **日** button) at the top-right of the header
+2. All UI text (button labels, tab names, descriptions, settings panel, etc.) switches instantly to English or Japanese
+3. The selected language is saved to `localStorage('jsv-lang')` and restored on next visit
 
 #### UC-05: Change the theme
 1. User clicks the ⚙ button in the top-right corner to open the settings panel
@@ -112,17 +118,18 @@ Provide a web application that visualizes the execution of **any JavaScript code
 |------|---------------|
 | Input | JavaScript (ES6+) text |
 | Syntax highlighting | **CodeMirror 6** real-time highlighting (keywords, strings, numbers, comments); auto-switches with light/dark theme via `Compartment` + `MutationObserver` |
-| Samples | Preset selector (17 programs: Bubble Sort, Fibonacci, Binary Tree, etc.); program name displayed in header when selected |
+| Samples | Preset selector (21 programs: Bubble Sort, Fibonacci, Binary Tree, etc.); program name displayed in header when selected |
 | Error display | Parse and runtime errors shown as distinct badges below the editor. Cursor moves to the error location with a blink animation when location info is available |
 | Destructuring | Supports ES6 destructuring: `[a, b] = [b, a]`, `({ x, y } = obj)`, etc. |
 
 #### F-02: Step Execution Controls
 
-The footer contains a **2-row × 4-column grid** of 8 step buttons, plus first/last buttons at each end.
+In Run mode, the **header center** holds the step buttons in a single row (wide) or two rows (narrow), plus first/last buttons at each end.
 
 ```
-⏮  │  ◀◀Stmt  ◀Expr  ▶Expr  ▶▶Stmt  │  ⏭  ── slider ── counter
-   │  ⏪Func   ◁Human ▷Human  ⏩Func  │
+Wide:   ⏮ ⏭ │ ⏪Func ⏩Func │ ◁Human ▷Human │ ◀◀Stmt ▶▶Stmt │ ◀Expr ▶Expr │──slider──│ counter
+Narrow: ⏮ ⏭ │ ⏪Func ⏩Func │ ◁Human ▷Human │ ◀◀Stmt ▶▶Stmt │ ◀Expr ▶Expr
+        ─────────────────────── slider ──────────────────────────── │ counter
 ```
 
 | Action | Button | Keyboard | Description |
@@ -446,11 +453,23 @@ Expression and call-site highlights use `position: absolute; calc(N * 1ch)` for 
 
 | Item | Specification |
 |------|---------------|
-| Default | Light theme (VS Code Light Modern base) |
+| Default | Light theme (Catppuccin Latte base) |
 | How to switch | Header ⚙ button → Settings panel radio buttons |
 | Choices | ☀️ Light / 🌙 Dark |
 | Persistence | Saved to `localStorage('jsv-theme')` |
 | FOUC prevention | Inline script in `<head>` applies dark theme before CSS loads |
+
+#### F-15: Language Switching (i18n)
+
+| Item | Specification |
+|------|---------------|
+| Languages | Japanese (`ja`) and English (`en`) |
+| How to switch | Click the **EN** / **日** button (`btn-lang`) in the top-right of the header |
+| Scope | Button labels, tab names, view descriptions, console title, settings panel text (~46 items) |
+| Not localized | Error messages (from JSInterpreter), sample program names |
+| Implementation | Static HTML uses `data-i18n="key"` attributes, batch-updated by `applyI18n()`. Tab labels and descriptions are passed as `{ ja: '...', en: '...' }` objects and re-rendered by `ViewSwitcher.setLang()` |
+| Persistence | `localStorage('jsv-lang')` (default `'ja'`) |
+| Event flow | `setLang()` → `dispatchEvent('langchange')` → `applyI18n()` + `switcher.setLang()` |
 
 #### F-13: Error Badge Display
 
@@ -513,7 +532,7 @@ A fixed panel at the bottom of the right pane, always visible regardless of whic
 |------|---------------|
 | Hosting | GitHub Pages (`https://tntetsu.github.io/JSVisualizer/`) |
 | Deploy trigger | Push to `main` branch or manual `workflow_dispatch` |
-| CI pipeline | ① Clone JSInterpreter → ② `npm ci` → ③ `npm test` (66 tests) → ④ `npm run build` → ⑤ Upload to GitHub Pages |
+| CI pipeline | ① Clone JSInterpreter → ② `npm ci` → ③ `npm test` (70 tests) → ④ `npm run build` → ⑤ Upload to GitHub Pages |
 | Build artifacts | `web/` directory (`app.bundle.js` / `interpreter.bundle.js` / `index.html` / `style.css`) |
 | Concurrency | `concurrency: pages` limits to one active deploy at a time (cancels previous) |
 
@@ -538,3 +557,4 @@ A fixed panel at the bottom of the right pane, always visible regardless of whic
 | jsv-editor-pct | `localStorage` key that persists the editor pane width (%); managed by `PaneResizer`; clamped to 15–75 |
 | jsv-console-h | `localStorage` key that persists the console panel height (px); managed by `app.js`; clamped to 40–400 |
 | error badge | A small label that visually identifies the error type — either "Syntax Error" or "Runtime Error" |
+| jsv-lang | `localStorage` key that persists the display language; value is `'ja'` (Japanese) or `'en'` (English); defaults to `'ja'` |

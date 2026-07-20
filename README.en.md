@@ -74,7 +74,7 @@ Default is Light. The setting is saved and restored on next visit.
 ### Miscellaneous
 
 - **Step-back support** — Go back to any previous step (O(1))
-- **17 built-in samples** — Bubble sort, Fibonacci (recursive/DP), Class & Inheritance, Linked List, and more
+- **21 built-in samples** — Bubble sort, Fibonacci (recursive/DP), Class & Inheritance, Linked List, and more
 - **Destructuring assignment** — Supports `[a, b] = [b, a]` swap syntax
 - **Custom code** — Paste any JavaScript and run it
 - **Persistent settings** — Theme, last active tab, and pane width saved to `localStorage`
@@ -127,7 +127,7 @@ npm test
 
 ---
 
-## Sample Programs (17 built-in)
+## Sample Programs (21 built-in)
 
 | Category | Samples |
 |----------|---------|
@@ -138,6 +138,7 @@ npm test
 | **Math / Algorithms** | Euclid GCD (loop / recursive), Factorial, Fibonacci (recursive), Fibonacci (DP) |
 | **Data Structures** | Binary Tree (insert + search), Linked List |
 | **Scope / Objects** | Closure, Class & Inheritance |
+| **Study Tasks** | [Warm-up] Factorial (loop), [Task 1] Selection Sort (with bug), [Task 2] Fibonacci (call count), [Task 3] Bubble Sort (intermediate state) |
 
 ---
 
@@ -164,10 +165,10 @@ JSVisualizer embeds a **general-purpose JavaScript interpreter**, so any code ca
 | Core engine | [JSInterpreter](../JSInterpreter) (custom JS interpreter) |
 | Frontend | Vanilla JS (ES2022+) + HTML + CSS |
 | Build tool | esbuild |
-| Tests | Jest (66 tests) |
+| Tests | Jest (70 tests) |
 | Code editor | CodeMirror 6 |
 | Visualization | DOM + CSS animations + hand-crafted SVG |
-| Themes | CSS custom properties (VS Code Light Modern / Catppuccin Mocha) |
+| Themes | CSS custom properties (Catppuccin Latte / Catppuccin Mocha) |
 | CI/CD | GitHub Actions → GitHub Pages |
 
 ---
