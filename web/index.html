@@ -24,10 +24,79 @@
       <span class="logo">🔬</span>
       <h1 class="app-title">JSVisualizer</h1>
     </div>
-    <div class="header-right">
+
+    <div class="header-center">
+      <!-- Edit / Run（常時表示） -->
+      <div class="editor-actions">
+        <button id="btn-edit" class="btn btn-mode btn-mode--active" title="Edit mode">✏ Edit</button>
+        <button id="btn-run"  class="btn btn-mode" title="Run">▶ Run</button>
+      </div>
+
+      <!-- サンプル選択（Editモードのみ） -->
       <select id="sample-select" title="Select a sample">
         <option value="">— Sample —</option>
       </select>
+
+      <!-- ステップコントロール（Runモードのみ） -->
+      <div class="step-controls-area" id="step-controls-area">
+        <div class="header-sep"></div>
+        <!-- ボタン列: 先頭/末尾 → 関数 → 人 → 文 → 式 -->
+        <div class="ctrl-grid">
+          <button id="btn-start"         class="ctrl-btn ctrl-btn--nav"
+                  title="Go to start (Home)" disabled>⏮</button>
+          <button id="btn-end"           class="ctrl-btn ctrl-btn--nav"
+                  title="Go to end (End)" disabled>⏭</button>
+          <button id="btn-call-back"     class="ctrl-btn ctrl-btn--call"
+                  title="Step back func (F)" disabled>
+            <span class="btn-arrows">⏪</span>
+            <span class="btn-label-sm">Func</span>
+          </button>
+          <button id="btn-call-forward"  class="ctrl-btn ctrl-btn--call"
+                  title="Step forward func (f)" disabled>
+            <span class="btn-arrows">⏩</span>
+            <span class="btn-label-sm">Func</span>
+          </button>
+          <button id="btn-human-back"    class="ctrl-btn ctrl-btn--human"
+                  title="Step back human (H)" disabled>
+            <span class="btn-arrows">◁</span>
+            <span class="btn-label-sm">Human</span>
+          </button>
+          <button id="btn-human-forward" class="ctrl-btn ctrl-btn--human"
+                  title="Step forward human (h)" disabled>
+            <span class="btn-arrows">▷</span>
+            <span class="btn-label-sm">Human</span>
+          </button>
+          <button id="btn-stmt-back"     class="ctrl-btn ctrl-btn--stmt"
+                  title="Step back stmt (V)" disabled>
+            <span class="btn-arrows">◀◀</span>
+            <span class="btn-label-sm">Stmt</span>
+          </button>
+          <button id="btn-stmt-forward"  class="ctrl-btn ctrl-btn--stmt"
+                  title="Step forward stmt (v)" disabled>
+            <span class="btn-arrows">▶▶</span>
+            <span class="btn-label-sm">Stmt</span>
+          </button>
+          <button id="btn-expr-back"     class="ctrl-btn ctrl-btn--expr"
+                  title="Step back expr (← / b)" disabled>
+            <span class="btn-arrows">◀</span>
+            <span class="btn-label-sm">Expr</span>
+          </button>
+          <button id="btn-expr-forward"  class="ctrl-btn ctrl-btn--expr"
+                  title="Step forward expr (→ / n)" disabled>
+            <span class="btn-arrows">▶</span>
+            <span class="btn-label-sm">Expr</span>
+          </button>
+        </div>
+        <!-- スライダーとカウンター（ウィンドウが狭い時は2行目に折り返す） -->
+        <div class="slider-area">
+          <input type="range" id="step-slider" class="step-slider"
+                 min="0" max="0" value="0" disabled>
+          <span id="step-counter" class="step-counter"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-right">
       <button id="btn-settings" class="btn-icon" title="Settings">⚙</button>
     </div>
   </header>
@@ -87,10 +156,6 @@
           <span class="pane-title">Source</span>
           <span id="program-name" class="pane-subtitle">フィボナッチ数列（再帰）</span>
         </div>
-        <div class="editor-actions">
-          <button id="btn-edit" class="btn btn-mode btn-mode--active" title="Edit mode">✏ Edit</button>
-          <button id="btn-run"  class="btn btn-mode" title="Run">▶ Run</button>
-        </div>
       </div>
 
       <!-- 編集モード（CodeMirror が mount される） -->
@@ -134,73 +199,6 @@
 
   </main>
 
-  <!-- ════════════════════════════════════════
-       ステップコントロールバー（フッター）
-       レイアウト:  ⏮(高) │ 2行×4列グリッド │ ⏭(高)  ─ slider ─ counter
-  ════════════════════════════════════════ -->
-  <footer class="step-bar">
-
-    <button id="btn-start" class="ctrl-btn ctrl-btn--nav"
-            title="Go to start (Home)" disabled>⏮</button>
-
-    <!-- 2-row × 4-col grid
-         row1: Stmt(outer) Expr(inner) Expr(inner) Stmt(outer)
-         row2: Func(outer) Human(inner) Human(inner) Func(outer) -->
-    <div class="ctrl-grid">
-
-      <!-- row1: ◀back ─── ─── ───▶forward -->
-      <button id="btn-stmt-back"     class="ctrl-btn ctrl-btn--stmt"
-              title="Step back stmt (V)" disabled>
-        <span class="btn-arrows">◀◀</span>
-        <span class="btn-label-sm">Stmt</span>
-      </button>
-      <button id="btn-expr-back"     class="ctrl-btn ctrl-btn--expr"
-              title="Step back expr (← / b)" disabled>
-        <span class="btn-arrows">◀</span>
-        <span class="btn-label-sm">Expr</span>
-      </button>
-      <button id="btn-expr-forward"  class="ctrl-btn ctrl-btn--expr"
-              title="Step forward expr (→ / n)" disabled>
-        <span class="btn-arrows">▶</span>
-        <span class="btn-label-sm">Expr</span>
-      </button>
-      <button id="btn-stmt-forward"  class="ctrl-btn ctrl-btn--stmt"
-              title="Step forward stmt (v)" disabled>
-        <span class="btn-arrows">▶▶</span>
-        <span class="btn-label-sm">Stmt</span>
-      </button>
-
-      <!-- row2: ◀back ─── ─── ───▶forward -->
-      <button id="btn-call-back"     class="ctrl-btn ctrl-btn--call"
-              title="Step back func (F)" disabled>
-        <span class="btn-arrows">⏪</span>
-        <span class="btn-label-sm">Func</span>
-      </button>
-      <button id="btn-human-back"    class="ctrl-btn ctrl-btn--human"
-              title="Step back human (H)" disabled>
-        <span class="btn-arrows">◁</span>
-        <span class="btn-label-sm">Human</span>
-      </button>
-      <button id="btn-human-forward" class="ctrl-btn ctrl-btn--human"
-              title="Step forward human (h)" disabled>
-        <span class="btn-arrows">▷</span>
-        <span class="btn-label-sm">Human</span>
-      </button>
-      <button id="btn-call-forward"  class="ctrl-btn ctrl-btn--call"
-              title="Step forward func (f)" disabled>
-        <span class="btn-arrows">⏩</span>
-        <span class="btn-label-sm">Func</span>
-      </button>
-
-    </div><!-- /ctrl-grid -->
-
-    <button id="btn-end" class="ctrl-btn ctrl-btn--nav"
-            title="Go to end (End)" disabled>⏭</button>
-
-    <input type="range" id="step-slider" class="step-slider"
-           min="0" max="0" value="0" disabled>
-    <span id="step-counter" class="step-counter"></span>
-  </footer>
 
   <script type="module" src="app.bundle.js"></script>
 </body>

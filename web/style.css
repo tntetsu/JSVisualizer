@@ -59,8 +59,8 @@
   --hl-call-bdr: rgba(175,   0, 219, 0.60);
 
   /* サイズ */
-  --header-h:    44px;
-  --footer-h:    80px;   /* 2行ボタン対応（旧 52px） */
+  --header-h:    44px;   /* auto 高さになったため参照のみ（app-main で使用しない） */
+  --footer-h:    0px;    /* フッター廃止 */
   --pane-gap:    8px;
   --radius:      6px;
   --radius-sm:   3px;
@@ -127,8 +127,17 @@
 /* ── リセット・基本 ────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body {
+html {
   height: 100%;
+  overflow-y: hidden;   /* body が縦方向に溢れてもスクロールバーなし */
+  overflow-x: auto;     /* body が min-width を超えたとき横スクロールバーを表示 */
+}
+
+body {
+  height: 100%;
+  min-width: 820px;     /* これ未満の幅では html に横スクロールバーが現れる */
+  display: flex;
+  flex-direction: column;
   font-family: 'Segoe UI', system-ui, sans-serif;
   font-size: 14px;
   background: var(--bg);
@@ -138,27 +147,40 @@ html, body {
 
 /* ── ヘッダー ─────────────────────────────────────────────────── */
 .app-header {
-  height: var(--header-h);
+  height: auto;          /* コンテンツに合わせて伸縮 */
+  min-height: 44px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
-  gap: 12px;
+  padding: 4px 12px;
+  gap: 8px;
   flex-shrink: 0;
+  flex-wrap: wrap;       /* 超狭ウィンドウでヘッダー左右が折り返す場合に備える */
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;     /* center 内は基本1行 */
 }
 
 .header-right {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .logo { font-size: 20px; }
@@ -176,7 +198,8 @@ html, body {
   display: flex;
   gap: 0;             /* 仕切りで gap を代替するため 0 に */
   padding: var(--pane-gap);
-  height: calc(100vh - var(--header-h) - var(--footer-h));
+  flex: 1;            /* ヘッダー高さが動的なため calc() ではなく flex: 1 で残高を埋める */
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -441,6 +464,16 @@ html, body {
   border-color: var(--border);
 }
 
+/* ライトモード: アクティブタブを白背景＋青トップボーダーで明確化 */
+:root:not([data-theme="dark"]) .view-tab--active {
+  background: var(--bg);
+  color: var(--accent);
+  border-top: 2px solid var(--accent);
+  border-left-color: var(--border);
+  border-right-color: var(--border);
+  font-weight: 600;
+}
+
 .view-tab--empty {
   opacity: 0.38;
 }
@@ -448,6 +481,22 @@ html, body {
   background: transparent;
   color: var(--text-muted);
   cursor: default;
+}
+
+/* ── ビュー説明バー ─────────────────────────────────────────────── */
+.view-desc {
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-height: 20px;
+  line-height: 1.5;
+}
+
+.view-desc:empty {
+  display: none;
 }
 
 .debug-scroll {
@@ -634,13 +683,42 @@ html, body {
   flex-shrink: 0;
 }
 
-/* 2行×4列グリッド（先頭/末尾ボタンの間に配置） */
+/* ── Editモード/Runモード 表示切替 ──────────────────────────────── */
+
+/* デフォルト（Editモード）: ステップコントロールを非表示 */
+.step-controls-area {
+  display: none;
+}
+
+/* Runモード: ステップコントロールを表示、sample-select を非表示 */
+.app-header.run-mode .step-controls-area {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;       /* ナロー時: slider-area が2行目に折り返す */
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.app-header.run-mode #sample-select {
+  display: none;
+}
+
+/* スライダー＋カウンターのラッパー（flex-wrap で2行目にまとめて折り返す） */
+.slider-area {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 180px;   /* これを下回る空きしかない時、次の行に折り返す */
+}
+
+/* 1列ボタン列（先頭/末尾 → 関数 → 人 → 文 → 式） */
 .ctrl-grid {
-  display: grid;
-  grid-template-columns: repeat(4, auto);
-  grid-template-rows: 1fr 1fr;
+  display: flex;
+  align-items: stretch;
   gap: 2px;
-  align-self: center;   /* グリッド自体をフッター内で垂直中央に */
+  flex-shrink: 0;
 }
 
 .ctrl-btn {
@@ -663,11 +741,11 @@ html, body {
 .ctrl-btn:hover:not(:disabled) { background: var(--accent-bg); border-color: var(--accent); }
 .ctrl-btn:disabled { opacity: 0.3; cursor: default; }
 
-/* 先頭/末尾ナビゲーションボタン（高さをフッターいっぱいに） */
+/* 先頭/末尾ナビゲーションボタン */
 .ctrl-btn--nav {
   font-size: 16px;
   padding: 4px 14px;
-  /* align-self: stretch は step-bar の align-items: stretch から自動継承 */
+  align-self: stretch;
 }
 
 /* 細粒度ボタン（式・人）: アクセントブルー */
@@ -706,9 +784,9 @@ html, body {
 
 .step-slider {
   flex: 1;
+  min-width: 0;
   accent-color: var(--accent);
   cursor: pointer;
-  min-width: 60px;
 }
 
 .step-slider:disabled { opacity: 0.3; cursor: default; }
@@ -747,6 +825,21 @@ html, body {
 }
 .btn-secondary:hover { background: var(--border); }
 
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* header-center 内の区切り */
+.header-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 8px 2px;
+}
+
 /* Edit / Run トグルボタン */
 .btn-mode {
   background: var(--surface2);
@@ -769,6 +862,7 @@ html, body {
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   font-size: 12px;
+  flex-shrink: 0;
 }
 
 #sample-select:disabled { opacity: 0.4; }
@@ -791,6 +885,11 @@ html, body {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+}
+
+/* ライトモード: コンソールを白背景に */
+:root:not([data-theme="dark"]) .console-panel {
+  background: var(--bg);
 }
 .console-resizer {
   position: absolute;

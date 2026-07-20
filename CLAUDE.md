@@ -159,14 +159,38 @@ class TraceBuilder {
 `buildCFG()` は AST を走査してスコープ（グローバル／関数）ごとの `CfgItem[]` を構築。`CfgItem` は `type: stmt|return|jump|if|while|for|do-while|seq` を持ち、`execCount` で実行回数を記録（未実行は 0）。`buildControlFlow()` は旧実装（エッジ/ノードベース）で現在未使用。  
 すべてキャッシュ付きで、2回目以降の呼び出しは O(1)。
 
+### モード別ヘッダーレイアウト
+
+ヘッダーは **Editモード** と **Runモード** でコンテンツが切り替わります。
+
+- **Editモード**（デフォルト）: `header-center` に Edit/Run ボタン ＋ サンプルセレクトボックス
+- **Runモード**（Run 実行後）: `header-center` に Edit/Run ボタン ＋ ステップ操作バー
+
+モード切替は `app.js` が `.app-header.run-mode` クラスを付け外しし、CSS で表示/非表示を制御。
+
 ### ステップ粒度とボタンレイアウト
 
-フッターのステップ操作バーは **2行×4列グリッド**（＋両端の先頭/末尾ボタン）で構成されます。
+Runモード時、ヘッダー内ステップ操作バーは **1列（ワイド時）または2行（ナロー時）** で構成されます。
 
 ```
-⏮(高)│  ◀◀文   ◀式   ▶式   ▶▶文  │⏭(高) ── slider ── counter
-      │  ⏪関   ◁人   ▷人   ⏩関  │
+ワイド:  ⏮ ⏭ │ ⏪Func ⏩Func │ ◁Human ▷Human │ ◀◀Stmt ▶▶Stmt │ ◀Expr ▶Expr │──slider──│ counter
+ナロー:  ⏮ ⏭ │ ⏪Func ⏩Func │ ◁Human ▷Human │ ◀◀Stmt ▶▶Stmt │ ◀Expr ▶Expr
+         ──────────────────────── slider ────────────────────────── │ counter
 ```
+
+ボタン列（`.ctrl-grid`）と スライダー+カウンター（`.slider-area`）は `.step-controls-area` でまとめられ、
+`flex-wrap` により `slider-area` が 180px 未満になると2行目に折り返す。
+
+`body { min-width: 820px }` ＋ `html { overflow-x: auto }` により、820px 未満のウィンドウ幅では横スクロールバーが表示され、ヘッダー要素の重なりを防ぐ。
+
+### ビュー説明バー
+
+右ペインのタブ直下に `.view-desc` 要素を配置し、選択中のビューの説明文を表示します。
+
+- `ViewSwitcher` のコンストラクタが `view-container` の直前に `.view-desc` 要素を自動生成・挿入
+- `ViewSwitcher.register(id, label, ViewClass, description)` の第 4 引数に説明文を渡す
+- タブ切り替え時（`#activate()`）に `descEl.textContent` を更新
+- 説明文が空（Edit モードなど）のときは `display: none`（CSS の `.view-desc:empty`）
 
 | 粒度名 | キー | API | 説明 |
 |--------|------|-----|------|
@@ -220,6 +244,9 @@ class TraceBuilder {
 - `<head>` のインラインスクリプトで FOUC（Flash of Unstyled Content）を防止
   （ダーク保存時のみ `<html data-theme="dark">` を即時適用）
 - `settings-panel.js` が `<html>` の `data-theme` 属性を管理
+- **ライトモード専用スタイル**: `:root:not([data-theme="dark"])` セレクタで適用
+  - アクティブタブ: `background: var(--bg)`（白）＋ `border-top: 2px solid var(--accent)`（青）＋ `color: var(--accent)`（青）＋ `font-weight: 600`。ダークモードは変更なし
+  - コンソール背景: `background: var(--bg)`（白）。ダークモードは変更なし
 
 ### localStorage 永続化キー一覧
 

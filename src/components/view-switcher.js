@@ -20,7 +20,7 @@ export class ViewSwitcher {
   #containerEl;
 
   /**
-   * @type {Map<string, { label: string, ViewClass: Function, instance: import('../views/base-view.js').BaseView|null }>}
+   * @type {Map<string, { label: string, description: string, ViewClass: Function, instance: import('../views/base-view.js').BaseView|null }>}
    */
   #registry = new Map();
 
@@ -36,6 +36,9 @@ export class ViewSwitcher {
   /** @type {((e: KeyboardEvent) => void)|null} キーボードハンドラ */
   #keyHandler = null;
 
+  /** @type {HTMLElement} 選択ビューの説明バー */
+  #descEl = null;
+
   /**
    * @param {HTMLElement} tabsEl      タブボタン置き場
    * @param {HTMLElement} containerEl ビューコンテンツ置き場
@@ -43,18 +46,24 @@ export class ViewSwitcher {
   constructor(tabsEl, containerEl) {
     this.#tabsEl      = tabsEl;
     this.#containerEl = containerEl;
+
+    // 説明バーをタブ直下・ビューコンテナの直前に挿入
+    this.#descEl = document.createElement('div');
+    this.#descEl.className = 'view-desc';
+    containerEl.parentNode.insertBefore(this.#descEl, containerEl);
   }
 
   // ── 公開 API ──────────────────────────────────────────────────────────────
 
   /**
    * ビュークラスを登録してタブボタンを生成する。
-   * @param {string}   id         ビューの一意 ID
-   * @param {string}   label      タブに表示するラベル
-   * @param {Function} ViewClass  BaseView を継承したクラス
+   * @param {string}   id          ビューの一意 ID
+   * @param {string}   label       タブに表示するラベル
+   * @param {Function} ViewClass   BaseView を継承したクラス
+   * @param {string}   [description='']  タブ選択時に表示する説明文
    */
-  register(id, label, ViewClass) {
-    this.#registry.set(id, { label, ViewClass, instance: null });
+  register(id, label, ViewClass, description = '') {
+    this.#registry.set(id, { label, description, ViewClass, instance: null });
     this.#addTab(id, label);
   }
 
@@ -114,6 +123,7 @@ export class ViewSwitcher {
     this.#lastState = null;
     this.#builder   = null;
     this.#clearGrayout();
+    if (this.#descEl) this.#descEl.textContent = '';
   }
 
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
@@ -204,6 +214,11 @@ export class ViewSwitcher {
     this.#tabsEl.querySelectorAll('.view-tab').forEach(btn => {
       btn.classList.toggle('view-tab--active', btn.dataset.view === id);
     });
+
+    // 説明バーを更新
+    if (this.#descEl) {
+      this.#descEl.textContent = this.#registry.get(id)?.description ?? '';
+    }
 
     // 新ビューをマウント
     this.#mountView(id);

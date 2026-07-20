@@ -113,22 +113,35 @@ codeView.init(codeDisplay);
 
 // 右ペイン: ViewSwitcher でタブ切り替え管理
 const switcher = new ViewSwitcher(viewTabsEl, viewContainerEl);
-switcher.register('state',     'State',        StateView);
-switcher.register('trace',     'Trace',        LineTrace);
-switcher.register('exectrace', 'Exec Trace',   ExecTrace);
-switcher.register('subst',     'Subst',        SubstTrace);
-switcher.register('exprtrace', 'Expr',         ExprTrace);
+switcher.register('state',      'State',        StateView,
+  '現在ステップの変数値・スコープ・コールスタックを一覧表示します。');
+switcher.register('trace',      'Trace',        LineTrace,
+  'ソースの各行が何回目にどんな変数値で実行されたかを行×変数のマトリクスで確認できます。');
+switcher.register('exectrace',  'Exec Trace',   ExecTrace,
+  '代入・条件判定・関数呼び出しなど意味のある変化が起きたステップを時系列で一覧表示します。条件式の真偽も確認できます。');
+switcher.register('subst',      'Subst',        SubstTrace,
+  '再帰呼び出しを「置換モデル（関数呼び出しを等価な式に置き換えること）」で段階的に展開し、計算が縮約される過程を追跡します。');
+switcher.register('exprtrace',  'Expr',         ExprTrace,
+  '式が部分式の逐次置換によって値へ評価される過程を、ステップごとに追跡します。');
 // switcher.register('table',     'All Steps',    TraceTable);   // 非アクティブ
 // switcher.register('bar',       'Bar Chart',    BarChart);      // 非アクティブ
-switcher.register('colorbox',  'Arrays',       ColorBox);
+switcher.register('colorbox',   'Arrays',       ColorBox,
+  '配列の各要素をマス目で視覚化します。複数配列とポインタ変数を同時に表示できます。');
 // switcher.register('timeline',  'Timeline',     Timeline);      // 非アクティブ
-switcher.register('heatmap',   'Heatmap',      Heatmap);
-switcher.register('recursion', 'Rec. Tree',    RecursionTree);
-switcher.register('calltree',  'Call Tree',    CallTree);
-switcher.register('lifetime',  'Lifetime',     Lifetime);
-switcher.register('controlflow','Control Flow', ControlFlow);
-switcher.register('memory',    'Memory',       MemoryView);
-switcher.register('objgraph',  'Objects',      ObjectGraph);
+switcher.register('heatmap',    'Heatmap',      Heatmap,
+  '各行の実行回数を色の濃さで表示します。ループで繰り返し実行された行が一目でわかります。');
+switcher.register('recursion',  'Rec. Tree',    RecursionTree,
+  '再帰呼び出しの構造を木で表示します。各ノードのサブツリーコストも確認できます。');
+switcher.register('calltree',   'Call Tree',    CallTree,
+  'すべての関数呼び出し（再帰・非再帰）を呼び出し順の木構造で可視化します。');
+switcher.register('lifetime',   'Lifetime',     Lifetime,
+  '変数が「いつ生まれていつ消えるか」の生存区間をガントチャートで表示します。');
+switcher.register('controlflow','Control Flow', ControlFlow,
+  'if・while・for の分岐とループ構造をフローチャートで表示します。実行されなかったパスはグレーアウトされます。');
+switcher.register('memory',     'Memory',       MemoryView,
+  'スタックフレームとヒープのメモリ構造をボックス図で表示します。参照はポインタ矢印で示します。');
+switcher.register('objgraph',   'Objects',      ObjectGraph,
+  'オブジェクト・配列の参照関係を有向グラフで可視化します。連結リストや木構造の確認に適しています。');
 
 // ── UI コンポーネントの初期化 ──────────────────────────────────────────────
 
@@ -182,6 +195,7 @@ adapter.addEventListener('ready', (e) => {
   codeView.setSource(source);
   codeView.setTrace(adapter.getTrace());   // 呼び出し元ハイライト用マップを構築
 
+  document.querySelector('.app-header').classList.add('run-mode');
   editor.setRunningMode(true);
   stepControls.setEnabled(true);
   stepControls.update(state);
@@ -230,6 +244,7 @@ function runCode(source) {
 }
 
 function resetAll() {
+  document.querySelector('.app-header').classList.remove('run-mode');
   codeView.reset();
   switcher.reset();
   stepControls.setEnabled(false);
