@@ -10,12 +10,6 @@ Step through your code at four levels of granularity and watch the program's beh
 
 ---
 
-## Screenshots
-
-*(coming soon)*
-
----
-
 ## Features
 
 ### Step Granularity (8-direction button grid)
