@@ -17,6 +17,7 @@ import { ViewSwitcher }     from './components/view-switcher.js';
 import { SettingsPanel }    from './components/settings-panel.js';
 import { PaneResizer }      from './components/pane-resizer.js';
 import { esc }              from './utils/format.js';
+import { t, getLang, setLang } from './i18n.js';
 import { sessionLogger }   from './core/session-logger.js'; // STUDY: logRun/logReset のため残置
 import './components/study-panel.js'; // STUDY: 実験UI（削除手順は study-panel.js 冒頭を参照）
 import { CodeView }         from './views/code-view/index.js';
@@ -56,6 +57,32 @@ const consolePanelOut = $('console-output');
 const consolePanelCnt = $('console-count');
 const consolePanelEl  = $('console-panel');
 const consoleResizerEl = $('console-resizer');
+
+// ── i18n 初期化 ───────────────────────────────────────────────────────────
+
+/** [data-i18n] 要素を現在言語で一括更新する */
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.documentElement.lang = getLang();
+  const btnLang = $('btn-lang');
+  if (btnLang) btnLang.textContent = getLang() === 'ja' ? 'EN' : '日';
+}
+
+// 起動時に初期言語を適用
+applyI18n();
+
+// 言語トグルボタン
+$('btn-lang').addEventListener('click', () => {
+  setLang(getLang() === 'ja' ? 'en' : 'ja');
+});
+
+// 言語変更イベントを受信して UI を更新
+document.addEventListener('langchange', (e) => {
+  applyI18n();
+  switcher.setLang(e.detail);
+});
 
 // ── コアモジュールの初期化 ─────────────────────────────────────────────────
 
@@ -113,35 +140,74 @@ codeView.init(codeDisplay);
 
 // 右ペイン: ViewSwitcher でタブ切り替え管理
 const switcher = new ViewSwitcher(viewTabsEl, viewContainerEl);
-switcher.register('state',      'State',        StateView,
-  '現在ステップの変数値・スコープ・コールスタックを一覧表示します。');
-switcher.register('trace',      'Trace',        LineTrace,
-  'ソースの各行が何回目にどんな変数値で実行されたかを行×変数のマトリクスで確認できます。');
-switcher.register('exectrace',  'Exec Trace',   ExecTrace,
-  '代入・条件判定・関数呼び出しなど意味のある変化が起きたステップを時系列で一覧表示します。条件式の真偽も確認できます。');
-switcher.register('subst',      'Subst',        SubstTrace,
-  '再帰呼び出しを「置換モデル（関数呼び出しを等価な式に置き換えること）」で段階的に展開し、計算が縮約される過程を追跡します。');
-switcher.register('exprtrace',  'Expr',         ExprTrace,
-  '式が部分式の逐次置換によって値へ評価される過程を、ステップごとに追跡します。');
-// switcher.register('table',     'All Steps',    TraceTable);   // 非アクティブ
-// switcher.register('bar',       'Bar Chart',    BarChart);      // 非アクティブ
-switcher.register('colorbox',   'Arrays',       ColorBox,
-  '配列の各要素をマス目で視覚化します。複数配列とポインタ変数を同時に表示できます。');
-// switcher.register('timeline',  'Timeline',     Timeline);      // 非アクティブ
-switcher.register('heatmap',    'Heatmap',      Heatmap,
-  '各行の実行回数を色の濃さで表示します。ループで繰り返し実行された行が一目でわかります。');
-switcher.register('recursion',  'Rec. Tree',    RecursionTree,
-  '再帰呼び出しの構造を木で表示します。各ノードのサブツリーコストも確認できます。');
-switcher.register('calltree',   'Call Tree',    CallTree,
-  'すべての関数呼び出し（再帰・非再帰）を呼び出し順の木構造で可視化します。');
-switcher.register('lifetime',   'Lifetime',     Lifetime,
-  '変数が「いつ生まれていつ消えるか」の生存区間をガントチャートで表示します。');
-switcher.register('controlflow','Control Flow', ControlFlow,
-  'if・while・for の分岐とループ構造をフローチャートで表示します。実行されなかったパスはグレーアウトされます。');
-switcher.register('memory',     'Memory',       MemoryView,
-  'スタックフレームとヒープのメモリ構造をボックス図で表示します。参照はポインタ矢印で示します。');
-switcher.register('objgraph',   'Objects',      ObjectGraph,
-  'オブジェクト・配列の参照関係を有向グラフで可視化します。連結リストや木構造の確認に適しています。');
+switcher.register('state',
+  { ja: '変数・スタック', en: 'State' },
+  StateView,
+  { ja: '現在ステップの変数値・スコープ・コールスタックを一覧表示します。',
+    en: 'Shows variables, scopes, and call stack at the current step.' });
+switcher.register('trace',
+  { ja: 'トレース表', en: 'Trace' },
+  LineTrace,
+  { ja: 'ソースの各行が何回目にどんな変数値で実行されたかを行×変数のマトリクスで確認できます。',
+    en: 'Matrix of source lines × variables showing values at each execution.' });
+switcher.register('exectrace',
+  { ja: '実行トレース', en: 'Exec Trace' },
+  ExecTrace,
+  { ja: '代入・条件判定・関数呼び出しなど意味のある変化が起きたステップを時系列で一覧表示します。条件式の真偽も確認できます。',
+    en: 'Lists meaningful steps (assignments, conditions, calls) in chronological order. Shows truth values of conditions.' });
+switcher.register('subst',
+  { ja: '代入展開', en: 'Subst' },
+  SubstTrace,
+  { ja: '再帰呼び出しを「置換モデル（関数呼び出しを等価な式に置き換えること）」で段階的に展開し、計算が縮約される過程を追跡します。',
+    en: 'Expands recursive calls step by step using the substitution model (replacing a call with its equivalent expression).' });
+switcher.register('exprtrace',
+  { ja: '式評価', en: 'Expr' },
+  ExprTrace,
+  { ja: '式が部分式の逐次置換によって値へ評価される過程を、ステップごとに追跡します。',
+    en: 'Tracks how an expression reduces to a value through step-by-step sub-expression substitution.' });
+// switcher.register('table', ...);  // 非アクティブ
+// switcher.register('bar',   ...);  // 非アクティブ
+switcher.register('colorbox',
+  { ja: '配列', en: 'Arrays' },
+  ColorBox,
+  { ja: '配列の各要素をマス目で視覚化します。複数配列とポインタ変数を同時に表示できます。',
+    en: 'Visualizes array elements as colored cells. Displays multiple arrays and pointer variables simultaneously.' });
+// switcher.register('timeline', ...);  // 非アクティブ
+switcher.register('heatmap',
+  { ja: 'ヒートマップ', en: 'Heatmap' },
+  Heatmap,
+  { ja: '各行の実行回数を色の濃さで表示します。ループで繰り返し実行された行が一目でわかります。',
+    en: 'Shows execution frequency per line as color intensity. Highlights hot loops at a glance.' });
+switcher.register('recursion',
+  { ja: '再帰ツリー', en: 'Rec. Tree' },
+  RecursionTree,
+  { ja: '再帰呼び出しの構造を木で表示します。各ノードのサブツリーコストも確認できます。',
+    en: 'Displays recursive call structure as a tree. Each node shows its subtree cost.' });
+switcher.register('calltree',
+  { ja: '呼び出しツリー', en: 'Call Tree' },
+  CallTree,
+  { ja: 'すべての関数呼び出し（再帰・非再帰）を呼び出し順の木構造で可視化します。',
+    en: 'Visualizes all function calls (recursive and non-recursive) as an ordered call tree.' });
+switcher.register('lifetime',
+  { ja: '変数寿命', en: 'Lifetime' },
+  Lifetime,
+  { ja: '変数が「いつ生まれていつ消えるか」の生存区間をガントチャートで表示します。',
+    en: "Shows each variable's lifetime as a Gantt chart bar — when it's created and when it goes out of scope." });
+switcher.register('controlflow',
+  { ja: '制御フロー', en: 'Control Flow' },
+  ControlFlow,
+  { ja: 'if・while・for の分岐とループ構造をフローチャートで表示します。実行されなかったパスはグレーアウトされます。',
+    en: 'Displays if/while/for branching and loop structure as a flowchart. Unexecuted paths are grayed out.' });
+switcher.register('memory',
+  { ja: 'メモリ', en: 'Memory' },
+  MemoryView,
+  { ja: 'スタックフレームとヒープのメモリ構造をボックス図で表示します。参照はポインタ矢印で示します。',
+    en: 'Shows stack frames and heap memory as box diagrams. References are shown as pointer arrows.' });
+switcher.register('objgraph',
+  { ja: 'オブジェクト', en: 'Objects' },
+  ObjectGraph,
+  { ja: 'オブジェクト・配列の参照関係を有向グラフで可視化します。連結リストや木構造の確認に適しています。',
+    en: 'Visualizes object and array references as a directed graph. Ideal for linked lists and tree structures.' });
 
 // ── UI コンポーネントの初期化 ──────────────────────────────────────────────
 

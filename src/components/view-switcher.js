@@ -9,6 +9,18 @@
  */
 
 import { sessionLogger } from '../core/session-logger.js';
+import { getLang } from '../i18n.js';
+
+/**
+ * label / description は文字列または {ja, en} オブジェクトで渡せる。
+ * @param {string|{ja:string,en:string}} v
+ * @param {string} lang
+ * @returns {string}
+ */
+function resolveStr(v, lang) {
+  if (v && typeof v === 'object') return v[lang] ?? v['en'] ?? '';
+  return v ?? '';
+}
 
 const STORAGE_KEY_TAB = 'jsv-active-tab';
 
@@ -126,6 +138,21 @@ export class ViewSwitcher {
     if (this.#descEl) this.#descEl.textContent = '';
   }
 
+  /**
+   * 言語切替時に呼ぶ。タブラベルと説明バーを再レンダリングする。
+   * @param {string} lang
+   */
+  setLang(lang) {
+    for (const [id, entry] of this.#registry) {
+      const tab = this.#tabsEl.querySelector(`[data-view="${id}"]`);
+      if (tab) tab.textContent = resolveStr(entry.label, lang);
+    }
+    if (this.#activeId && this.#descEl) {
+      const entry = this.#registry.get(this.#activeId);
+      this.#descEl.textContent = resolveStr(entry?.description ?? '', lang);
+    }
+  }
+
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
 
   /**
@@ -156,7 +183,7 @@ export class ViewSwitcher {
     const btn = document.createElement('button');
     btn.className    = 'view-tab';
     btn.dataset.view = id;
-    btn.textContent  = label;
+    btn.textContent  = resolveStr(label, getLang());
     btn.addEventListener('click', () => this.#activate(id));
     this.#tabsEl.appendChild(btn);
   }
@@ -217,7 +244,9 @@ export class ViewSwitcher {
 
     // 説明バーを更新
     if (this.#descEl) {
-      this.#descEl.textContent = this.#registry.get(id)?.description ?? '';
+      this.#descEl.textContent = resolveStr(
+        this.#registry.get(id)?.description ?? '', getLang()
+      );
     }
 
     // 新ビューをマウント

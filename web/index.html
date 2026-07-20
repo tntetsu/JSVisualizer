@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,13 +28,15 @@
     <div class="header-center">
       <!-- Edit / Run（常時表示） -->
       <div class="editor-actions">
-        <button id="btn-edit" class="btn btn-mode btn-mode--active" title="Edit mode">✏ Edit</button>
-        <button id="btn-run"  class="btn btn-mode" title="Run">▶ Run</button>
+        <button id="btn-edit" class="btn btn-mode btn-mode--active"
+                title="Edit mode" data-i18n="btn-edit">✏ 編集</button>
+        <button id="btn-run"  class="btn btn-mode"
+                title="Run"       data-i18n="btn-run">▶ 実行</button>
       </div>
 
       <!-- サンプル選択（Editモードのみ） -->
       <select id="sample-select" title="Select a sample">
-        <option value="">— Sample —</option>
+        <option value="" data-i18n="sample-ph">— サンプル —</option>
       </select>
 
       <!-- ステップコントロール（Runモードのみ） -->
@@ -49,42 +51,42 @@
           <button id="btn-call-back"     class="ctrl-btn ctrl-btn--call"
                   title="Step back func (F)" disabled>
             <span class="btn-arrows">⏪</span>
-            <span class="btn-label-sm">Func</span>
+            <span class="btn-label-sm" data-i18n="label-func">関数</span>
           </button>
           <button id="btn-call-forward"  class="ctrl-btn ctrl-btn--call"
                   title="Step forward func (f)" disabled>
             <span class="btn-arrows">⏩</span>
-            <span class="btn-label-sm">Func</span>
+            <span class="btn-label-sm" data-i18n="label-func">関数</span>
           </button>
           <button id="btn-human-back"    class="ctrl-btn ctrl-btn--human"
                   title="Step back human (H)" disabled>
             <span class="btn-arrows">◁</span>
-            <span class="btn-label-sm">Human</span>
+            <span class="btn-label-sm" data-i18n="label-human">人</span>
           </button>
           <button id="btn-human-forward" class="ctrl-btn ctrl-btn--human"
                   title="Step forward human (h)" disabled>
             <span class="btn-arrows">▷</span>
-            <span class="btn-label-sm">Human</span>
+            <span class="btn-label-sm" data-i18n="label-human">人</span>
           </button>
           <button id="btn-stmt-back"     class="ctrl-btn ctrl-btn--stmt"
                   title="Step back stmt (V)" disabled>
             <span class="btn-arrows">◀◀</span>
-            <span class="btn-label-sm">Stmt</span>
+            <span class="btn-label-sm" data-i18n="label-stmt">文</span>
           </button>
           <button id="btn-stmt-forward"  class="ctrl-btn ctrl-btn--stmt"
                   title="Step forward stmt (v)" disabled>
             <span class="btn-arrows">▶▶</span>
-            <span class="btn-label-sm">Stmt</span>
+            <span class="btn-label-sm" data-i18n="label-stmt">文</span>
           </button>
           <button id="btn-expr-back"     class="ctrl-btn ctrl-btn--expr"
                   title="Step back expr (← / b)" disabled>
             <span class="btn-arrows">◀</span>
-            <span class="btn-label-sm">Expr</span>
+            <span class="btn-label-sm" data-i18n="label-expr">式</span>
           </button>
           <button id="btn-expr-forward"  class="ctrl-btn ctrl-btn--expr"
                   title="Step forward expr (→ / n)" disabled>
             <span class="btn-arrows">▶</span>
-            <span class="btn-label-sm">Expr</span>
+            <span class="btn-label-sm" data-i18n="label-expr">式</span>
           </button>
         </div>
         <!-- スライダーとカウンター（ウィンドウが狭い時は2行目に折り返す） -->
@@ -97,25 +99,26 @@
     </div>
 
     <div class="header-right">
+      <button id="btn-lang" class="btn-icon btn-lang" title="Switch language / 言語切替">EN</button>
       <button id="btn-settings" class="btn-icon" title="Settings">⚙</button>
     </div>
   </header>
 
   <!-- 設定パネル（固定配置・初期非表示） -->
   <div id="settings-panel" class="settings-panel hidden" role="dialog" aria-label="Settings">
-    <div class="settings-header">Settings</div>
+    <div class="settings-header" data-i18n="settings-title">設定</div>
     <div class="settings-body">
       <div class="settings-section">
-        <div class="settings-section-title">Theme</div>
+        <div class="settings-section-title" data-i18n="settings-theme-title">テーマ</div>
         <label class="settings-option">
           <input type="radio" name="theme" value="light" checked>
           <span class="settings-option-icon">☀️</span>
-          <span>Light</span>
+          <span data-i18n="settings-light">ライト</span>
         </label>
         <label class="settings-option">
           <input type="radio" name="theme" value="dark">
           <span class="settings-option-icon">🌙</span>
-          <span>Dark</span>
+          <span data-i18n="settings-dark">ダーク</span>
         </label>
       </div>
 
@@ -153,7 +156,7 @@
 
       <div class="pane-header">
         <div class="pane-header-left">
-          <span class="pane-title">Source</span>
+          <span class="pane-title" data-i18n="source-title">ソース</span>
           <span id="program-name" class="pane-subtitle">フィボナッチ数列（再帰）</span>
         </div>
       </div>
@@ -187,7 +190,7 @@
       <div id="console-panel" class="console-panel">
         <div id="console-resizer" class="console-resizer" title="Drag to resize"></div>
         <div class="console-panel-header">
-          Console
+          <span data-i18n="console-title">コンソール</span>
           <span id="console-count" class="console-count"></span>
         </div>
         <div id="console-output" class="console-output">

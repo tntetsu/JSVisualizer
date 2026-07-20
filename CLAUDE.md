@@ -231,6 +231,34 @@ Runモード時、ヘッダー内ステップ操作バーは **1列（ワイド�
 `isFunctionVal(v)` は LineTrace・TraceBuilder・MemoryView・ObjectGraph で共通で使用し、
 `v.__type__ === 'JSFunction'` / `'JSClass'` またはネイティブ関数を除外します。
 
+### 言語切替（i18n）
+
+`src/i18n.js` が UI テキストの日英切り替えを管理します。
+
+```js
+import { t, getLang, setLang } from './i18n.js';
+
+t('btn-edit')      // 現在言語の文字列を返す（ja: '✏ 編集', en: '✏ Edit'）
+setLang('en')      // 言語変更 → localStorage 保存 → 'langchange' カスタムイベント発火
+```
+
+**ローカライズ方式**:
+- 静的 HTML 要素: `data-i18n="key"` 属性を付与。`applyI18n()` が `textContent` を一括更新
+- タブラベル・説明文: `ViewSwitcher.register()` の label/description に `{ ja: '...', en: '...' }` オブジェクトを渡す。`setLang()` 呼び出しで `ViewSwitcher.setLang()` がタブと説明バーを再描画
+- `resolveStr(v, lang)`: v が文字列ならそのまま返し、`{ja, en}` オブジェクトなら lang キーを参照するヘルパー（view-switcher.js 内）
+
+**言語変更フロー**:
+```
+ENボタンクリック → setLang('en') → dispatchEvent('langchange')
+→ applyI18n()       // [data-i18n] 要素を一括更新 + html[lang] 属性を更新
+→ switcher.setLang() // タブラベル・説明バーを再描画
+```
+
+**永続化**: `localStorage('jsv-lang')`（`'ja'` または `'en'`、デフォルト `'ja'`）
+
+**ローカライズ対象**: ボタンラベル・タブラベル・説明文・コンソールタイトル・設定パネルテキスト（約 46 項目）
+**ローカライズ非対象**: エラーメッセージ（JSInterpreter から）・サンプルプログラム名
+
 ### テーマシステム
 
 `web/style.css` では CSS カスタムプロパティによる 2 テーマを実装しています。
