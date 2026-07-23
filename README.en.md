@@ -71,6 +71,10 @@ The code panel simultaneously displays three highlight layers:
 Click the ⚙ button (top-right) to switch between **Light** and **Dark** themes.  
 Default is Light. The setting is saved and restored on next visit.
 
+### Language (日本語 / English)
+
+Click the **EN / 日** button in the header to switch the display language. Button labels, tab names, descriptions, and the settings panel (about 46 items) update instantly. Default is Japanese. The setting is saved and restored on next visit (error messages and sample program names are not localized).
+
 ### Miscellaneous
 
 - **Step-back support** — Go back to any previous step (O(1))

@@ -1,9 +1,9 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 1.0  
+**バージョン**: 2.0  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-06-16 (v1.7)  
+**最終更新**: 2026-07-23 (v2.0)  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -29,6 +29,9 @@
 | 1.6 | 2026-06-16 | JSInterpreter の `var`/`let`/`const` セマンティクスを ES2022 仕様に準拠させる大規模修正。`Environment` に `kind`（`'block'`/`'function'`/`'global'`）・`immutables: Set<string>`・`getFunctionScope()`・`markConst()` を追加、`TDZ_SENTINEL = Symbol('TDZ')` を導入。`hoistVars`（var 宣言の関数スコープ巻き上げ）・`hoistLexicals`（let/const の TDZ 事前定義）・`checkNoRedecl`（let/const 再宣言検出）・`markConstNames`（const 不変マーク）を追加。`ForStatement` の `for (let …)` でイテレーションごとの `iterEnv`（クロージャ用）と `updateEnv`（更新式専用コピー）を生成し、クロージャが正しく各イテレーションの値を捕捉することを保証。全 249 テストがパス。詳細は § 1.3 を参照 |
 | 1.3 | 2026-06-05 | SubstTrace（代入展開）・ExprTrace（式評価）ビューを新規追加。タブ登録数 14 → 16。SubstTrace: `computeReturnExpr` が ReturnStatement 引数を Identifier/CallExpression 逐次置換し `buildSubstitutionLines` で展開行を構築。CSS `.stx-*`。ExprTrace: `buildSectionRows` が exit イベントを走査して置換リスト（`addSubstitution`/`applySubstitutions`）を更新し行を生成。`srcPosToDispPos` / `srcRangeToDispRange` でソース座標→表示座標変換。CSS `.xev-*`。両ビューに expanded（橙）/ pending（青太字）の 2 色ハイライトを実装。app.js に SubstTrace・ExprTrace のタブ登録を追加 |
 | 1.7 | 2026-06-16 | (1) **エラー位置ジャンプ＆ブリンク**: `debugger-adapter.js` の `load()` でエラー発生時に `loc`（行・列）を抽出し `CustomEvent('error')` の detail に付与（抽出順: `err.loc` → `err.line/column` → メッセージ正規表現 `[Parser|Lexer|Runtime] N:M:`）。`app.js` が `loc` を `editor.showError()` に転送。`code-editor.js` の `showError(msg, errorType, loc)` が `#moveCursorToError(loc)` を呼び出してカーソルをエラー行に移動。ブリンクは `box-shadow: inset 0 0 0 9999px rgba(220,38,38,0.18)` のキーフレームアニメーション（CSS `background` は CM テーマが `transparent !important` で上書きするため box-shadow を使用）。ダブル RAF パターンで CM レンダリング後に `.cm-activeLine` 確定を待ってからブリンク開始。エラーバッジ `mousedown` で `e.preventDefault()` によりフォーカスを維持。エラーバッジクリックで `#moveCursorToError()` を再呼び出し（再ジャンプ＆再ブリンク）。(2) **タブ折り返し**: `.view-tabs` に `flex-wrap: wrap` 追加。ウィンドウ幅不足時にタブを複数行で表示。(3) **Lifetime 動的幅計算**: 固定 `PX_PER_STEP=100` を廃止。セグメントごとにラベル文字数からチャート必要幅を計算し `MIN_CHART_W`（580px）〜`MIN_CHART_W*3`（1740px）でクランプ（`CHAR_PX=5`、`BAR_PAD=14`）。(4) **BarChart hasContent バグ修正**: `flattenEnv()` が返す `Map` を `Object.entries()` でイテレートしていた誤りを `for (const [k,v] of vars)` に修正。(5) **英語ドキュメント**: `README.en.md`・`docs/functional-spec.en.md` を新規追加。各日本語版と相互リンク |
+| 1.8 | 2026-07-17 | (1) **タブ整理**: `trace-table`（全ステップ表）・`bar-chart`（棒グラフ）・`timeline`（時系列）をタブ非登録に変更。タブ登録数 16 → 13（詳細は §3.6 の各ビュー節に非アクティブ注記を追加）。(2) **ControlFlow 刷新**: 旧 `buildControlFlow()`（エッジベース SVG）を `buildCFG()`（AST ベース DOM フローチャート）に置換。§3.6 `control-flow/` 節を全面書き換え。詳細は ADR-018。(3) **execCount 修正**: `CfgBuilder` の行実行回数カウントを「行遷移時のみ」カウントに修正（同一行への複数 AST enter を 1 回として扱う）。(4) **SubstTrace・ExprTrace オブジェクト展開**: `fmtPlain(v, depth)` を追加し `depth < 3` では値のみ再帰展開、`depth >= 3` で `{…}` に省略。(5) **サンプル拡充**: Study Tasks 4 種追加（studyWarmup/studyTask1〜3）。サンプル総数 17 → 21、テスト総数 66 → 70 件 |
+| 1.9 | 2026-07-20 | **ヘッダーレイアウト刷新・ビュー説明バー**: (1) Edit モードは Edit/Run ボタン＋サンプルセレクト、Run モードは Edit/Run ボタン＋ステップ操作バーを `.app-header` 中央に表示するモード切替に変更（footer 廃止）。`.app-header.run-mode` クラスで CSS 表示切替。(2) `.step-controls-area` を `.ctrl-grid`（ボタン群）＋ `.slider-area`（スライダー＋カウンタ）に分割し、`flex-wrap` で `slider-area` が 180px 未満のとき 2 行目に折り返す。`body { min-width: 820px }` + `html { overflow-x: auto }` で最小幅未満は横スクロール。(3) **ビュー説明バー**: `ViewSwitcher` コンストラクタが `view-container` 直前に `.view-desc` 要素を自動生成。`register()` の第 4 引数 `description` をタブ切り替え時に表示（詳細は §4.2 の更新箇所）。(4) **ライトモード UI 改善**: アクティブタブを白背景＋青トップボーダー＋青文字＋太字（`:root:not([data-theme="dark"])`）。コンソール背景をライトモードのみ白に変更 |
+| 2.0 | 2026-07-20 | **言語切替（i18n）システムを新規追加**（ADR-025 参照）。`src/i18n.js`（`STRINGS`・`t()`/`getLang()`/`setLang()`・`langchange` イベント）を新設。§3.8 として詳細設計を追加。`ViewSwitcher.register()` の label/description が文字列 or `{ja,en}` オブジェクトを受け付けるよう拡張し `resolveStr()` ヘルパーを追加、`setLang()` メソッドで再描画（§4.2 更新）。`localStorage('jsv-lang')` を新設。§3.7 として `session-logger.js`（ADR-024・2026-07-16 導入）の詳細設計も本書に追記（従来 ADR のみに記載され本書に未反映だったため） |
 
 ---
 
@@ -39,7 +42,7 @@
 │  ブラウザ                                                                 │
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────────┐│
-│  │  app.js  （全体協調・イベントバス）                                     ││
+│  │  app.js  （全体協調・イベントバス）／ i18n.js（日英切替・全モジュール横断）  ││
 │  └─────┬───────────┬─────────────────────────┬────────────────────────┘ │
 │        │           │                          │                          │
 │  ┌─────▼───────┐ ┌─▼──────────────────┐ ┌────▼──────────────────────┐   │
@@ -48,15 +51,15 @@
 │  │ code-editor │ │ debugger-adapter   │ │ code-view        ✅       │   │
 │  │ pane-       │ │ step-controller    │ │ state-view       ✅       │   │
 │  │ resizer     │ │ trace-builder      │ │ scope-view       ✅       │   │
-│  │ step-       │ └────────┬───────────┘ │ callstack-view   ✅       │   │
-│  │ controls    │          │             │ line-trace       ✅       │   │
+│  │ step-       │ │ session-logger     │ │ callstack-view   ✅       │   │
+│  │ controls    │ └────────┬───────────┘ │ line-trace       ✅       │   │
 │  │ view-       │          │             │ trace-table      ✅       │   │
 │  │ switcher    │          │             │ bar-chart        ✅       │   │
 │  │ settings-   │          │             │ color-box        ✅       │   │
 │  │ panel       │          │             │ ...              ✅       │   │
-│  └─────────────┘          │             │                           │   │
-│                            │             │ timeline         ✅       │   │
-│                            │             │ heatmap          ✅       │   │
+│  │ study-panel │          │             │                           │   │
+│  │ (STUDY用)   │          │             │ timeline         ✅       │   │
+│  └─────────────┘          │             │ heatmap          ✅       │   │
 │                            │             │ recursion-tree   ✅       │   │
 │                            │             │ lifetime         ✅       │   │
 │                            │             │ control-flow     ✅       │   │
@@ -1105,26 +1108,48 @@ const hiToX = (hi) => LABEL_W + (hi / maxHi) * CHART_W;
 
 ---
 
-#### `control-flow/` — 制御フロー SVG ✅
+#### `control-flow/` — 制御フロー（AST ベース DOM フローチャート）✅
 
-**データ取得**: `builder.buildControlFlow()` → `{ nodes, edges, humanSteps }`
+> 2026-07-17（v1.8）に SVG エッジベースの旧実装から刷新（ADR-018 参照）。
+> 旧実装 `buildControlFlow()` は `trace-builder.js` に後方互換のため残置しているが未使用。
 
-**レイアウト定数**:
-```js
-const NODE_H=36, NODE_W=320, STEP_H=NODE_H+26, LEFT_PAD=70, RIGHT_PAD=60;
+**データ取得**: `builder.buildCFG()` → `ScopeNode[]`（グローバル／関数スコープごとに独立したツリー）
+
+各スコープは `CfgItem[]` を持ち、`CfgItem.type` は以下のいずれか:
+
+```
+stmt | return | jump | if | while | for | do-while | seq
 ```
 
-**ノード配置**: `firstSeen` 順に上から等間隔に配置
+`CfgItem.execCount` に実行回数を保持（未実行なら `0`）。SVG ではなく **通常の DOM 要素**
+（`<div class="cf-node">` 等）でフローチャートを描画する点が他の構造系ビュー
+（RecursionTree・CallTree・Lifetime・ObjectGraph）と異なる（§3.5 参照）。
 
-**エッジ種別**:
-| 種別 | 判定 | CSS クラス | 色 |
-|------|------|----------|----|
-| 順方向 | `toIdx > fromIdx` | `cf-edge` | 青（`var(--accent)`） |
-| 戻りエッジ | `toIdx <= fromIdx` | `cf-edge cf-edge--back` | オレンジ（`var(--hl-orange)`） |
+**ノード種別と描画**:
 
-**ノード背景色**: 実行回数に応じて HSL 220（薄青）→ HSL 20（オレンジ）でグラデーション
+| `type` | 描画 | CSS クラス |
+|--------|------|-----------|
+| `stmt` | 通常の矩形ブロック | `cf-node` |
+| `return` | 緑枠ブロック | `cf-node cf-node--return` |
+| `jump`（break/continue） | 紫枠ブロック | `cf-node cf-node--jump` |
+| `if` | ◇ アイコン＋ true/false の 2 列を横並び表示 | `cf-node cf-node--cond` |
+| `while` / `for` / `do-while` | ↺ アイコン＋条件＋インデントされた本体 | `cf-node cf-node--cond cf-node--loop` |
+| `seq` | 文列のグループ（入れ子コンテナ） | — |
 
-**update()**: `state.event.loc.line` に対応するノードに `.cf-node--active` を付与
+**未実行ノードのグレーアウト**: `item.execCount === 0` のとき `cf-node--dead` クラスを付与し、
+実行回数バッジ（`cf-exec-badge`、`×N` 形式）は非表示にする。実行済みノードには
+バッジで `×3` のように実行回数を表示する。通らなかった分岐（if の未実行側、
+呼ばれなかったループ）が一目でわかることが本ビュー最大の狙い。
+
+**ラベル省略**: `clip(s)` が `MAX_LABEL=46` 文字を超えるラベルを `…` で切り詰める。
+
+**update()**: `state.event.loc.line` と一致する最初の `.cf-node[data-line]` を
+`querySelector` で検索し `.cf-node--active` を付与（前回のアクティブは解除）。
+
+**execCount のカウント方式**（`CfgBuilder`、`trace-builder.js` 内部クラス）: 全 AST enter
+イベントではなく「直前と異なる行に enter したときだけ」カウントする
+（同一行に複数の AST ノードが enter しても 1 実行として扱う。v1.8 で修正済み — 修正前は
+式ネストの数だけ多重カウントするバグがあった）。
 
 ---
 
@@ -1224,6 +1249,112 @@ function layoutGraph(nodes, edges) {
 
 ---
 
+### 3.7 `src/core/session-logger.js`（評価実験用・STUDY: 削除可）✅
+
+**責務**: 操作ログの蓄積・JSON/CSV エクスポート。ADR-024 参照。
+
+```js
+class SessionLogger {
+  #entries = []            // { t, type, ... }[]
+  #sessionStart = null     // Date.now() またはセッション未開始なら null
+  #listeners = []          // (count: number) => void
+
+  get isActive() { return this.#sessionStart !== null; }
+  get count()    { return this.#entries.length; }
+
+  startSession()              { this.#entries = []; this.#sessionStart = Date.now(); this.#notify(); }
+  logRun(sampleName, traceLength)                { this.#log({ type: 'run', sampleName, traceLength }); }
+  logReset()                                     { this.#log({ type: 'reset' }); }
+  logStep(action, cursorBefore, cursorAfter)     { this.#log({ type: 'step', action, cursorBefore, cursorAfter }); }
+  logView(viewId)                                { this.#log({ type: 'view', viewId }); }
+  logMarker(label)                               { this.#log({ type: 'marker', label: label.trim() || '(無題)' }); }
+
+  exportJSON() { /* Blob + <a> ダウンロード, ファイル名 jsv-log-YYYYMMDD-HHmmss.json */ }
+  exportCSV()  { /* 同上 .csv、ヘッダ: t_ms,type,action,cursor_before,cursor_after,view_id,sample_name,trace_length,label */ }
+
+  onCountChange(fn) { this.#listeners.push(fn); }  // UI カウンタ更新用
+
+  #log(entry) {
+    if (!this.#sessionStart) return;   // 非アクティブ時は完全 no-op
+    this.#entries.push({ t: Date.now() - this.#sessionStart, ...entry });
+    this.#notify();
+  }
+}
+
+export const sessionLogger = new SessionLogger();  // モジュール単位シングルトン
+```
+
+**呼び出し元**:
+
+| モジュール | 呼び出し |
+|-----------|---------|
+| `step-controller.js` | 9 操作すべてで `logStep(action, before, after)` |
+| `view-switcher.js` | `#activate()` 内で `logView(id)` |
+| `app.js` | `resetAll()` で `logReset()`、`'ready'` イベントで `logRun()` |
+| `study-panel.js` | `Start Session` / ワンクリックマーカー9個 / 自由入力マーカー / JSON・CSV エクスポートボタンの配線 |
+
+**非アクティブ時 no-op の設計**: `#log()` の先頭で `#sessionStart` の有無を見て早期リターンする。
+これにより実験モードを使わない通常利用時（`sessionLogger.startSession()` を一度も呼ばない限り）は
+一切のオーバーヘッド・副作用が発生しない。実験終了後に `study-panel.js` と `index.html` の
+`<!-- STUDY MODE -->` ブロックを削除するだけで、`session-logger.js` 本体・各モジュールの
+`logStep`/`logView` 呼び出しは残置しても無害。
+
+---
+
+### 3.8 `src/i18n.js`
+
+**責務**: UI 文字列の日英切り替え。ADR-025 参照。
+
+```js
+const STRINGS = { ja: { 'btn-edit': '✏ 編集', ... }, en: { 'btn-edit': '✏ Edit', ... } };
+const STORAGE_KEY = 'jsv-lang';
+let currentLang = /* localStorage から復元、'ja'|'en' 以外は 'ja' */;
+
+export function t(key)        { return STRINGS[currentLang]?.[key] ?? STRINGS['en']?.[key] ?? key; }
+export function getLang()     { return currentLang; }
+export function setLang(lang) {
+  if (lang === currentLang) return;
+  currentLang = lang;
+  try { localStorage.setItem(STORAGE_KEY, lang); } catch { /* ignore */ }
+  document.dispatchEvent(new CustomEvent('langchange', { detail: lang }));
+}
+```
+
+**`app.js` 側の初期化・配線**（`i18n.js` 自体は DOM に触れない、純粋な状態管理モジュール）:
+
+```js
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.documentElement.lang = getLang();
+  const btnLang = $('btn-lang');
+  if (btnLang) btnLang.textContent = getLang() === 'ja' ? 'EN' : '日';  // 次に切り替わる言語を表示
+}
+
+applyI18n();  // 起動時に初期言語を適用
+
+$('btn-lang').addEventListener('click', () => setLang(getLang() === 'ja' ? 'en' : 'ja'));
+
+document.addEventListener('langchange', (e) => {
+  applyI18n();             // [data-i18n] 要素・html[lang]・ボタン文字を更新
+  switcher.setLang(e.detail);  // タブラベル・ビュー説明バーを更新（§4.2 参照）
+});
+```
+
+**2 系統のローカライズ方式**:
+
+| 対象 | 方式 | 更新関数 |
+|------|------|---------|
+| 静的 HTML（ボタン・見出し等） | `data-i18n="key"` 属性 → `t(key)` | `applyI18n()`（`app.js`） |
+| タブラベル・ビュー説明文（JS が動的生成する文字列） | `{ ja: '...', en: '...' }` オブジェクトを直接渡す → `resolveStr(v, lang)` | `ViewSwitcher.setLang()`（§4.2） |
+
+`resolveStr(v, lang)`（`view-switcher.js` 内のヘルパー）は `v` が文字列ならそのまま返し、
+`{ja, en}` オブジェクトなら `v[lang]` を返す。この関数のおかげで `ViewSwitcher.register()` は
+呼び出し側がどちらの型で渡してきても区別せずに扱える。
+
+**対象外**: エラーメッセージ（JSInterpreter 由来で追跡困難）・サンプルプログラム名（固有名詞的）。
+
+---
+
 ## 4. コンポーネント設計
 
 ### 4.1 `components/step-controls.js` ✅
@@ -1275,8 +1406,10 @@ const STORAGE_KEY_TAB = 'jsv-active-tab';
 **重要メソッド**:
 
 ```js
-register(id, label, ViewClass)
+register(id, label, ViewClass, description = '')
 // タブボタンを生成して registry に登録
+// label / description は文字列または { ja, en } オブジェクトのどちらも受け付ける
+// （resolveStr(v, lang) が現在言語のキーを解決。文字列ならそのまま返す）
 
 onReady(state, builder)
 // アクティブビューを destroy → 再 init する
@@ -1290,7 +1423,19 @@ update(state)
 reset()
 // 全 instance を destroy して null にする
 // → キーボードショートカットを解除（#unregisterKeyboard）
+
+setLang(lang)
+// 'langchange' イベント購読で呼ばれる。全タブボタンの textContent と
+// #descEl（下記）を resolveStr(entry.label/description, lang) で再描画する
+// ビューの init/update は再実行しない（表示中の可視化データ自体は言語非依存のため）
 ```
+
+**ビュー説明バー（`#descEl`）**:
+
+コンストラクタが `view-container` の直前に `.view-desc` 要素（`#descEl`）を自動生成・挿入する。
+`#activate(id)` 実行時（タブ切り替え時）と `setLang(lang)` 実行時の両方で、
+`resolveStr(entry.description, getLang())` を `#descEl.textContent` に反映する。
+説明文が空文字列（Edit モード等）のときは CSS の `.view-desc:empty { display: none }` で非表示になる。
 
 **キーボードショートカット設計** (`#registerKeyboard` / `#unregisterKeyboard`):
 

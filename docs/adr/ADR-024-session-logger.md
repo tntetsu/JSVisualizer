@@ -45,11 +45,19 @@ slider               — スライダードラッグ
 
 ### UI
 
-設定パネル内に Session Log セクションを追加:
+設定パネル内に Session Log セクションを追加（`src/components/study-panel.js`）:
 - `Start Session` ボタン → セッション開始・エントリリセット
-- `Marker label` テキスト入力 + `Add` ボタン → 任意マーカーを挿入
+- **ワンクリックマーカーボタン（9個）**: `MARKERS` 定数（`{label, display}[]`）から動的生成。
+  `task{1,2,3}-{start,hint,done}` の9種類を1クリックで記録できる（実験者・参加者どちらが押すかは
+  プロトコル側の運用で決める。セッション非アクティブ時は全ボタン disabled）
+- `Marker label` テキスト入力 + `Add` ボタン → 上記9種以外の任意マーカーを挿入（Enter キーでも送信）
 - `JSON` / `CSV` エクスポートボタン（エントリが 0 件の間は disabled）
 - ステータス表示（Inactive / Recording (N entries)）
+
+ワンクリックマーカーを導入した理由: 自由記述の `Marker label` 入力だけだと、タスク切替のたびに
+文字列を手入力する手間と表記ゆれ（`task1-start` / `Task1Start` 等）のリスクがある。
+定型のラベルはボタン化してタイプミスと入力コストを排除し、それ以外の非定型な記録だけ
+自由入力欄に残した。
 
 ## 結果
 

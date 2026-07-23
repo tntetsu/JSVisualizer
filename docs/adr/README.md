@@ -1,7 +1,7 @@
 # JSVisualizer — アーキテクチャ決定記録（ADR）
 
 このディレクトリには、JSVisualizer の設計で行った重要な決定を記録した ADR（Architecture Decision Record）が含まれています。  
-git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2026-06-14 に作成。2026-06-15 に ADR-016〜019 を追加。2026-06-16 に ADR-020〜023 を追加。
+git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2026-06-14 に作成。2026-06-15 に ADR-016〜019 を追加。2026-06-16 に ADR-020〜023 を追加。2026-07-23 に ADR-024〜025 を追加。
 
 ## 一覧
 
@@ -30,3 +30,5 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [021](ADR-021-objectgraph-hierarchical-layout.md) | ObjectGraph の階層型レイアウト（Kahn トポソート + 最長パス法） | 2026-06-16 |
 | [022](ADR-022-formatvaluediff-diff-highlight.md) | formatValueDiff による差分強調表示 | 2026-06-16 |
 | [023](ADR-023-var-let-const-semantics.md) | var/let/const スコープセマンティクスの正確な実装 | 2026-06-16 |
+| [024](ADR-024-session-logger.md) | Session Logger — 操作ログ機能（ワンクリックマーカー含む） | 2026-07-16 |
+| [025](ADR-025-i18n-system.md) | 言語切替（i18n）システム | 2026-07-20 |

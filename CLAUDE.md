@@ -21,8 +21,11 @@ JSVisualizer/
 │   ├── core/
 │   │   ├── debugger-adapter.js   # JSDebugger ラッパー・差分検出・エラー種別判定
 │   │   ├── step-controller.js    # ステップ粒度の統合管理（4粒度×前後 + start/end）
-│   │   ├── trace-builder.js      # 全トレースデータの事前集計（6メソッド）
+│   │   ├── trace-builder.js      # 全トレースデータの事前集計（8メソッド）
 │   │   └── session-logger.js     # 操作ログ記録（評価実験用）JSON/CSV エクスポート
+│   ├── i18n.js                   # 日英表示切替（STRINGS/t/getLang/setLang・langchange イベント）
+│   ├── utils/
+│   │   └── format.js             # formatValueDiff・mergeScopesForDisplay 等の表示整形ヘルパー
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
 │   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅
 │   │   ├── state-view/           # 変数・コールスタック統合パネル（Console は常時パネルへ移動）✅
@@ -62,15 +65,19 @@ JSVisualizer/
 │       └── samples.test.js       # 21サンプルコード全エラーなし・trace ≥ 1 確認
 ├── docs/
 │   ├── functional-spec.md        # 機能仕様書
+│   ├── functional-spec.en.md     # 機能仕様書（英語版）
 │   ├── design.md                 # 詳細設計書
 │   ├── development-plan.md       # 開発計画書
-│   ├── adr/                      # Architecture Decision Records（ADR-001〜ADR-024）
-│   └── study/                    # 評価実験資料（CELDA 2026 向け）← STUDY: 削除可
-│       ├── participant-guide.md  #   参加者向け説明資料（同意書・操作説明）
+│   ├── adr/                      # Architecture Decision Records（ADR-001〜ADR-025）
+│   └── study/                    # 評価実験資料（CELDA 2026 向け・.gitignore 対象）← STUDY: 削除可
+│       ├── consent-form.md       #   研究参加同意書
+│       ├── participant-guide.md  #   参加者向け説明資料（操作説明）
 │       ├── questionnaire.md      #   アンケート（SUS + カスタム項目 + タスク別回答欄）
-│       └── experimenter-protocol.md # 実験者用（進行スクリプト・正解・SUS採点シート）
+│       ├── experimenter-protocol.md # 実験者用（進行スクリプト・正解・ヒントカード・SUS採点シート）
+│       └── paper-research-notes.md  # 論文ネタ整理メモ（内部用）
 ├── CLAUDE.md                     # このファイル
 ├── README.md
+├── README.en.md                  # README（英語版）
 └── package.json
 ```
 
@@ -284,6 +291,7 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 | `jsv-active-tab` | アクティブタブ ID | `view-switcher.js` |
 | `jsv-editor-pct` | エディタペイン幅（% 文字列、15〜75 の範囲） | `pane-resizer.js` |
 | `jsv-console-h` | コンソールパネル高さ（px 整数、40〜400 の範囲） | `app.js`（コンソールリサイザー） |
+| `jsv-lang` | 表示言語選択（`'ja'` または `'en'`、デフォルト `'ja'`） | `i18n.js` |
 
 ### キーボードショートカット一覧
 
