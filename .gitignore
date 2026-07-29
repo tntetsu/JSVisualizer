@@ -4,3 +4,6 @@ web/app.bundle.js
 
 # 評価実験資料（正解・ヒント等を含むため非公開）
 docs/study/
+
+# ローカル環境固有のClaude Code権限設定（個人ごとに異なるため非公開）
+.claude/settings.local.json
