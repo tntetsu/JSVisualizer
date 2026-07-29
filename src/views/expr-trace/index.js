@@ -17,6 +17,7 @@
 
 import { BaseView } from '../base-view.js';
 import { esc }      from '../../utils/format.js';
+import { t }        from '../../i18n.js';
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────────
 
@@ -580,7 +581,7 @@ export class ExprTrace extends BaseView {
       // 初期状態は全セクション非表示（update() が表示制御する）
       html += '<div class="xev-section xev-section--hidden"><table class="xev-table">';
       html += '<thead><tr>';
-      html += '<th class="xev-th xev-col-expr">式</th>';
+      html += `<th class="xev-th xev-col-expr">${esc(t('exprtrace-col-expr'))}</th>`;
       for (const name of varNames) {
         html += `<th class="xev-th xev-col-var">${esc(name)}</th>`;
       }

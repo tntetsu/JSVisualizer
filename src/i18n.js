@@ -21,6 +21,8 @@ const STRINGS = {
     'label-human':           '人',
     'label-stmt':            '文',
     'label-expr':            '式',
+    // ── ExprTrace ビュー ──────────────────────────────────────
+    'exprtrace-col-expr':    '式',
     // ── コンソール ────────────────────────────────────────────
     'console-title':         'コンソール',
     // ── 設定パネル ────────────────────────────────────────────
@@ -38,6 +40,7 @@ const STRINGS = {
     'label-human':           'Human',
     'label-stmt':            'Stmt',
     'label-expr':            'Expr',
+    'exprtrace-col-expr':    'Expression',
     'console-title':         'Console',
     'settings-title':        'Settings',
     'settings-theme-title':  'Theme',
