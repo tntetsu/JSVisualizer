@@ -10,6 +10,7 @@
  */
 
 import { BaseView } from '../base-view.js';
+import { t }        from '../../i18n.js';
 
 const SVG_NS  = 'http://www.w3.org/2000/svg';
 const NODE_W  = 160;   // 引数表示のため幅を拡大
@@ -155,7 +156,7 @@ export class RecursionTree extends BaseView {
       return;
     }
 
-    container.innerHTML = '<div class="rt-wrap"><svg class="rt-svg" role="img" aria-label="Recursion tree" xmlns="http://www.w3.org/2000/svg"></svg></div>';
+    container.innerHTML = `<div class="rt-wrap"><svg class="rt-svg" role="img" aria-label="${t('recursiontree-aria')}" xmlns="http://www.w3.org/2000/svg"></svg></div>`;
     this.#svgEl = container.querySelector('.rt-svg');
 
     // 全ノードを id → object に登録

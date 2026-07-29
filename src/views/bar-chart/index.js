@@ -11,6 +11,7 @@
 
 import { BaseView }                       from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES }      from '../../utils/format.js';
+import { t }                              from '../../i18n.js';
 
 /** グラフ本体の高さ (px) */
 const CHART_H = 160;
@@ -260,7 +261,7 @@ export class BarChart extends BaseView {
     if (!anyRendered && this.#groupEls.size === 0) {
       const msg = document.createElement('p');
       msg.className   = 'bc-empty bc-empty-step';
-      msg.textContent = 'Step forward to see the bar chart';
+      msg.textContent = t('barchart-empty');
       this.#chartEl.appendChild(msg);
     }
   }

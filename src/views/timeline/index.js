@@ -9,6 +9,7 @@
 
 import { BaseView }                  from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES } from '../../utils/format.js';
+import { t }                         from '../../i18n.js';
 
 /** 折れ線グラフの色パレット */
 const LINE_COLORS = [
@@ -72,7 +73,7 @@ export class Timeline extends BaseView {
     this.#svgEl   = container.querySelector('.tl-svg');
 
     if (this.#allVarMeta.length === 0) {
-      this.#chipsEl.innerHTML = '<span class="tl-empty">No numeric variables found</span>';
+      this.#chipsEl.innerHTML = `<span class="tl-empty">${t('timeline-empty')}</span>`;
       return;
     }
 

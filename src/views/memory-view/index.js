@@ -10,6 +10,7 @@
 
 import { BaseView }                      from '../base-view.js';
 import { formatValue, BUILTIN_NAMES, esc, mergeScopesForDisplay } from '../../utils/format.js';
+import { t }                             from '../../i18n.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -228,7 +229,7 @@ export class MemoryView extends BaseView {
   /** ヒープパネルを更新する */
   #renderHeap(heap) {
     if (heap.length === 0) {
-      this.#heapEl.innerHTML = '<p class="placeholder">オブジェクトなし</p>';
+      this.#heapEl.innerHTML = `<p class="placeholder">${esc(t('memoryview-empty'))}</p>`;
       return;
     }
 

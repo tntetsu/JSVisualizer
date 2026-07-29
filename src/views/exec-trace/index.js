@@ -14,6 +14,7 @@
 
 import { BaseView } from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES, formatValue, formatValueDiff, esc } from '../../utils/format.js';
+import { t } from '../../i18n.js';
 
 // ── 条件式ヘルパー（LineTrace と共通ロジック） ──────────────────────────────
 
@@ -124,7 +125,7 @@ export class ExecTrace extends BaseView {
     this.#humanSteps = humanSteps;
 
     if (humanSteps.length === 0) {
-      container.innerHTML = '<div class="et-wrap"><p class="et-empty">ステップがありません</p></div>';
+      container.innerHTML = `<div class="et-wrap"><p class="et-empty">${esc(t('exectrace-empty'))}</p></div>`;
       this.#rowEls = [];
       return;
     }
@@ -165,8 +166,8 @@ export class ExecTrace extends BaseView {
     let html = '<div class="et-wrap"><table class="et-table"><thead>';
     html += '<tr class="et-thead-row">';
     html += '<th class="et-th et-col-num">#</th>';
-    html += '<th class="et-th et-col-line">行</th>';
-    html += '<th class="et-th et-col-code">コード</th>';
+    html += `<th class="et-th et-col-line">${esc(t('exectrace-col-line'))}</th>`;
+    html += `<th class="et-th et-col-code">${esc(t('exectrace-col-code'))}</th>`;
     for (const name of varNames) {
       html += `<th class="et-th et-col-var">${esc(name)}</th>`;
     }

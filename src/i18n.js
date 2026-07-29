@@ -23,6 +23,31 @@ const STRINGS = {
     'label-expr':            '式',
     // ── ExprTrace ビュー ──────────────────────────────────────
     'exprtrace-col-expr':    '式',
+    'exprtrace-empty':       '式評価ステップが検出されませんでした',
+    // ── ExecTrace ビュー ──────────────────────────────────────
+    'exectrace-empty':       'ステップがありません',
+    'exectrace-col-line':    '行',
+    'exectrace-col-code':    'コード',
+    // ── ColorBox（配列）ビュー ─────────────────────────────────
+    'colorbox-empty':        '選択された配列が見つかりません',
+    'colorbox-no-arrays':    '配列変数が見つかりません',
+    // ── CallTree / RecursionTree ビュー（アクセシビリティラベル） ─
+    'calltree-aria':         '呼び出しツリー',
+    'recursiontree-aria':    '再帰ツリー',
+    // ── BarChart / Timeline ビュー（非アクティブタブ） ──────────
+    'barchart-empty':        'ステップを進めると棒グラフが表示されます',
+    'timeline-empty':        '数値型の変数が見つかりません',
+    // ── ControlFlow ビュー ─────────────────────────────────────
+    'controlflow-global':    '◀▶ グローバル',
+    // ── MemoryView ビュー ──────────────────────────────────────
+    'memoryview-empty':      'オブジェクトなし',
+    // ── ScopeView / CallStackView（非アクティブタブ） ───────────
+    'view-waiting':          '実行待ち',
+    'scopeview-empty':       'スコープなし',
+    'scopeview-no-vars':     '（変数なし）',
+    // ── LineTrace ビュー（列表示切替ボタン） ────────────────────
+    'action-hide':           '非表示',
+    'action-show':           '表示',
     // ── コンソール ────────────────────────────────────────────
     'console-title':         'コンソール',
     // ── 設定パネル ────────────────────────────────────────────
@@ -41,6 +66,23 @@ const STRINGS = {
     'label-stmt':            'Stmt',
     'label-expr':            'Expr',
     'exprtrace-col-expr':    'Expression',
+    'exprtrace-empty':       'No expression evaluation steps detected',
+    'exectrace-empty':       'No steps',
+    'exectrace-col-line':    'Line',
+    'exectrace-col-code':    'Code',
+    'colorbox-empty':        'No selected arrays found',
+    'colorbox-no-arrays':    'No array variables found',
+    'calltree-aria':         'Call tree',
+    'recursiontree-aria':    'Recursion tree',
+    'barchart-empty':        'Step forward to see the bar chart',
+    'timeline-empty':        'No numeric variables found',
+    'controlflow-global':    '◀▶ Global',
+    'memoryview-empty':      'No objects',
+    'view-waiting':          'Waiting to run',
+    'scopeview-empty':       'No scope',
+    'scopeview-no-vars':     '(no variables)',
+    'action-hide':           'Hide',
+    'action-show':           'Show',
     'console-title':         'Console',
     'settings-title':        'Settings',
     'settings-theme-title':  'Theme',

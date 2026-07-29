@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(python3 -c ' *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(grep -rn \"'[^'\\\\`]*[ぁ-んァ-ヶ一-龥][^']*'\" --include=\"*.js\" .)",
+      "Bash(grep -rn \"innerHTML.*['\\\\\"\\\\`][A-Z][a-z].*['\\\\\"\\\\`]\\\\|textContent.*=.*['\\\\\"\\\\`][A-Z][a-z]\" --include=\"*.js\" .)"
     ]
   }
 }

@@ -9,6 +9,7 @@
 
 import { BaseView }                        from '../base-view.js';
 import { esc, formatFrameLabel }           from '../../utils/format.js';
+import { t }                               from '../../i18n.js';
 
 export class CallStackView extends BaseView {
   /** @type {HTMLElement|null} */
@@ -26,7 +27,7 @@ export class CallStackView extends BaseView {
     container.innerHTML = `
       <div class="csv-scroll">
         <div class="csv-stack">
-          <p class="placeholder">実行待ち</p>
+          <p class="placeholder">${esc(t('view-waiting'))}</p>
         </div>
       </div>`;
     this.#stackEl = container.querySelector('.csv-stack');
@@ -69,7 +70,7 @@ export class CallStackView extends BaseView {
 
   reset() {
     if (this.#stackEl) {
-      this.#stackEl.innerHTML = '<p class="placeholder">実行待ち</p>';
+      this.#stackEl.innerHTML = `<p class="placeholder">${esc(t('view-waiting'))}</p>`;
     }
     this.#prevDepth = 0;
   }

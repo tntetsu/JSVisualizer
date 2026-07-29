@@ -10,6 +10,7 @@
 
 import { BaseView }                       from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES, esc } from '../../utils/format.js';
+import { t }                              from '../../i18n.js';
 
 /**
  * 値の大きさに応じた背景色を返す（小 → 青系、大 → 赤系）
@@ -83,7 +84,7 @@ export class ColorBox extends BaseView {
     this.#boxAreaEl = container.querySelector('.cb-box-area');
 
     if (this.#allArrayVars.length === 0) {
-      this.#boxAreaEl.innerHTML = '<p class="cb-empty">No array variables found</p>';
+      this.#boxAreaEl.innerHTML = `<p class="cb-empty">${esc(t('colorbox-no-arrays'))}</p>`;
     } else {
       this.#renderChips();
     }
@@ -297,6 +298,6 @@ export class ColorBox extends BaseView {
       html += '</div></div>';
     }
 
-    this.#boxAreaEl.innerHTML = html || '<p class="cb-empty">選択された配列が見つかりません</p>';
+    this.#boxAreaEl.innerHTML = html || `<p class="cb-empty">${esc(t('colorbox-empty'))}</p>`;
   }
 }

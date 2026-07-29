@@ -568,7 +568,7 @@ export class ExprTrace extends BaseView {
 
     if (this.#sections.length === 0) {
       container.innerHTML =
-        '<div class="xev-wrap"><p class="xev-empty">式評価ステップが検出されませんでした</p></div>';
+        `<div class="xev-wrap"><p class="xev-empty">${esc(t('exprtrace-empty'))}</p></div>`;
       this.#sectionEls = [];
       this.#rowsBySec  = [];
       return;

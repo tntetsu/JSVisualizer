@@ -17,6 +17,7 @@
 
 import { BaseView }        from '../base-view.js';
 import { formatFrameLabel } from '../../utils/format.js';
+import { t }                from '../../i18n.js';
 
 const SVG_NS  = 'http://www.w3.org/2000/svg';
 const NODE_W  = 180;
@@ -126,7 +127,7 @@ export class CallTree extends BaseView {
       return;
     }
 
-    container.innerHTML = '<div class="ct-wrap"><svg class="ct-svg" role="img" aria-label="Call tree" xmlns="http://www.w3.org/2000/svg"></svg></div>';
+    container.innerHTML = `<div class="ct-wrap"><svg class="ct-svg" role="img" aria-label="${t('calltree-aria')}" xmlns="http://www.w3.org/2000/svg"></svg></div>`;
     this.#svgEl = container.querySelector('.ct-svg');
 
     this.#walkNodes(this.#roots, node => this.#nodeById.set(node.id, node));

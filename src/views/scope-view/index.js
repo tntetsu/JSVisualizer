@@ -8,6 +8,7 @@
 
 import { BaseView }                                            from '../base-view.js';
 import { esc, formatValue, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
+import { t }                                                   from '../../i18n.js';
 
 export class ScopeView extends BaseView {
   /** @type {HTMLElement|null} */
@@ -21,7 +22,7 @@ export class ScopeView extends BaseView {
     container.innerHTML = `
       <div class="scv-scroll">
         <div class="scv-frames">
-          <p class="placeholder">実行待ち</p>
+          <p class="placeholder">${esc(t('view-waiting'))}</p>
         </div>
       </div>`;
     this.#framesEl = container.querySelector('.scv-frames');
@@ -33,7 +34,7 @@ export class ScopeView extends BaseView {
     const changed = new Set(changedVars);
 
     if (!event || !scopes || scopes.length === 0) {
-      this.#framesEl.innerHTML = '<p class="placeholder">スコープなし</p>';
+      this.#framesEl.innerHTML = `<p class="placeholder">${esc(t('scopeview-empty'))}</p>`;
       return;
     }
 
@@ -50,7 +51,7 @@ export class ScopeView extends BaseView {
         <div class="scv-vars">`;
 
       if (!entries.length) {
-        html += '<span class="scv-empty">（変数なし）</span>';
+        html += `<span class="scv-empty">${esc(t('scopeview-no-vars'))}</span>`;
       } else {
         for (const [name, val] of entries) {
           const flash = changed.has(name) ? ' var-row--changed' : '';
@@ -70,7 +71,7 @@ export class ScopeView extends BaseView {
 
   reset() {
     if (this.#framesEl) {
-      this.#framesEl.innerHTML = '<p class="placeholder">実行待ち</p>';
+      this.#framesEl.innerHTML = `<p class="placeholder">${esc(t('view-waiting'))}</p>`;
     }
   }
 

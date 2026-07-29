@@ -16,6 +16,7 @@
  */
 
 import { BaseView } from '../base-view.js';
+import { t }        from '../../i18n.js';
 
 const MAX_LABEL = 46;  // ラベルの最大文字数
 
@@ -90,7 +91,7 @@ export class ControlFlow extends BaseView {
     const hdr = document.createElement('div');
     hdr.className = 'cf-scope-hdr';
     if (scope.name === 'global') {
-      hdr.textContent = '◀▶ グローバル';
+      hdr.textContent = t('controlflow-global');
     } else {
       const pStr = scope.params.length ? scope.params.join(', ') : '';
       hdr.textContent = `ƒ ${scope.name}(${pStr})`;

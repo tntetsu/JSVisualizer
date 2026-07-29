@@ -12,6 +12,7 @@
 
 import { BaseView }                           from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES, formatValue, formatValueDiff, esc } from '../../utils/format.js';
+import { t, getLang }                         from '../../i18n.js';
 
 // ── シンタックスハイライト（code-view と同一ロジック） ─────────────────────
 
@@ -477,7 +478,8 @@ export class LineTrace extends BaseView {
       btn.className   = `lt-var-toggle${meta.visible ? '' : ' lt-var-toggle--hidden'}`;
       btn.textContent = meta.name;
       btn.dataset.var = meta.name;
-      btn.title       = `${meta.name} を${meta.visible ? '非表示' : '表示'}にする`;
+      const action = meta.visible ? t('action-hide') : t('action-show');
+      btn.title       = getLang() === 'ja' ? `${meta.name} を${action}にする` : `${action} ${meta.name}`;
       btn.addEventListener('click', () => this.#toggleVar(meta.name));
       toolbar.appendChild(btn);
     }
