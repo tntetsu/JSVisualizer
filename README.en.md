@@ -8,6 +8,8 @@ An interactive, educational web application that visualizes JavaScript program e
 
 Step through your code at four levels of granularity and watch the program's behavior unfold across **13 visualization views**.
 
+![JSVisualizer demo](img/demo.gif)
+
 ---
 
 ## Features
