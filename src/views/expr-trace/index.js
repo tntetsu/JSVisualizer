@@ -148,6 +148,26 @@ function srcRangeToDispRange(subs, baseCol, srcStart, srcEnd) {
   };
 }
 
+/**
+ * subs（適用済み置換）に覆われていないソース範囲（＝まだ評価されていない部分）を
+ * [baseCol, endBound) の中から列挙する。
+ * @param {Array}  subs  [{start, end, text}]
+ * @param {number} baseCol
+ * @param {number} endBound
+ * @returns {Array<{start:number, end:number}>} ソース座標での隙間区間
+ */
+function computeUnevaluatedGaps(subs, baseCol, endBound) {
+  const sorted = [...subs].sort((a, b) => a.start - b.start);
+  const gaps = [];
+  let pos = baseCol;
+  for (const s of sorted) {
+    if (s.start > pos) gaps.push({ start: pos, end: s.start });
+    pos = Math.max(pos, s.end);
+  }
+  if (pos < endBound) gaps.push({ start: pos, end: endBound });
+  return gaps;
+}
+
 // ── トレース解析 ──────────────────────────────────────────────────────────────
 
 /**
@@ -285,6 +305,16 @@ function buildSectionRows(trace, sourceLines, enterIdx, exitIdx, lineNo, initCol
       start: penRaw.start + prefixLen,
       end:   penRaw.end   + prefixLen,
     };
+  }
+
+  // unevaluatedDispRanges: その行の時点でまだどの置換にも覆われていない（＝未評価の）
+  // ソース範囲を表示座標に変換して記録する（displayPrefix 自体は対象外）
+  for (const row of rows) {
+    const gaps = computeUnevaluatedGaps(row.subs, initColStart, endBound);
+    row.unevaluatedDispRanges = gaps.map(g => {
+      const r = srcRangeToDispRange(row.subs, initColStart, g.start, g.end);
+      return { start: r.start + prefixLen, end: r.end + prefixLen };
+    });
   }
 
   // 最終行は exitIdx の env に差し替え（2行以上のセクションのみ）
@@ -501,47 +531,33 @@ function buildExpressionSections(trace, sourceLines) {
 
 // ── HTML 生成 ─────────────────────────────────────────────────────────────────
 
-function buildExprHtml(text, expStart, expEnd, penStart, penEnd) {
-  const hasExp = expStart >= 0 && expEnd > expStart && expEnd <= text.length;
-  const hasPen = penStart >= 0 && penEnd > penStart && penEnd <= text.length;
-
-  if (!hasExp && !hasPen) return esc(text);
-
-  if (hasExp && hasPen) {
-    if (penStart >= expStart && penEnd <= expEnd) {
-      return esc(text.slice(0, expStart))
-        + `<span class="xev-hl-expanded">`
-        + esc(text.slice(expStart, penStart))
-        + `<span class="xev-hl-pending">${esc(text.slice(penStart, penEnd))}</span>`
-        + esc(text.slice(penEnd, expEnd))
-        + `</span>`
-        + esc(text.slice(expEnd));
-    }
-    const parts = [
-      { start: expStart, end: expEnd, cls: 'xev-hl-expanded' },
-      { start: penStart, end: penEnd, cls: 'xev-hl-pending' },
-    ].sort((a, b) => a.start - b.start);
-
-    let result = '', pos = 0;
-    for (const p of parts) {
-      if (p.start < pos) continue;
-      result += esc(text.slice(pos, p.start));
-      result += `<span class="${p.cls}">${esc(text.slice(p.start, p.end))}</span>`;
-      pos = p.end;
-    }
-    result += esc(text.slice(pos));
-    return result;
+/**
+ * テキストに複数のハイライト範囲を適用して HTML を生成する。
+ * 範囲は文字単位の優先度配列で管理するため、任意の重なりを安全に扱える
+ * （後に列挙した range ほど優先度が高く、重なった文字を上書きする）。
+ * @param {string} text
+ * @param {Array<{start:number, end:number, cls:string}>} ranges  優先度の低い順に並べる
+ */
+function buildExprHtml(text, ranges) {
+  const n = text.length;
+  const cls = new Array(n).fill(null);
+  for (const r of ranges) {
+    if (r.end <= r.start) continue;
+    const s = Math.max(0, r.start);
+    const e = Math.min(n, r.end);
+    for (let i = s; i < e; i++) cls[i] = r.cls;
   }
 
-  if (hasExp) {
-    return esc(text.slice(0, expStart))
-      + `<span class="xev-hl-expanded">${esc(text.slice(expStart, expEnd))}</span>`
-      + esc(text.slice(expEnd));
+  let result = '', i = 0;
+  while (i < n) {
+    const c = cls[i];
+    let j = i + 1;
+    while (j < n && cls[j] === c) j++;
+    const chunk = esc(text.slice(i, j));
+    result += c ? `<span class="${c}">${chunk}</span>` : chunk;
+    i = j;
   }
-
-  return esc(text.slice(0, penStart))
-    + `<span class="xev-hl-pending">${esc(text.slice(penStart, penEnd))}</span>`
-    + esc(text.slice(penEnd));
+  return result;
 }
 
 function fmtEnvVal(v) {
@@ -588,14 +604,14 @@ export class ExprTrace extends BaseView {
       html += '</tr></thead><tbody>';
 
       for (let ri = 0; ri < rows.length; ri++) {
-        const { displayText, envMap, expandedDispRange, pendingDispRange } = rows[ri];
+        const { displayText, envMap, expandedDispRange, pendingDispRange, unevaluatedDispRanges } = rows[ri];
 
-        const expStart = expandedDispRange?.start ?? -1;
-        const expEnd   = expandedDispRange?.end   ?? -1;
-        const penStart = pendingDispRange?.start  ?? -1;
-        const penEnd   = pendingDispRange?.end    ?? -1;
-
-        const exprHtml = buildExprHtml(displayText, expStart, expEnd, penStart, penEnd);
+        const ranges = [
+          ...(unevaluatedDispRanges ?? []).map(r => ({ ...r, cls: 'xev-hl-unevaluated' })),
+          ...(expandedDispRange ? [{ ...expandedDispRange, cls: 'xev-hl-expanded' }] : []),
+          ...(pendingDispRange  ? [{ ...pendingDispRange,  cls: 'xev-hl-pending'  }] : []),
+        ];
+        const exprHtml = buildExprHtml(displayText, ranges);
 
         html += `<tr class="xev-row" data-si="${si}" data-ri="${ri}">`;
         html += `<td class="xev-td xev-col-expr">${exprHtml}</td>`;

@@ -1190,6 +1190,11 @@ body {
   font-weight: 700;
 }
 
+.xev-hl-unevaluated {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
 /* ── ExecTrace ────────────────────────────────────────────────── */
 .et-wrap {
   flex: 1;
