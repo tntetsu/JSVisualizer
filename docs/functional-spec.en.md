@@ -521,7 +521,7 @@ A fixed panel at the bottom of the right pane, always visible regardless of whic
 |------|---------------|
 | Hosting | GitHub Pages (`https://tntetsu.github.io/JSVisualizer/`) |
 | Deploy trigger | Push to `main` branch or manual `workflow_dispatch` |
-| CI pipeline | ① Clone JSInterpreter → ② `npm ci` → ③ `npm test` (70 tests) → ④ `npm run build` → ⑤ Upload to GitHub Pages |
+| CI pipeline | ① Clone JSInterpreter → ② `npm ci` → ③ `npm test` (71 tests) → ④ `npm run build` → ⑤ Upload to GitHub Pages |
 | Build artifacts | `web/` directory (`app.bundle.js` / `interpreter.bundle.js` / `index.html` / `style.css`) |
 | Concurrency | `concurrency: pages` limits to one active deploy at a time (cancels previous) |
 

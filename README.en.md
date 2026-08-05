@@ -170,7 +170,7 @@ JSVisualizer embeds a **general-purpose JavaScript interpreter**, so any code ca
 | Core engine | [JSInterpreter](../JSInterpreter) (custom JS interpreter) |
 | Frontend | Vanilla JS (ES2022+) + HTML + CSS |
 | Build tool | esbuild |
-| Tests | Jest (70 tests) |
+| Tests | Jest (71 tests) |
 | Code editor | CodeMirror 6 |
 | Visualization | DOM + CSS animations + hand-crafted SVG |
 | Themes | CSS custom properties (Catppuccin Latte / Catppuccin Mocha) |

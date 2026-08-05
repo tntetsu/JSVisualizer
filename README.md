@@ -172,7 +172,7 @@ JSVisualizer は **汎用の JavaScript インタープリタ**を内蔵する�
 | コアエンジン | [JSInterpreter](../JSInterpreter)（自作 JS インタープリタ） |
 | フロントエンド | Vanilla JS (ES2022+) + HTML + CSS |
 | ビルドツール | esbuild |
-| テスト | Jest（70 テスト） |
+| テスト | Jest（71 テスト） |
 | コードエディタ | CodeMirror 6 |
 | 可視化 | DOM + CSS アニメーション + SVG 手動描画 |
 | テーマ | CSS カスタムプロパティ（Catppuccin Latte / Mocha） |

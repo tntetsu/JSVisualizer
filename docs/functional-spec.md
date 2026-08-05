@@ -602,7 +602,7 @@
 |------|------|
 | ホスティング | GitHub Pages（`https://tntetsu.github.io/JSVisualizer/`） |
 | デプロイトリガー | `main` ブランチへの push または手動実行（`workflow_dispatch`） |
-| CI パイプライン | ① JSInterpreter クローン → ② `npm ci` → ③ `npm test`（70 テスト）→ ④ `npm run build` → ⑤ GitHub Pages へアップロード |
+| CI パイプライン | ① JSInterpreter クローン → ② `npm ci` → ③ `npm test`（71 テスト）→ ④ `npm run build` → ⑤ GitHub Pages へアップロード |
 | 成果物 | `web/` ディレクトリ（`app.bundle.js` / `interpreter.bundle.js` / `index.html` / `style.css`） |
 | 並行デプロイ | `concurrency: pages` で同時デプロイを 1 つに制限（前のデプロイをキャンセル） |
 
