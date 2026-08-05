@@ -25,7 +25,7 @@ function valueToBoxColor(val, maxVal) {
   return `hsl(${hue}, 65%, 70%)`;
 }
 
-export class ColorBox extends BaseView {
+export class Arrays extends BaseView {
   static hasContent(builder) {
     if (!builder) return false;
     for (const idx of builder.getHumanStepList()) {

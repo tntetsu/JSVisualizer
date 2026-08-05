@@ -30,11 +30,11 @@ JSVisualizer/
 │   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅
 │   │   ├── state-view/           # コールスタックビュー（CallStackView・Global疑似フレーム＋関数フレーム）✅ ← タブ「コールスタック」
 │   │   ├── scope-view/           # スコープ・変数ビュー（ネスト枠）  ← タブ登録なし（非アクティブ）
-│   │   ├── line-trace/           # トレース表（行番号+スニペット列+変数表・列表示切替・D&D）  ✅  ← タブ「トレース表」
+│   │   ├── line-trace/           # Variable（行番号+スニペット列+変数表・列表示切替・D&D）  ✅  ← タブ「変数」
 │   │   ├── exec-trace/           # 実行順トレース表（humanStep 順・変数列+条件列）          ✅  ← タブ「実行トレース」
 │   │   ├── trace-table/          # 静的トレース表（全ステップ・対象列付き）               ✅  ← タブ登録なし（非アクティブ）
 │   │   ├── bar-chart/            # 棒グラフアニメーション（数値・配列変化）         ✅  ← タブ登録なし（非アクティブ）
-│   │   ├── color-box/            # 配列アニメーション（複数配列同時表示・ポインタ別行）✅  ← タブ「配列」
+│   │   ├── color-box/            # Arrays（複数配列同時表示・ポインタ別行）           ✅  ← タブ「配列」
 │   │   ├── timeline/             # 変数の時系列グラフ（SVG折れ線・変数選択時Y軸動的更新）✅  ← タブ登録なし（非アクティブ）
 │   │   ├── heatmap/              # 実行頻度ヒートマップ（連結線常時表示）            ✅
 │   │   ├── recursion-tree/       # 再帰呼び出しツリー（SVG・引数展開表示）                ✅  ← タブ登録なし（非アクティブ、CallTreeに統合。ADR-027）
@@ -234,7 +234,7 @@ Runモード時、ヘッダー内ステップ操作バーは **1列（ワイド�
 | MemoryView | 2カラム（stack \| heap）+ SVG オーバーレイ矢印 | DOM 再描画 → rAF で矢印を再計算 |
 | ObjectGraph | 階層型レイアウト（Kahn トポソート + 最長パス法で列割当、左→右）連結成分を BFS で分離し縦スタック | update() ごとに SVG 全体を再描画 |
 
-`isFunctionVal(v)` は LineTrace・TraceBuilder・MemoryView・ObjectGraph で共通で使用し、
+`isFunctionVal(v)` は Variable（旧LineTrace）・TraceBuilder・MemoryView・ObjectGraph で共通で使用し、
 `v.__type__ === 'JSFunction'` / `'JSClass'` またはネイティブ関数を除外します。
 
 ### 言語切替（i18n）
@@ -365,21 +365,21 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 - **SVG レイアウト**: 再帰ツリーは再帰的幅計算、ObjectGraph は階層型レイアウト（Kahn トポロジカルソート + 最長パス法で列を決定、左→右配置。エッジは肘型コネクタ）
 - **ObjectGraph 連結成分分離**: 無向 BFS で連結成分を検出し、各成分を独立に `hierarchicalLayout()` で配置後 y 軸方向に COMP_GAP=24px で積み上げる。成分が 2 つ以上のとき点線の境界矩形を描画
 - **ObjectGraph ポートスプレッド**: 1 ノードから複数のエッジが出るとき、出口 y 座標をノード高さ内で均等分散（`srcPort`/`dstPort` マップ）してエッジ・ラベル重複を回避
-- **差分強調（`formatValueDiff`）**: `src/utils/format.js` の `formatValueDiff(val, prevVal)` が前ステップとの差分を `<b class="v-diff">` でラップして橙色（`--v-diff`）で強調。配列・オブジェクトは要素/プロパティ単位で比較し変化した部分のみ強調。LineTrace（`update()` 時アクティブ行）と ExecTrace（`init()` 時全行）で使用
+- **差分強調（`formatValueDiff`）**: `src/utils/format.js` の `formatValueDiff(val, prevVal)` が前ステップとの差分を `<b class="v-diff">` でラップして橙色（`--v-diff`）で強調。配列・オブジェクトは要素/プロパティ単位で比較し変化した部分のみ強調。Variable（`update()` 時アクティブ行）と ExecTrace（`init()` 時全行）で使用
 - **差分検出**: 前後 `env` スナップショットを比較し変化した変数名のセットを生成
 - **オブジェクト同一性**: MemoryView・ObjectGraph では `WeakMap` でオブジェクト参照を追跡し重複ヒープ登録を防ぐ。JSInterpreter の `Environment.snapshot()` が `seen` WeakMap をスコープチェーン全体で共有するため、同一元オブジェクトは同一クローンにマッピングされ WeakMap 追跡が正しく機能する
-- **LineTrace vs AnimatedTrace**: `animated-trace/` ディレクトリは実装済みだが、タブには現在 `line-trace/`（ソース行×変数マトリクス表）を使用
-- **LineTrace の構成**: 行番号列に `lt-lineno-num`（数字）+ `lt-lineno-snippet`（先頭15文字スニペット）を表示、右側に変数テーブル。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装。（以前の2ペイン構成・ソースパネル・リサイザーは削除済み）
+- **Variable vs AnimatedTrace**: `animated-trace/` ディレクトリは実装済みだが、タブには現在 `line-trace/`（クラス名 `Variable`、ソース行×変数マトリクス表）を使用
+- **Variable の構成**: 行番号列に `lt-lineno-num`（数字）+ `lt-lineno-snippet`（先頭15文字スニペット）を表示、右側に変数テーブル。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装。（以前の2ペイン構成・ソースパネル・リサイザーは削除済み。CSS プレフィックス `lt-` はディレクトリ名 line-trace/ 由来のまま変更していない）
 - **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[callStack.length-1].name(args)` 形式、ReturnStatement は `'return'` を表示
 - **CallTree ビュー**: `buildCallTree()` が返すノード配列（再帰・非再帰を問わず全関数呼び出し、cost付き）を SVG ツリーとして描画。表示形式・レイアウトアルゴリズムとも `RecursionTree` と共通（ADR-027 で統合、RecursionTree は非アクティブ化）。CSS クラスは `.ct-*`（`RecursionTree` の `.rt-*` に対応）
 - **スコープ統合表示**: `format.js` の `mergeScopesForDisplay(scopes, callStack)` でフレームごとに表示変数を決定。最内側フレームは scopes[0]〜scopes[M-2] を全マージ（ブロックスコープ含む）。外側フレームは env チェーンに含まれないため callStack[i].args + JSFunction.params から引数値を再構築（`reconstructFrameVars`）。ラベルは `factorial(6)` 形式（`formatFrameLabel(frame)`）。`scope-view`・`state-view`・`memory-view` で共通使用。表示順は innermost-first
 - **Heatmap の改善**: 背景色を `update()` ごとに現在ステップまでの実行回数で動的更新（`lineTimeline` + バイナリサーチ）。カウントを「N回 / M回」形式で表示。ドット幅 360px（3倍）。実行済みドット（`.hm-dot--past`）と未実行ドット（デフォルトグレー）を色分け。異なる行に遷移する連続 humanStep のドット間を `.hm-overlay-svg` 上の `<line class="hm-vline">` で常時表示（`init()` 時に `requestAnimationFrame` で描画）。`.hm-lines` は `position: relative`、オーバーレイ SVG は `position: absolute`。トグルボタンは廃止
-- **ColorBox（配列ビュー）**: タブ名「配列」。複数配列を同時選択して表示（折り返しあり）。各配列ブロックを枠線（`border: 1px solid var(--border)`）＋背景色（`var(--surface2)`）で区切り表示。`#scanTrace()` の 2 パス走査で配列ごとの `maxWidth`（最大グリッド幅）と `maxGridHeight`（最大グリッド高）を事前計算。`#render()` で `.cb-grid` に `min-width`/`min-height` を設定し、配列長やポインタ行数が変化しても各ブロックの占有領域が動かないよう固定。空配列時も `.cb-grid` を描画して占有領域を確保。ポインタ変数は変数ごとに個別の行として表示。文字列値は切り詰めなしで表示
+- **Arrays（配列ビュー、旧クラス名ColorBox）**: タブ名「配列」。複数配列を同時選択して表示（折り返しあり）。各配列ブロックを枠線（`border: 1px solid var(--border)`）＋背景色（`var(--surface2)`）で区切り表示。`#scanTrace()` の 2 パス走査で配列ごとの `maxWidth`（最大グリッド幅）と `maxGridHeight`（最大グリッド高）を事前計算。`#render()` で `.cb-grid` に `min-width`/`min-height` を設定し、配列長やポインタ行数が変化しても各ブロックの占有領域が動かないよう固定。空配列時も `.cb-grid` を描画して占有領域を確保。ポインタ変数は変数ごとに個別の行として表示。文字列値は切り詰めなしで表示
 - **ExecTrace（実行トレース）**: `init()` で humanStep 順の行をすべて一括描画。列 = # | 行 | コード | 変数値（出現順）| 条件式（出現順）。`update()` は現在行ハイライト移動と scrollIntoView のみ（O(n)）。条件式列は `buildConditionExitSet` + `buildCondInfo` で while/for の各イテレーション条件値を正確に表示
 - **SubstTrace（代入展開）**: 再帰関数呼び出しを「置換モデル」で逐次展開。最初のユーザー定義関数呼び出しをトラッキングし、ReturnStatement enter ごとに `computeReturnExpr()` で return 式の識別子・サブ呼び出しを評価済みテキストへ置換。CSS クラスは `.stx-*`。ハイライト: 展開された部分（`stx-hl-expanded`）と次に置換される項（`stx-hl-pending`）
 - **ExprTrace（式評価）**: 1行の式が部分式の逐次置換で最終値に収束する過程をトレース表形式で表示。対象ステートメント: `ExpressionStatement`・`VariableDeclaration` init・`IfStatement` test・`WhileStatement` test（イテレーションごと）・`ReturnStatement` 引数・`ForStatement` init/test/update（イテレーションごと）。列 = 式テキスト（変化するたびに行追加）+ 変数値列（式テキストに登場する識別子のみ・関数値除外）。ソース座標 → 表示座標変換に `srcPosToDispPos()` / `srcRangeToDispRange()`。展開ハイライト（橙 `xev-hl-expanded`）・評価待ちハイライト（青太字 `xev-hl-pending`）。CSS クラスは `.xev-*`。`ev.callDepth !== outerCallDepth` で関数内部除外。**変数値の時系列表示**: Row 0 = enterIdx env（評価前）、中間行 = その exit イベント時点の env、最終行（2行以上のセクション）= exitIdx env（束縛・代入完了後）。`update()` でアクティブ行の TD を `trace[cursor].env` からリアルタイム書き換え（`#trace` フィールドに builder.trace を保持）。`VariableDeclaration` の位置取得はソース正規表現ベース（interpreter が VariableDeclarator イベントを emit しないため `trace[i+1]` に直接 init 式が来る）
 - **console.log 配列内文字列クォート**: JSInterpreter `formatLogArg(v, depth=0)` に `depth` 引数を追加。`depth > 0`（配列・オブジェクトの要素）の文字列は `'str'` 形式（シングルクォート付き）で表示し、Node.js の挙動と一致させる。トップレベル文字列（depth=0）はクォートなし
-- **while/for 条件式の humanStep 追加**: `TraceBuilder.buildHumanIndices()` で WhileStatement/DoWhileStatement の条件式 exit（深さ D+1）をイテレーションごとに humanStep として追加（`matchIdx` で範囲を限定）。ForStatement は条件式 exit と更新式 exit も同様に追加。WhileStatement/ForStatement の enter 自体は humanStep から除外（条件式評価で代替）。LineTrace・ExecTrace の `buildConditionExitSet` も同ロジックで while/for 条件列を正しく表示
+- **while/for 条件式の humanStep 追加**: `TraceBuilder.buildHumanIndices()` で WhileStatement/DoWhileStatement の条件式 exit（深さ D+1）をイテレーションごとに humanStep として追加（`matchIdx` で範囲を限定）。ForStatement は条件式 exit と更新式 exit も同様に追加。WhileStatement/ForStatement の enter 自体は humanStep から除外（条件式評価で代替）。Variable・ExecTrace の `buildConditionExitSet` も同ロジックで while/for 条件列を正しく表示
 - **Timeline**: 変数チップ選択変更時に選択変数の値のみで Y 軸 min/max を動的再計算（`#renderSVG()` 内で dynMin/dynMax を計算）
 - **super() バグ修正**: JSInterpreter の `CallExpression` ハンドラで callee.type === 'Super' を検出し、親クラス constructor を現在の `this` に対して直接実行することで継承コンストラクターを正しく処理
 - **var/let/const セマンティクス修正（JSInterpreter）**: `var` は関数スコープ・巻き上げ（`hoistVars` で `undefined` 事前定義）。`let`/`const` は TDZ（`TDZ_SENTINEL = Symbol('TDZ')` で事前登録、宣言前アクセスは RuntimeError）・同一スコープ再宣言禁止（`checkNoRedecl`）。`const` は再代入禁止（`Environment.immutables` Set + `set()` 内チェック）。`for (let …)` はイテレーション独立バインディング（`iterEnv` + `updateEnv` の分離）。詳細は [JSInterpreter#environment.js](../JSInterpreter/src/interpreter/environment.js)

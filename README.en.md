@@ -47,7 +47,7 @@ The code panel simultaneously displays three highlight layers:
 | Category | Tab | Description |
 |----------|-----|-------------|
 | **Basic** | Call Stack | Global + per-call-frame variable panel. Innermost frame first, labels like `factorial(6)` |
-| **Trace** | Trace | Row-per-line variable matrix. Source snippet in line column. Changed values highlighted in orange-bold. Column show/hide & drag-to-reorder |
+| **Trace** | Variable | Row-per-line variable matrix. Source snippet in line column. Changed values highlighted in orange-bold. Column show/hide & drag-to-reorder |
 | | Exec Trace | All humanStep events in execution order. Variable columns + condition columns. while/for condition values shown per iteration |
 | | Subst | Recursive calls shown as substitution-model expansion. Each `return` expression replaced step by step, with expansion (orange) and pending (blue-bold) highlights |
 | | Expr | Sub-expression evaluation: one statement's expression is progressively substituted toward its final value. Two-color highlights. Variable values updated in real time |

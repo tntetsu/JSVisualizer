@@ -175,9 +175,9 @@ Button colors: fine-grained (Expr/Human) = accent blue; coarse-grained (Stmt/Fun
 
 ---
 
-#### V-02: Trace Table (LineTrace) ✅
+#### V-02: Variable (Variable, formerly class LineTrace) ✅
 
-**Tab label**: Trace
+**Tab label**: Variable
 
 - **Single-pane layout**: line-number column + variable matrix table
   - Line-number column shows the line number and a 15-character snippet of source
@@ -287,7 +287,7 @@ Button colors: fine-grained (Expr/Human) = accent blue; coarse-grained (Stmt/Fun
 
 ---
 
-#### V-07: Array Visualization (ColorBox) ✅
+#### V-07: Array Visualization (Arrays, formerly class ColorBox) ✅
 
 **Tab label**: Arrays
 

@@ -160,9 +160,9 @@ function buildCondInfo(trace, si, lines, conditionExitSet) {
   return null;
 }
 
-// ── LineTrace ─────────────────────────────────────────────────────────────
+// ── Variable ──────────────────────────────────────────────────────────────
 
-export class LineTrace extends BaseView {
+export class Variable extends BaseView {
   #container   = null;
   #builder     = null;
   #theadRow    = null;

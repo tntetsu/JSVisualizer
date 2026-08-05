@@ -22,11 +22,11 @@ import { sessionLogger }   from './core/session-logger.js'; // STUDY: logRun/log
 import './components/study-panel.js'; // STUDY: 実験UI（削除手順は study-panel.js 冒頭を参照）
 import { CodeView }         from './views/code-view/index.js';
 import { CallStackView }    from './views/state-view/index.js';
-import { LineTrace }        from './views/line-trace/index.js';
+import { Variable }         from './views/line-trace/index.js';
 import { TraceTable }       from './views/trace-table/index.js';
 import { ExecTrace }        from './views/exec-trace/index.js';
 import { BarChart }         from './views/bar-chart/index.js';
-import { ColorBox }         from './views/color-box/index.js';
+import { Arrays }           from './views/color-box/index.js';
 import { Timeline }         from './views/timeline/index.js';
 import { Heatmap }          from './views/heatmap/index.js';
 import { RecursionTree }    from './views/recursion-tree/index.js';
@@ -146,8 +146,8 @@ switcher.register('state',
   { ja: 'Global・関数呼び出しのスコープごとに変数値を一覧表示します。',
     en: 'Shows variables scoped to Global and each function-call frame.' });
 switcher.register('trace',
-  { ja: 'トレース表', en: 'Trace' },
-  LineTrace,
+  { ja: '変数', en: 'Variable' },
+  Variable,
   { ja: 'ソースの各行が何回目にどんな変数値で実行されたかを行×変数のマトリクスで確認できます。',
     en: 'Matrix of source lines × variables showing values at each execution.' });
 switcher.register('exectrace',
@@ -169,7 +169,7 @@ switcher.register('exprtrace',
 // switcher.register('bar',   ...);  // 非アクティブ
 switcher.register('colorbox',
   { ja: '配列', en: 'Arrays' },
-  ColorBox,
+  Arrays,
   { ja: '配列の各要素をマス目で視覚化します。複数配列とポインタ変数を同時に表示できます。',
     en: 'Visualizes array elements as colored cells. Displays multiple arrays and pointer variables simultaneously.' });
 // switcher.register('timeline', ...);  // 非アクティブ

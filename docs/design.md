@@ -526,7 +526,7 @@ class TraceBuilder {
 }
 ```
 
-**`isFunctionVal(v)` ヘルパー**（TraceBuilder 内部・LineTrace・ObjectGraph で共通使用）:
+**`isFunctionVal(v)` ヘルパー**（TraceBuilder 内部・Variable（旧LineTrace）・ObjectGraph で共通使用）:
 
 ```js
 function isFunctionVal(v) {
@@ -703,7 +703,7 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
 
 ---
 
-#### `line-trace/` — 行×変数トレース表（単一ペイン構成）✅
+#### `line-trace/` — 行×変数トレース表（単一ペイン構成、クラス名 `Variable`）✅ ← タブ「変数」
 
 **DOM 構造**:
 ```
@@ -758,7 +758,7 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
 
 **差分強調**: `init()` 時に `let prevEnvMap = new Map()` で前行の env を追跡し、変数セルを `formatValueDiff(v, prevEnvMap.get(name))` で描画する。
 
-**条件式列の実装**（LineTrace と共通ロジック）:
+**条件式列の実装**（Variable と共通ロジック）:
 
 ```js
 // 事前計算: while/do-while/for の条件式 exit インデックスを Set に収集
@@ -851,7 +851,7 @@ switch (ev.nodeType) {
 
 ---
 
-#### `color-box/` — 配列ビュー ✅
+#### `color-box/` — 配列ビュー（クラス名 `Arrays`）✅ ← タブ「配列」
 
 **表示対象**: 配列変数（`init()` 時に trace を走査して自動検出）
 
@@ -1585,7 +1585,7 @@ JSVisualizer/
 │   │   ├── scope-view/
 │   │   │   └── index.js              ✅ スコープチェーン枠表示
 │   │   ├── line-trace/
-│   │   │   └── index.js              ✅ 行×変数マトリクス表（動的列追加）
+│   │   │   └── index.js              ✅ Variable・行×変数マトリクス表（動的列追加）
 │   │   ├── exec-trace/
 │   │   │   └── index.js              ✅ 実行順トレース表（humanStep 順・変数列+条件列）
 │   │   ├── trace-table/
@@ -1595,7 +1595,7 @@ JSVisualizer/
 │   │   ├── bar-chart/
 │   │   │   └── index.js              ✅ 棒グラフ CSS アニメーション
 │   │   ├── color-box/
-│   │   │   └── index.js              ✅ 色付き箱・ポインタ自動検出
+│   │   │   └── index.js              ✅ Arrays・色付き箱・ポインタ自動検出
 │   │   ├── timeline/
 │   │   │   └── index.js              ✅ 時系列 SVG 折れ線グラフ
 │   │   ├── heatmap/
