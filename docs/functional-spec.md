@@ -395,30 +395,15 @@
 
 ---
 
-#### V-10: 再帰ツリービュー（RecursionTree）✅ 実装済み
+#### V-10: 再帰ツリービュー（RecursionTree）✅ 実装済み（非アクティブ）
 
-タブ名: **再帰ツリー**
-
-- `init()` で SVG ツリーを一括構築
-- ノードの色: 未呼び出し（灰）、実行中（青）、完了（緑）
-- 完了ノードには返り値を `→ 値` 形式で表示
-- `update()` はノード className の付け替えのみ（O(n_nodes)）
-- レイアウト: 再帰的サブツリー幅計算（葉=NODE_W=160、内部ノード=子の幅の和＋gap）、NODE_H=80
-- **引数表示**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式
-- **cost 表示**: 各ノード左下に「cost:N」（N = サブツリーサイズ、葉=1、親=1+子の合計）を小フォントで表示
-- **再帰なし時のメッセージ**: 再帰呼び出しが存在しない場合は「再帰呼び出しがありません」を表示
-- **色覚多様性対応**: 色だけでなく形状・テキストアイコンで状態を表現
-  - 未呼び出し: 破線ボーダー（`stroke-dasharray: 5 3`）＋アイコン「…」
-  - 実行中: 太線ボーダー＋アイコン「▶」
-  - 完了: 通常ボーダー＋アイコン「✓」
-
-**入力**: `builder.buildRecursionTree()`, `state.cursor`
+`buildRecursionTree()`（再帰呼び出しのみのツリー・cost付き）を SVG ツリーとして描画する参照実装。[ADR-027](adr/ADR-027-calltree-recursiontree-merge.md) により、下記 V-10b CallTree がノード表示・cost 表示を統合したため、タブ登録から外されている（コードは `src/views/recursion-tree/` に残置）。
 
 `buildRecursionTree()` の仕様:
 - `#buildFullCallTree()` で全呼び出しツリーを構築後、再帰的にフィルタリング
 - **フィルタリング**: `child.funcName === parent.funcName` の子のみ保持（再帰呼び出しのみ）
 - 再帰的な子を 1 つも持たないルートは除外 → 非再帰プログラムでは空配列
-- **cost プロパティ**: `node.cost = 1 + Σ(子のcost)` でサブツリーサイズを計算して付与
+- **cost プロパティ**: `node.cost = 1 + Σ(子のcost)` でサブツリーサイズを計算して付与（`buildCallTree()` と共有の `#computeCost()` を使用）
 - ノード: `{ id, funcName, args, returnVal, callStepIdx, returnStepIdx, treeDepth, children[], cost }`
 
 ---
@@ -429,16 +414,16 @@
 
 - 再帰に限らず、全ての関数呼び出しを SVG ツリーとして表示する
 - RecursionTree との違い: 再帰関数でなくても（例: `Math.max`、ヘルパー関数）全呼び出しをノードとして展開
-- ノードラベル: `funcName(args)` 形式（1行、長い場合は省略）
-- ノードの色・状態アイコンは RecursionTree と同じ（未呼び出し/実行中/完了）
-- レイアウト: RecursionTree と同一アルゴリズム（NODE_W=180、NODE_H=56）
+- ノード表示形式は RecursionTree と統一（[ADR-027](adr/ADR-027-calltree-recursiontree-merge.md)）: 関数名（1行目）・引数（`fmtArgsLines()` で最大2行）・戻り値・cost（左下、「cost:N」）
+- ノードの色・状態アイコンは未呼び出し（灰・破線・「…」）／実行中（青・太線・「▶」）／完了（緑・「✓」）
+- レイアウト: 再帰的サブツリー幅計算（葉=NODE_W=160、内部ノード=子の幅の和＋gap）、NODE_H=80
 - `update()` はノード className の付け替えのみ
 
 **入力**: `builder.buildCallTree()`, `state.cursor`
 
 `buildCallTree()` の仕様:
-- 内部の `#buildFullCallTree()` を呼び出す（`buildRecursionTree()` とは完全に独立）
-- 返り値構造は `buildRecursionTree()` と同一だが cost プロパティは付与しない
+- 内部の `#buildFullCallTree()` を呼び出し、全ノードに `#computeCost()`（`buildRecursionTree()` と共有）で cost を付与
+- 返り値構造は `buildRecursionTree()` と同一（`cost` プロパティを含む）
 - 全関数呼び出し（再帰・非再帰を問わず）を含む
 
 ---
@@ -600,7 +585,7 @@
 
 - キーボードのみでステップ操作（8 種類＋先頭/末尾）・ビュー切り替え（`1`〜`9`）ができること
 - 色分けに加えて形状・テキスト・パターンでも情報を伝えること（色覚多様性対応）
-  - RecursionTree: 破線ボーダー（未実行）・太線（実行中）・状態アイコン（…/▶/✓）
+  - CallTree: 破線ボーダー（未実行）・太線（実行中）・状態アイコン（…/▶/✓）
   - ControlFlow: 戻りエッジを破線で表示
 - ライト/ダーク両テーマで十分なコントラスト比を確保すること
 - SVG ビューに `role="img"` と `aria-label` を付与すること

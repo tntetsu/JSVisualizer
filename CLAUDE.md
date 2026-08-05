@@ -5,7 +5,7 @@
 ## プロジェクト概要
 
 **JSVisualizer** は、JavaScript プログラムの実行過程をインタラクティブに可視化する教育用 Web アプリケーションです。  
-[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、13 種類の可視化ビューを提供します。  
+[JSInterpreter](../JSInterpreter) の `JSDebugger` API をコアエンジンとして使用し、式・文・関数呼び出しの各粒度でのステップ実行と、12 種類の可視化ビューを提供します。  
 GitHub Pages でホストされ、main ブランチへの push で自動デプロイされます。
 
 対象ユーザーはプログラミング入門〜中級の学習者および教員です。
@@ -37,8 +37,8 @@ JSVisualizer/
 │   │   ├── color-box/            # 配列アニメーション（複数配列同時表示・ポインタ別行）✅  ← タブ「配列」
 │   │   ├── timeline/             # 変数の時系列グラフ（SVG折れ線・変数選択時Y軸動的更新）✅  ← タブ登録なし（非アクティブ）
 │   │   ├── heatmap/              # 実行頻度ヒートマップ（連結線常時表示）            ✅
-│   │   ├── recursion-tree/       # 再帰呼び出しツリー（SVG・引数展開表示）                ✅
-│   │   ├── call-tree/            # 全関数呼び出しツリー（SVG・再帰に限らない）            ✅  ← タブ「呼び出しツリー」
+│   │   ├── recursion-tree/       # 再帰呼び出しツリー（SVG・引数展開表示）                ✅  ← タブ登録なし（非アクティブ、CallTreeに統合。ADR-027）
+│   │   ├── call-tree/            # 全関数呼び出しツリー（SVG・再帰に限らない・cost表示）  ✅  ← タブ「呼び出しツリー」
 │   │   ├── lifetime/             # 変数ライフタイム Gantt チャート（SVG）                ✅
 │   │   ├── control-flow/         # 制御フロービュー（AST DOM フローチャート・未実行ノードグレー）✅
 │   │   ├── memory-view/          # メモリモデルビュー（スタック/ヒープ + SVG矢印）  ✅
@@ -147,8 +147,8 @@ class TraceBuilder {
   buildHeatmap()                      // → Map<lineNo, count>  行ごとの実行回数
 
   // Phase 4
-  buildRecursionTree()                // → TreeNode[]    再帰呼び出しのみのツリー（cost プロパティ付き）
-  buildCallTree()                     // → TreeNode[]    全関数呼び出しツリー（#buildFullCallTree と独立キャッシュ）
+  buildRecursionTree()                // → TreeNode[]    再帰呼び出しのみのツリー（cost プロパティ付き・非アクティブ）
+  buildCallTree()                     // → TreeNode[]    全関数呼び出しツリー（cost プロパティ付き）
   buildLifetime()                     // → LifetimeEntry[]  変数ライフタイム区間（startHi/endHi は humanStep インデックス）
   buildCFG()                          // → ScopeNode[]   AST ベース制御フロー（スコープ単位・未実行ノード含む）
   buildControlFlow()                  // → { nodes, edges, humanSteps }  旧実装（未使用・後方互換のため残置）
@@ -159,8 +159,8 @@ class TraceBuilder {
 }
 ```
 
-`buildRecursionTree()` は `#buildFullCallTree()` の結果から `child.funcName === parent.funcName` の子のみを残し、`cost = 1 + Σ子のcost` を付与。再帰なしなら空配列。  
-`buildCallTree()` は `#buildFullCallTree()` を使用（`buildRecursionTree()` とは完全に独立）。CallTree ビューが使用。  
+`buildRecursionTree()` は `#buildFullCallTree()` の結果から `child.funcName === parent.funcName` の子のみを残し、`cost = 1 + Σ子のcost` を付与。再帰なしなら空配列。RecursionTree ビューは非アクティブ（ADR-027）。  
+`buildCallTree()` は `#buildFullCallTree()` の全ノードに `cost` を付与して返す（`#computeCost()` を buildRecursionTree() と共有）。CallTree ビューが使用。  
 `buildLifetime()` は humanStep ごとの env を走査し `callDepth:varName` をキーにして区間を記録。  
 `buildCFG()` は AST を走査してスコープ（グローバル／関数）ごとの `CfgItem[]` を構築。`CfgItem` は `type: stmt|return|jump|if|while|for|do-while|seq` を持ち、`execCount` で実行回数を記録（未実行は 0）。`buildControlFlow()` は旧実装（エッジ/ノードベース）で現在未使用。  
 すべてキャッシュ付きで、2回目以降の呼び出しは O(1)。
@@ -339,9 +339,9 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 
 | ビュー | 状態 | 色以外の手がかり |
 |--------|------|---------------|
-| RecursionTree | 未呼び出し | 破線ボーダー（`stroke-dasharray: 5 3`）＋「…」アイコン |
-| RecursionTree | 実行中 | 太い実線ボーダー（`stroke-width: 3`）＋「▶」アイコン |
-| RecursionTree | 完了 | 細い実線ボーダー＋「✓」アイコン |
+| CallTree | 未呼び出し | 破線ボーダー（`stroke-dasharray: 5 3`）＋「…」アイコン |
+| CallTree | 実行中 | 太い実線ボーダー（`stroke-width: 3`）＋「▶」アイコン |
+| CallTree | 完了 | 細い実線ボーダー＋「✓」アイコン |
 | ControlFlow | 未実行ノード | `cf-node--dead` クラス（グレーアウト）＋ `cf-exec-badge` 非表示 |
 
 ## コーディング規約
@@ -371,7 +371,7 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 - **LineTrace vs AnimatedTrace**: `animated-trace/` ディレクトリは実装済みだが、タブには現在 `line-trace/`（ソース行×変数マトリクス表）を使用
 - **LineTrace の構成**: 行番号列に `lt-lineno-num`（数字）+ `lt-lineno-snippet`（先頭15文字スニペット）を表示、右側に変数テーブル。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装。（以前の2ペイン構成・ソースパネル・リサイザーは削除済み）
 - **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[callStack.length-1].name(args)` 形式、ReturnStatement は `'return'` を表示
-- **CallTree ビュー**: `buildCallTree()` が返すノード配列（再帰・非再帰を問わず全関数呼び出し）を SVG ツリーとして描画。`RecursionTree` と同じレイアウトアルゴリズムを使用。CSS クラスは `.ct-*`（`RecursionTree` の `.rt-*` に対応）
+- **CallTree ビュー**: `buildCallTree()` が返すノード配列（再帰・非再帰を問わず全関数呼び出し、cost付き）を SVG ツリーとして描画。表示形式・レイアウトアルゴリズムとも `RecursionTree` と共通（ADR-027 で統合、RecursionTree は非アクティブ化）。CSS クラスは `.ct-*`（`RecursionTree` の `.rt-*` に対応）
 - **スコープ統合表示**: `format.js` の `mergeScopesForDisplay(scopes, callStack)` でフレームごとに表示変数を決定。最内側フレームは scopes[0]〜scopes[M-2] を全マージ（ブロックスコープ含む）。外側フレームは env チェーンに含まれないため callStack[i].args + JSFunction.params から引数値を再構築（`reconstructFrameVars`）。ラベルは `factorial(6)` 形式（`formatFrameLabel(frame)`）。`scope-view`・`state-view`・`memory-view` で共通使用。表示順は innermost-first
 - **Heatmap の改善**: 背景色を `update()` ごとに現在ステップまでの実行回数で動的更新（`lineTimeline` + バイナリサーチ）。カウントを「N回 / M回」形式で表示。ドット幅 360px（3倍）。実行済みドット（`.hm-dot--past`）と未実行ドット（デフォルトグレー）を色分け。異なる行に遷移する連続 humanStep のドット間を `.hm-overlay-svg` 上の `<line class="hm-vline">` で常時表示（`init()` 時に `requestAnimationFrame` で描画）。`.hm-lines` は `position: relative`、オーバーレイ SVG は `position: absolute`。トグルボタンは廃止
 - **ColorBox（配列ビュー）**: タブ名「配列」。複数配列を同時選択して表示（折り返しあり）。各配列ブロックを枠線（`border: 1px solid var(--border)`）＋背景色（`var(--surface2)`）で区切り表示。`#scanTrace()` の 2 パス走査で配列ごとの `maxWidth`（最大グリッド幅）と `maxGridHeight`（最大グリッド高）を事前計算。`#render()` で `.cb-grid` に `min-width`/`min-height` を設定し、配列長やポインタ行数が変化しても各ブロックの占有領域が動かないよう固定。空配列時も `.cb-grid` を描画して占有領域を確保。ポインタ変数は変数ごとに個別の行として表示。文字列値は切り詰めなしで表示

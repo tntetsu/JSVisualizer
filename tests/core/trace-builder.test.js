@@ -404,6 +404,31 @@ describe('TraceBuilder.buildCallTree()', () => {
     const builder = new TraceBuilder(trace);
     expect(builder.buildCallTree()).toBe(builder.buildCallTree());
   });
+
+  test('cost プロパティが設定される（葉=1、親=1+子の合計、同名でなくてもカウントする）', () => {
+    const trace = [
+      ev('enter', 'ExpressionStatement', 1, { callDepth: 0 }),
+      ev('enter', 'CallExpression', 2, {
+        callDepth: 1,
+        callStack: [{ name: 'outer', args: [], loc: { line: 2, column: 0 } }],
+      }),
+      ev('enter', 'CallExpression', 3, {
+        callDepth: 2,
+        callStack: [
+          { name: 'outer', args: [], loc: { line: 2, column: 0 } },
+          { name: 'inner', args: [], loc: { line: 3, column: 0 } },
+        ],
+      }),
+      ev('exit', 'CallExpression', 3, { callDepth: 1, value: 'inner-ret' }),
+      ev('exit', 'CallExpression', 2, { callDepth: 0, value: 'outer-ret' }),
+    ];
+    const roots = new TraceBuilder(trace).buildCallTree();
+    expect(roots[0].funcName).toBe('outer');
+    expect(roots[0].children[0].funcName).toBe('inner');
+    // outer と inner は同名ではないが、buildCallTree は全呼び出しを対象にするため両方カウントする
+    expect(roots[0].children[0].cost).toBe(1);
+    expect(roots[0].cost).toBe(2);
+  });
 });
 
 // ── buildLifetime ─────────────────────────────────────────────────────────

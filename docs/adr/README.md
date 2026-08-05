@@ -33,3 +33,4 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [024](ADR-024-session-logger.md) | Session Logger — 操作ログ機能（ワンクリックマーカー含む） | 2026-07-16 |
 | [025](ADR-025-i18n-system.md) | 言語切替（i18n）システム | 2026-07-20 |
 | [026](ADR-026-callstack-view-simplification.md) | Call Stack ビューの簡略化と Global 疑似フレーム導入 | 2026-08-05 |
+| [027](ADR-027-calltree-recursiontree-merge.md) | CallTree / RecursionTree の統合、RecursionTree の非アクティブ化 | 2026-08-05 |

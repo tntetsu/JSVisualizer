@@ -6,7 +6,7 @@
 
 An interactive, educational web application that visualizes JavaScript program execution step by step.
 
-Step through your code at four levels of granularity and watch the program's behavior unfold across **13 visualization views**.
+Step through your code at four levels of granularity and watch the program's behavior unfold across **12 visualization views**.
 
 ![JSVisualizer demo](img/demo.gif)
 
@@ -42,7 +42,7 @@ The code panel simultaneously displays three highlight layers:
 | Expression highlight | 🟧 Orange (semi-transparent) | Character range of the expression being evaluated |
 | Call-site highlight | 🟣 Purple (dashed underline) | While inside a function, highlights the call expression that invoked it |
 
-### Visualization Views (13 tabs)
+### Visualization Views (12 tabs)
 
 | Category | Tab | Description |
 |----------|-----|-------------|
@@ -53,8 +53,7 @@ The code panel simultaneously displays three highlight layers:
 | | Expr | Sub-expression evaluation: one statement's expression is progressively substituted toward its final value. Two-color highlights. Variable values updated in real time |
 | **Graph** | Arrays | Multiple arrays displayed as color-coded indexed boxes. Pointer variables shown in individual rows. Blocks separated by border + background, wrap when too wide |
 | | Heatmap | Execution count per line shown as "N/M times" + background color, updated per step. Execution timeline dots with SVG connector lines between transitions |
-| **Structure** | Rec. Tree | **Recursive calls only** rendered as SVG tree. Subtree cost (`cost:N`) shown per node |
-| | Call Tree | All function calls (recursive and non-recursive) as SVG tree |
+| **Structure** | Call Tree | All function calls (recursive and non-recursive) as SVG tree. Subtree cost (`cost:N`) shown per node |
 | | Lifetime | Variable lifetime as SVG Gantt chart. |
 | | Control Flow | AST-based flowchart: if/else shown as side-by-side true/false branches; loops as condition + body. Unexecuted nodes grayed out — untaken branches visible at a glance |
 | | Memory | Stack (scope frames) and heap (objects/arrays) in separate columns with SVG reference arrows |

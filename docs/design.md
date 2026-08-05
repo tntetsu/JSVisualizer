@@ -495,8 +495,8 @@ class TraceBuilder {
 
   /**
    * 全関数呼び出しツリーのルートノード配列を返す（CallTree ビュー用）。
-   * 内部の #buildFullCallTree() を利用（buildRecursionTree() とは完全に独立）。
-   * cost プロパティは付与しない。
+   * 内部の #buildFullCallTree() を利用し、全ノードに #computeCost()
+   * （buildRecursionTree() と共有）で cost プロパティを付与する。
    * @returns {Object[]} ルートノード配列
    */
   buildCallTree()
@@ -574,7 +574,7 @@ Phase 4 / Phase 5 の SVG ビューは共通パターンに従って実装され
 
 | パターン | 説明 | 使用ビュー |
 |---------|------|----------|
-| **静的 SVG** | `init()` で全要素を生成し `update()` で属性変更のみ | RecursionTree, Lifetime, ControlFlow |
+| **静的 SVG** | `init()` で全要素を生成し `update()` で属性変更のみ | CallTree, Lifetime, ControlFlow |
 | **動的 SVG** | `init()` でレイアウト計算＆生成、`update()` で位置・色を更新 | Timeline, ObjectGraph |
 | **SVG オーバーレイ矢印** | DOM 要素上に `position: absolute` の SVG を重ねてベジェ曲線を描画 | MemoryView |
 | **rAF 遅延描画** | DOM レイアウト確定後に `requestAnimationFrame` で矢印座標を計算 | MemoryView |
@@ -968,7 +968,9 @@ CSS: `.hm-vline { stroke: var(--accent); stroke-width: 1; stroke-opacity: 0.4; f
 
 ---
 
-#### `recursion-tree/` — 再帰ツリー ✅
+#### `recursion-tree/` — 再帰ツリー ✅（タブ登録なし・非アクティブ）
+
+[ADR-027](adr/ADR-027-calltree-recursiontree-merge.md) により、下記 `call-tree/` がノード表示形式・cost 表示を統合したため非アクティブ化。以下は参照実装としての設計記録（`call-tree/` も同一のレイアウト・表示ロジックを採用している）。
 
 **データ取得**: `builder.buildRecursionTree()` → ルートノード配列
 
@@ -1038,27 +1040,28 @@ CSS スタイル（`style.css`):
 
 ---
 
-#### `call-tree/` — 全関数呼び出しツリー ✅
+#### `call-tree/` — 全関数呼び出しツリー ✅ ← タブ「呼び出しツリー」
 
-**データ取得**: `builder.buildCallTree()` → ルートノード配列（`buildRecursionTree()` と同一構造）
+**データ取得**: `builder.buildCallTree()` → ルートノード配列（`buildRecursionTree()` と同一構造。cost プロパティも同じ `#computeCost()` で付与）
 
-**レイアウト定数**:
+**レイアウト定数・ノード表示形式**: RecursionTree と共通（[ADR-027](adr/ADR-027-calltree-recursiontree-merge.md) で統合）。
+
 ```js
-const NODE_W=180, NODE_H=56, COL_GAP=16, ROW_GAP=44, PAD_X=20, PAD_Y=20;
-// CallTree はラベルを 1行（funcName(args)）で表示するため NODE_H を小さく設定
+const NODE_W=160, NODE_H=80, COL_GAP=20, ROW_GAP=52, PAD_X=24, PAD_Y=24;
 ```
-
-**ノードラベル**: `fmtNodeLabel(node)` が `funcName(arg1, arg2, ...)` 形式で生成。26 文字を超える場合は省略
 
 **SVG 要素**: ノードごとに `<g class="ct-node ct-node--*">` 内に:
 - `<rect class="ct-rect">` — ノード枠
-- `<text class="ct-label" y=22>` — `funcName(args)` ラベル（行 1）
-- `<text class="ct-retval" y=40>` — 戻り値（行 2、確定後のみ表示）
+- `<text class="ct-name" y=18>` — 関数名（行 1）
+- `<text class="ct-args" y=35>` — 引数行 1（行 2、`fmtArgsLines()`）
+- `<text class="ct-args" y=50>` — 引数行 2（行 3、長い場合のみ）
+- `<text class="ct-retval" y=65 or 52>` — 戻り値（引数が 1 行なら y=52）
 - `<text class="ct-state-icon" y=14>` — 状態アイコン（右上角: …/▶/✓）
+- `<text class="ct-cost" x=6 y=NODE_H-6>` — cost（左下角、「cost:N」）
 
 エッジは `<line class="ct-edge">`
 
-**状態クラス**: `ct-node--future` / `ct-node--active` / `ct-node--done`（RecursionTree の `rt-node--*` と同じ論理）
+**状態クラス**: `ct-node--future` / `ct-node--active` / `ct-node--done`（RecursionTree の `rt-node--*` と同じ論理）。戻り値・完了アイコンの色は `var(--sorted)` を使用（旧 `#4ce884` 固定色はライトテーマでコントラストが弱かったため置換）
 
 ---
 
@@ -1598,9 +1601,9 @@ JSVisualizer/
 │   │   ├── heatmap/
 │   │   │   └── index.js              ✅ 実行頻度ヒートマップ
 │   │   ├── recursion-tree/
-│   │   │   └── index.js              ✅ 再帰ツリー SVG（引数展開表示・NODE_W=160/H=80）
+│   │   │   └── index.js              ✅ 再帰ツリー SVG（非アクティブ・ADR-027で call-tree に統合）
 │   │   ├── call-tree/
-│   │   │   └── index.js              ✅ 全関数呼び出しツリー SVG（NODE_W=180/H=56）
+│   │   │   └── index.js              ✅ 全関数呼び出しツリー SVG（引数展開・cost表示・NODE_W=160/H=80）
 │   │   ├── lifetime/
 │   │   │   └── index.js              ✅ 変数ライフタイム SVG Gantt
 │   │   ├── control-flow/
@@ -1711,8 +1714,8 @@ CSS カスタムプロパティで 2 テーマを管理する。
 | color-box | `cb-` | `.cb-box`, `.cb-box--ptr` |
 | timeline | `tl-` | `.tl-svg`, `.tl-cursor` |
 | heatmap | `hm-` | `.hm-line`, `.hm-line--active` |
-| recursion-tree | `rt-` | `.rt-node--active`, `.rt-rect` |
-| call-tree | `ct-` | `.ct-node--active`, `.ct-rect`, `.ct-label` |
+| recursion-tree | `rt-` | `.rt-node--active`, `.rt-rect`（非アクティブ） |
+| call-tree | `ct-` | `.ct-node--active`, `.ct-rect`, `.ct-name`, `.ct-cost` |
 | lifetime | `lf-` | `.lf-bar`, `.lf-cursor` |
 | control-flow | `cf-` | `.cf-node--active`, `.cf-edge--back` |
 | memory-view | `mv-` | `.mv-frame`, `.mv-arrows` |
@@ -1772,23 +1775,23 @@ CSS カスタムプロパティで 2 テーマを管理する。
 - `data-error-type="parse"` → 赤バッジ（`--changed` カラー）
 - `data-error-type="runtime"` → 橙背景（`--changed-bg` ベース）
 
-### 6.6 RecursionTree 色覚多様性（Phase 6 追加）
+### 6.6 CallTree 色覚多様性（Phase 6 追加、ADR-027 で RecursionTree から移設）
 
 ```css
 /* 未実行: 破線ボーダー + 薄い表示 */
-.rt-node--future .rt-rect { stroke-dasharray: 5 3; opacity: 0.60; }
+.ct-node--future .ct-rect { stroke-dasharray: 5 3; opacity: 0.60; }
 
 /* 実行中: 太線ボーダー + 太字テキスト */
-.rt-node--active .rt-rect { stroke-width: 3; stroke-dasharray: none; }
-.rt-node--active .rt-name { font-weight: 700; }
+.ct-node--active .ct-rect { stroke-width: 3; stroke-dasharray: none; }
+.ct-node--active .ct-name { font-weight: 700; }
 
 /* 完了: 通常ボーダー */
-.rt-node--done .rt-rect { stroke-dasharray: none; }
+.ct-node--done .ct-rect { stroke-dasharray: none; }
 
 /* 状態アイコン（右上角: …/▶/✓） */
-.rt-state-icon { font-size: 10px; fill: var(--text-muted); }
-.rt-node--active .rt-state-icon { fill: var(--accent); }
-.rt-node--done   .rt-state-icon { fill: #4ce884; }
+.ct-state-icon { font-size: 10px; fill: var(--text-muted); }
+.ct-node--active .ct-state-icon { fill: var(--accent); }
+.ct-node--done   .ct-state-icon { fill: var(--sorted); }
 ```
 
 ### 6.7 差分強調スタイル（v1.5 追加）

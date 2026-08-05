@@ -2400,39 +2400,50 @@ body {
 }
 
 /* ── CallTree (.ct-*) ──────────────────────────────────────────────────────*/
+/* RecursionTree (.rt-*) と表示形式・配色を共通化（cost 表示含む） */
 
 .ct-wrap { width:100%; height:100%; overflow:auto; padding:8px; box-sizing:border-box; }
 .ct-svg  { display:block; }
 .ct-edge { stroke:var(--border); stroke-width:1.5; fill:none; }
 .ct-rect { fill:var(--surface); stroke:var(--border); stroke-width:1.5; transition:fill 0.2s,stroke 0.2s; }
-.ct-label {
+
+.ct-name {
   font-family: 'Cascadia Code','Fira Code','SF Mono',Consolas,monospace;
   font-size: 11px; font-weight: 600; fill: var(--text);
 }
+.ct-args {
+  font-family: 'Cascadia Code','Fira Code','SF Mono',Consolas,monospace;
+  font-size: 10px; fill: var(--text-muted);
+}
 .ct-retval {
   font-family: 'Cascadia Code','Fira Code','SF Mono',Consolas,monospace;
-  font-size: 10px; fill: #4ce884; font-weight: 600;
+  font-size: 10px; fill: var(--sorted); font-weight: 600;
+}
+.ct-cost {
+  font-size: 9px; fill: var(--text-muted); font-family: 'Cascadia Code','Fira Code',monospace;
 }
 .ct-state-icon {
   font-size: 10px; fill: var(--text-muted); font-family: 'Segoe UI',system-ui,sans-serif;
 }
 .ct-node--active .ct-state-icon { fill: var(--accent); }
-.ct-node--done   .ct-state-icon { fill: #4ce884; }
+.ct-node--done   .ct-state-icon { fill: var(--sorted); }
 
 .ct-node--future .ct-rect {
   fill:var(--bg); stroke:var(--border); stroke-dasharray:5 3; opacity:0.60;
 }
-.ct-node--future .ct-label,
+.ct-node--future .ct-name,
+.ct-node--future .ct-args,
 .ct-node--future .ct-retval { fill:var(--text-muted); opacity:0.60; }
 
 .ct-node--active .ct-rect {
   fill:rgba(76,155,232,0.18); stroke:var(--accent); stroke-width:3; stroke-dasharray:none;
 }
-.ct-node--active .ct-label { fill:var(--accent); font-weight:700; }
+.ct-node--active .ct-name { fill:var(--accent); font-weight:700; }
 
 .ct-node--done .ct-rect {
-  fill:rgba(76,232,132,0.12); stroke:#4ce884; stroke-width:1.5; stroke-dasharray:none;
+  fill:rgba(76,232,132,0.12); stroke:var(--sorted); stroke-width:1.5; stroke-dasharray:none;
 }
+.ct-node--done .ct-name { fill: var(--text); }
 
 [data-theme="dark"] .ct-node--active .ct-rect { fill:rgba(76,155,232,0.22); }
 [data-theme="dark"] .ct-node--done   .ct-rect { fill:rgba(76,232,132,0.16); }

@@ -178,16 +178,12 @@ switcher.register('heatmap',
   Heatmap,
   { ja: '各行の実行回数を色の濃さで表示します。ループで繰り返し実行された行が一目でわかります。',
     en: 'Shows execution frequency per line as color intensity. Highlights hot loops at a glance.' });
-switcher.register('recursion',
-  { ja: '再帰ツリー', en: 'Rec. Tree' },
-  RecursionTree,
-  { ja: '再帰呼び出しの構造を木で表示します。各ノードのサブツリーコストも確認できます。',
-    en: 'Displays recursive call structure as a tree. Each node shows its subtree cost.' });
+// switcher.register('recursion', ...);  // 非アクティブ（CallTree に統合。ADR-027）
 switcher.register('calltree',
   { ja: '呼び出しツリー', en: 'Call Tree' },
   CallTree,
-  { ja: 'すべての関数呼び出し（再帰・非再帰）を呼び出し順の木構造で可視化します。',
-    en: 'Visualizes all function calls (recursive and non-recursive) as an ordered call tree.' });
+  { ja: 'すべての関数呼び出し（再帰・非再帰）を呼び出し順の木構造で可視化します。各ノードのサブツリーコストも確認できます。',
+    en: 'Visualizes all function calls (recursive and non-recursive) as an ordered call tree. Each node shows its subtree cost.' });
 switcher.register('lifetime',
   { ja: '変数寿命', en: 'Lifetime' },
   Lifetime,

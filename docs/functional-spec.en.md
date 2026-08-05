@@ -331,20 +331,9 @@ Button colors: fine-grained (Expr/Human) = accent blue; coarse-grained (Stmt/Fun
 
 ---
 
-#### V-10: Recursion Tree (RecursionTree) ✅
+#### V-10: Recursion Tree (RecursionTree) ✅ (inactive)
 
-**Tab label**: Rec. Tree
-
-- SVG tree built at `init()` time
-- Node colors: not-yet-called (gray), currently executing (blue), completed (green)
-- Completed nodes show the return value as `→ value`
-- `update()` only swaps node CSS classes — O(n_nodes)
-- Layout: recursive subtree-width calculation (leaf = NODE_W=160; parent = sum of children + gap); NODE_H=80
-- **Args display**: `fmtArgsLines(args)` shows up to 2 lines; arrays shown as `[1, 2, 3]`
-- **Cost display**: each node shows `cost:N` (subtree size; leaf=1, parent=1+sum of children)
-- "No recursive calls" message when the program has no recursion
-- **Color-blindness support**: state communicated by border style + text icon (…/▶/✓), not color alone
-- **Tab grayed out** if the trace contains no recursive calls
+Reference implementation rendering `buildRecursionTree()` (recursive calls only, with cost) as an SVG tree. Per [ADR-027](adr/ADR-027-calltree-recursiontree-merge.md), V-10b Call Tree below now unifies node display and cost, so this view has been removed from tab registration (code kept at `src/views/recursion-tree/`).
 
 **Input**: `builder.buildRecursionTree()`, `state.cursor`
 
@@ -355,9 +344,9 @@ Button colors: fine-grained (Expr/Human) = accent blue; coarse-grained (Stmt/Fun
 **Tab label**: Call Tree
 
 - All function calls — not just recursive ones — shown as an SVG tree
-- Node label format: `funcName(args)` (one line)
-- Node colors and icons same as RecursionTree (not-yet-called / executing / completed)
-- Layout: same algorithm as RecursionTree (NODE_W=180, NODE_H=56)
+- Node display unified with RecursionTree ([ADR-027](adr/ADR-027-calltree-recursiontree-merge.md)): function name (line 1), args (`fmtArgsLines()`, up to 2 lines), return value, and cost (`cost:N`, bottom-left)
+- Node colors and icons: not-yet-called (gray, dashed, "…") / executing (blue, thick border, "▶") / completed (green, "✓")
+- Layout: recursive subtree-width calculation (leaf = NODE_W=160; parent = sum of children + gap); NODE_H=80
 - `update()` only swaps node CSS classes
 - **Tab grayed out** if the trace contains no function calls
 
@@ -515,7 +504,7 @@ A fixed panel at the bottom of the right pane, always visible regardless of whic
 
 - All step operations (8 directions + first/last) and tab switching (`1`–`9`) must be keyboard-operable
 - State must be communicated via shape, text, and pattern — not color alone
-  - RecursionTree: dashed border (not-yet-called), thick border (executing), icons (…/▶/✓)
+  - CallTree: dashed border (not-yet-called), thick border (executing), icons (…/▶/✓)
   - ControlFlow: back edges shown as dashed lines
 - Both light and dark themes must maintain sufficient contrast ratios
 - SVG views should carry `role="img"` and `aria-label`

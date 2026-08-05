@@ -243,6 +243,17 @@ export class TraceBuilder {
   }
 
   /**
+   * ノードの cost（subtree サイズ）を計算して付与する（葉=1、内部ノード=1+子の合計）。
+   * buildRecursionTree()・buildCallTree() で共有する。
+   * @param {Object} node
+   * @returns {number}
+   */
+  #computeCost(node) {
+    node.cost = 1 + node.children.reduce((s, c) => s + this.#computeCost(c), 0);
+    return node.cost;
+  }
+
+  /**
    * 再帰呼び出しのみを含むツリーを返す。
    *
    * 全呼び出しツリーから「子の funcName === 親の funcName」となる
@@ -264,18 +275,12 @@ export class TraceBuilder {
       return { ...node, children: recursiveChildren };
     }
 
-    // コスト計算: subtree サイズ（葉=1、内部ノード=1+子の合計）
-    function computeCost(node) {
-      node.cost = 1 + node.children.reduce((s, c) => s + computeCost(c), 0);
-      return node.cost;
-    }
-
     // 再帰的な子を持つルートのみ保持
     const filtered = fullRoots
       .map(r => filterRecursive(r))
       .filter(r => r.children.length > 0);
 
-    filtered.forEach(r => computeCost(r));
+    filtered.forEach(r => this.#computeCost(r));
 
     this.#recursionTreeCache = filtered;
     return filtered;
@@ -285,12 +290,14 @@ export class TraceBuilder {
    * 全関数呼び出しツリーのルートノード配列を返す。
    *
    * 再帰に限らず全関数呼び出しを含む。CallTree ビューが利用する。
+   * 各ノードに cost（subtree サイズ）を付与する。
    *
    * @returns {Object[]} ルートノードの配列
    */
   buildCallTree() {
     if (this.#callTreeCache !== null) return this.#callTreeCache;
     this.#callTreeCache = this.#buildFullCallTree();
+    this.#callTreeCache.forEach(r => this.#computeCost(r));
     return this.#callTreeCache;
   }
 
