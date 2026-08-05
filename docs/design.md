@@ -861,9 +861,11 @@ switch (ev.nodeType) {
 
 **文字列値**: 切り詰めなしで全文表示
 
+**オブジェクト・配列要素**（2026-08-05 改修）: 従来は `'?'` プレースホルダーだったが、`formatValue(v)`（`format.js`、色付きHTML）でキーと値のペアをそのままセルに表示するよう変更。セル幅は要素の中で最も長いオブジェクトのプレーンテキスト表現（`formatObjectPlain(v)`、幅計測専用のヘルパー）の文字数から `#cellWidth(len, maxObjectTextLen)` で算出し、通常の長さベース幅より広く必要な場合は自動的に拡大する。オブジェクト要素を含む配列はフォントサイズを固定（`OBJ_FONT = 10px`）にし、セル幅に比例する数値セル用のフォント計算式は使わない（幅が文字数由来のため比例させると破綻する）。
+
 **最大サイズ事前計算** (`#scanTrace()` 第 2 パス):
 ```js
-// 各 humanStep で len × CELL・IDX_H・PTR_H を計算して最大値を記録
+// 各 humanStep で #cellWidth(len, maxObjectTextLen) を用いて CELL・IDX_H・PTR_H を計算し最大値を記録
 m.maxWidth      = Math.max(m.maxWidth,      len * CELL);
 m.maxGridHeight = Math.max(m.maxGridHeight, IDX_H + CELL + ptrCount * PTR_H);
 ```

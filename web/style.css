@@ -2056,6 +2056,11 @@ body {
   box-sizing: border-box;
 }
 
+.cb-cell--obj {
+  padding: 0 6px;
+  font-weight: normal;
+}
+
 .cb-cell--idx {
   background: transparent;
   border: none;

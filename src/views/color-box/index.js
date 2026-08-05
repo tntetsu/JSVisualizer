@@ -8,9 +8,37 @@
  * - チップで複数の配列変数を同時選択可能
  */
 
-import { BaseView }                       from '../base-view.js';
-import { flattenEnv, BUILTIN_NAMES, esc } from '../../utils/format.js';
-import { t }                              from '../../i18n.js';
+import { BaseView }                                   from '../base-view.js';
+import { flattenEnv, BUILTIN_NAMES, esc, formatValue } from '../../utils/format.js';
+import { t }                                          from '../../i18n.js';
+
+/** 幅見積り用の1文字あたりの概算ピクセル幅（monospace、OBJ_FONT に対応） */
+const OBJ_CHAR_PX = 6.2;
+/** オブジェクトセルの左右パディング分の余白 */
+const OBJ_CELL_PAD = 14;
+/** オブジェクト要素セルのフォントサイズ（幅は文字数で決まるため、数値セルのような幅比例フォントは使わない） */
+const OBJ_FONT = 10;
+
+/**
+ * オブジェクト・配列要素をキー:値のプレーンテキストで整形する（セル幅の見積り用）。
+ * 表示自体は formatValue() の色付き HTML を使う。
+ * @param {any} v
+ * @returns {string}
+ */
+function formatObjectPlain(v) {
+  if (v === null || v === undefined) return String(v);
+  if (Array.isArray(v)) {
+    if (v.length === 0) return '[]';
+    return '[' + v.map(formatObjectPlain).join(', ') + ']';
+  }
+  if (typeof v === 'object') {
+    const entries = Object.entries(v).filter(([k]) => !k.startsWith('__'));
+    if (entries.length === 0) return '{}';
+    return '{' + entries.map(([k, val]) => `${k}: ${formatObjectPlain(val)}`).join(', ') + '}';
+  }
+  if (typeof v === 'string') return JSON.stringify(v);
+  return String(v);
+}
 
 /**
  * 値の大きさに応じた背景色を返す（小 → 青系、大 → 赤系）
@@ -127,7 +155,7 @@ export class Arrays extends BaseView {
       this.#subscriptVars.add(m[1]);
     }
 
-    // 第1パス: 配列変数と最大絶対値を収集
+    // 第1パス: 配列変数と最大絶対値・オブジェクト要素の最大表示文字数を収集
     for (const si of humanSteps) {
       const ev = trace[si];
       if (!ev?.env) continue;
@@ -135,9 +163,12 @@ export class Arrays extends BaseView {
       for (const [name, val] of vars) {
         if (BUILTIN_NAMES.has(name)) continue;
         if (!Array.isArray(val)) continue;
-        const m = metaMap.get(name) ?? { maxVal: 0, maxWidth: 0, maxGridHeight: 0 };
+        const m = metaMap.get(name) ?? { maxVal: 0, maxWidth: 0, maxGridHeight: 0, maxObjectTextLen: 0 };
         for (const v of val) {
           if (typeof v === 'number' && isFinite(v)) m.maxVal = Math.max(m.maxVal, Math.abs(v));
+          else if (v !== null && typeof v === 'object') {
+            m.maxObjectTextLen = Math.max(m.maxObjectTextLen, formatObjectPlain(v).length);
+          }
         }
         metaMap.set(name, m);
       }
@@ -154,7 +185,7 @@ export class Arrays extends BaseView {
         if (!metaMap.has(arrName)) continue;
         if (!Array.isArray(arr) || arr.length === 0) continue;
         const len  = arr.length;
-        const CELL = len <= 10 ? 48 : len <= 20 ? 38 : len <= 32 ? 28 : 20;
+        const CELL = this.#cellWidth(len, metaMap.get(arrName).maxObjectTextLen);
         const IDX_H = Math.round(CELL * 0.55);
         const PTR_H = Math.round(CELL * 0.65);
         let ptrCount = 0;
@@ -174,6 +205,19 @@ export class Arrays extends BaseView {
     if (this.#allArrayVars.length > 0) {
       this.#selectedArrays = new Set([this.#allArrayVars[0].name]);
     }
+  }
+
+  /**
+   * 配列長からセル幅を決める。要素にオブジェクト・配列が含まれる場合は、
+   * その内容（キーと値のペア）が全文入り切るよう幅を拡大する。
+   * @param {number} len              配列長
+   * @param {number} maxObjectTextLen オブジェクト要素の最大表示文字数（0 ならオブジェクトなし）
+   * @returns {number}
+   */
+  #cellWidth(len, maxObjectTextLen = 0) {
+    const base = len <= 10 ? 48 : len <= 20 ? 38 : len <= 32 ? 28 : 20;
+    if (!maxObjectTextLen) return base;
+    return Math.max(base, Math.round(maxObjectTextLen * OBJ_CHAR_PX + OBJ_CELL_PAD));
   }
 
   /** 配列選択チップを描画する（複数選択トグル） */
@@ -250,11 +294,10 @@ export class Arrays extends BaseView {
       const highlightedSet = new Set(ptrByName.values());
       const maxVal = meta?.maxVal ?? 0;
 
-      const CELL = arr.length <= 10 ? 48
-                 : arr.length <= 20 ? 38
-                 : arr.length <= 32 ? 28
-                 : 20;
-      const FONT = Math.max(9, Math.round(CELL * 0.34));
+      const hasObjects = (meta?.maxObjectTextLen ?? 0) > 0;
+      const CELL = this.#cellWidth(arr.length, meta?.maxObjectTextLen ?? 0);
+      // オブジェクト要素はセル幅が文字数で決まるため、幅比例のフォントサイズではなく固定サイズを使う
+      const FONT = hasObjects ? OBJ_FONT : Math.max(9, Math.round(CELL * 0.34));
       const style = `width:${CELL}px;font-size:${FONT}px`;
 
       html += `<div class="cb-array-block">`;
@@ -277,11 +320,14 @@ export class Arrays extends BaseView {
           ? `background:${valueToBoxColor(v, maxVal)};`
           : '';
         const hlCls  = isHl ? ' cb-cell--hl' : '';
-        const display = typeof v === 'number' ? String(v)
-                      : typeof v === 'string' ? v
-                      : typeof v === 'boolean' ? String(v)
-                      : '?';
-        html += `<div class="cb-cell${hlCls}" style="${style};height:${CELL}px;${bgColor}">${esc(display)}</div>`;
+        const isObj  = v !== null && typeof v === 'object';
+        const content = typeof v === 'number' ? esc(String(v))
+                      : typeof v === 'string' ? esc(v)
+                      : typeof v === 'boolean' ? esc(String(v))
+                      : isObj ? formatValue(v)
+                      : esc(String(v));
+        const objCls = isObj ? ' cb-cell--obj' : '';
+        html += `<div class="cb-cell${hlCls}${objCls}" style="${style};height:${CELL}px;${bgColor}">${content}</div>`;
       }
       html += '</div>';
 
