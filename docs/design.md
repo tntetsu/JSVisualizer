@@ -1206,6 +1206,8 @@ const NODE_BG    = ['var(--og-bg-0)', ..., 'var(--og-bg-5)'];  // 6 色パレッ
 - プリミティブ変数は `rootVars`（type='prim'）として左上に一覧表示
 - ルート変数名は対応ノードの上に `og-root-label` として表示
 
+**プリミティブ変数一覧とルートラベルの重なり回避**（2026-08-05 改修）: `og-prim-vars` は従来 `translate(minX+8, minY+8)` に固定配置されており、`minY` はノード群の上端から `PAD=20px` だけ離れた位置だった。ルート変数ラベル（`og-root-label`、ノード上 `y=-4`）もこの同じ `PAD` 内に描画されるため、両者が重なっていた。修正: `#render()` で `primVars.length * ROW_H + 10` を `primH` として事前計算し、`minY = Math.min(...ys) - PAD - primH` とすることでプリミティブ変数一覧専用の帯をノード群のさらに上に確保する（`og-prim-vars` 自体の座標式は変更していない）。
+
 **階層型レイアウト** (`hierarchicalLayout(nodes, edges)`):
 ```js
 function hierarchicalLayout(nodes, edges) {

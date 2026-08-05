@@ -369,13 +369,20 @@ export class ObjectGraph extends BaseView {
       return;
     }
 
+    // プリミティブ変数一覧が必要とする高さを事前計算する。
+    // ルート変数ラベル（ノード上、y=-4）はノード群のすぐ上（PAD 分の余白内）に描画されるため、
+    // プリミティブ変数一覧をその同じ余白に重ねて描画すると重なってしまう。
+    // そのため、プリミティブ変数一覧専用の帯をノード群のさらに上に確保する。
+    const primVars = rootVars.filter(rv => rv.type === 'prim');
+    const primH    = primVars.length > 0 ? primVars.length * ROW_H + 10 : 0;
+
     // 原点を中央に移すためのオフセット計算
     const PAD = 20;
     const xs  = nodes.map(n => n.x);
     const ys  = nodes.map(n => n.y);
     const nh  = nodes.map(nodeHeight);
     const minX = Math.min(...xs) - PAD;
-    const minY = Math.min(...ys) - PAD;
+    const minY = Math.min(...ys) - PAD - primH;
     const maxX = Math.max(...xs) + NODE_W + PAD;
     const maxY = Math.max(...ys.map((y, i) => y + nh[i])) + PAD;
 
@@ -571,9 +578,8 @@ export class ObjectGraph extends BaseView {
       nodesG.appendChild(g);
     }
 
-    // プリミティブ変数の一覧（右上ラベル）
+    // プリミティブ変数の一覧（ノード群・ルート変数ラベルと重ならないよう、上部に確保した専用の帯に描画）
     let primG = null;
-    const primVars = rootVars.filter(rv => rv.type === 'prim');
     if (primVars.length > 0) {
       primG = svgEl('g', { class: 'og-prim-vars', transform: `translate(${minX + 8},${minY + 8})` });
       let lineY = 14;
