@@ -51,12 +51,11 @@
 │  │ code-editor │ │ debugger-adapter   │ │ code-view        ✅       │   │
 │  │ pane-       │ │ step-controller    │ │ state-view       ✅       │   │
 │  │ resizer     │ │ trace-builder      │ │ scope-view       ✅       │   │
-│  │ step-       │ │ session-logger     │ │ callstack-view   ✅       │   │
-│  │ controls    │ └────────┬───────────┘ │ line-trace       ✅       │   │
-│  │ view-       │          │             │ trace-table      ✅       │   │
-│  │ switcher    │          │             │ bar-chart        ✅       │   │
-│  │ settings-   │          │             │ color-box        ✅       │   │
-│  │ panel       │          │             │ ...              ✅       │   │
+│  │ step-       │ │ session-logger     │ │ line-trace       ✅       │   │
+│  │ controls    │ └────────┬───────────┘ │ trace-table      ✅       │   │
+│  │ view-       │          │             │ bar-chart        ✅       │   │
+│  │ switcher    │          │             │ color-box        ✅       │   │
+│  │ settings-   │          │             │ ...              ✅       │   │
 │  │ study-panel │          │             │                           │   │
 │  │ (STUDY用)   │          │             │ timeline         ✅       │   │
 │  └─────────────┘          │             │ heatmap          ✅       │   │
@@ -637,13 +636,12 @@ update(state) で callStack.length > 0 の場合:
 
 ---
 
-#### `state-view/` — 変数・スタック統合パネル ✅
+#### `state-view/` — コールスタックビュー（`CallStackView`）✅ ← タブ「コールスタック」
 
-**構成カード**（スクロール可能な縦並び）:
-1. **Current Step** — phase, nodeType, 行番号, 評価値
-2. **変数** — 全スコープをグループ表示。変化した変数に `var-flash` アニメーション
-3. **コールスタック** — フレームとその行番号
+**構成カード**（スクロール可能な縦並び、カードは Call Stack の1枚のみ）:
+- **Call Stack** — `mergeScopesForDisplay()` が返すフレームを描画。`label === 'global'` のフレームは返却順序（関数呼び出し中は末尾）に関わらず常に先頭に「Global」として表示し、callStack が空でもグローバル変数を可視化する。変化した変数に `var-flash` アニメーション
 
+> 旧 Current Step カード（phase/nodeType/depth/callDepth 等）・旧 Variables カード（Call Stack の最内側フレームと重複していた）は [ADR-026](adr/ADR-026-callstack-view-simplification.md) で削除済み。
 > Console 出力は `#console-panel`（`debug-pane` 下部固定）に分離済み。`app.js` の `updateConsolePanel(state)` が `'ready'`/`'step'` イベントごとに更新する。
 
 **スクロール実装** (`.sv-scroll` の CSS):
@@ -702,24 +700,6 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
   </div>
 </div>
 ```
-
----
-
-#### `callstack-view/` — コールスタックビュー ✅（タブ非登録・非アクティブ）
-
-```html
-<div class="csv-stack">
-  <div class="csv-card csv-card--top csv-card--enter">
-    <div class="csv-name">fib</div>
-    <div class="csv-loc">呼び出し元: 5行目</div>
-  </div>
-  <div class="csv-card csv-card--global">
-    <div class="csv-name">(global)</div>
-  </div>
-</div>
-```
-
-- `callStack.length > prevDepth` のとき最上位カードに `.csv-card--enter` → CSS slide-in
 
 ---
 
@@ -1598,11 +1578,9 @@ JSVisualizer/
 │   │   ├── code-view/
 │   │   │   └── index.js              ✅ 3層ハイライト・setTrace()
 │   │   ├── state-view/
-│   │   │   └── index.js              ✅ 変数・スタック・コンソール統合
+│   │   │   └── index.js              ✅ CallStackView・Global疑似フレーム＋関数フレーム
 │   │   ├── scope-view/
 │   │   │   └── index.js              ✅ スコープチェーン枠表示
-│   │   ├── callstack-view/
-│   │   │   └── index.js              ✅ コールスタックカード（slide-in）
 │   │   ├── line-trace/
 │   │   │   └── index.js              ✅ 行×変数マトリクス表（動的列追加）
 │   │   ├── exec-trace/
@@ -1727,7 +1705,6 @@ CSS カスタムプロパティで 2 テーマを管理する。
 | code-view | `cv-` | `.cv-line`, `.cv-expr-highlight` |
 | state-view | `sv-` | `.sv-card`, `.sv-var-group` |
 | scope-view | `scv-` | `.scv-frame`, `.scv-frame--active` |
-| callstack-view | `csv-` | `.csv-card`, `.csv-card--enter` |
 | line-trace | `lt-` | `.lt-table`, `.lt-cell--changed` |
 | trace-table | `tt-` | `.tt-row`, `.tt-row--active` |
 | bar-chart | `bc-` | `.bc-bar`, `.bc-chip--active` |

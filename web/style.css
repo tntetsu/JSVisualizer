@@ -536,24 +536,6 @@ body {
   font-style: italic;
 }
 
-/* ── Current Step ──────────────────────────────────────────────── */
-.current-step {
-  padding: 8px 10px;
-  font-family: monospace;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.cs-line { color: var(--text-muted); margin-bottom: 2px; }
-.cs-line span { color: var(--text); }
-.cs-node { color: var(--accent); font-weight: bold; }
-.cs-phase-enter { color: var(--sorted); }
-.cs-phase-exit  { color: var(--access); }
-.cs-value { color: var(--v-num); }
-
-/* ── 変数パネル ────────────────────────────────────────────────── */
-.variables { padding: 6px 10px; }
-
 .scope-frame {
   margin-bottom: 8px;
 }

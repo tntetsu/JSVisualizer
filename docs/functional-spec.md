@@ -161,17 +161,17 @@
 
 ### 3.2 可視化ビュー
 
-#### V-01: 変数・スタック（StateView）✅ 実装済み
+#### V-01: コールスタック（CallStackView）✅ 実装済み
 
-タブ名: **変数・スタック**
+タブ名: **コールスタック**
 
-- 現在実行中の文・式の種別・行番号・確定値を表示
-- 変数パネル: 全スコープの変数値を一覧（変化した変数をフラッシュ）
-- コールスタックパネル: フレームと行番号のリスト
+- Call Stack パネル: `mergeScopesForDisplay()` が返すフレームを表示。先頭に常時「Global」フレーム（callStack が空のときも表示）、その下に関数呼び出しフレーム（innermost-first、最内側フレームを強調表示）
+- 変化した変数をフラッシュ
 
+> 旧「変数・スタック」タブにあった Current Step カード（phase/nodeType/行番号/評価値）と Variables カード（Call Stack の最内側フレームと重複）は [ADR-026](../docs/adr/ADR-026-callstack-view-simplification.md) で削除された。
 > **Console 出力は右ペイン下部の常時表示パネルに移動。** どのタブを選択中でも `console.log` の出力が確認できる（後述 F-14）。
 
-**入力**: `state.event`, `state.variables`, `state.scopes`, `state.callStack`, `state.frameEnvs`
+**入力**: `state.event`, `state.scopes`, `state.callStack`, `state.frameEnvs`
 
 ---
 

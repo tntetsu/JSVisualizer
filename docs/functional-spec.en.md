@@ -161,17 +161,17 @@ Button colors: fine-grained (Expr/Human) = accent blue; coarse-grained (Stmt/Fun
 
 ### 3.2 Visualization Views
 
-#### V-01: State View ✅
+#### V-01: Call Stack View (CallStackView) ✅
 
-**Tab label**: State
+**Tab label**: Call Stack
 
-- Shows the currently executing statement/expression type, line, and resolved value
-- Variables panel: all in-scope variables with current values (changed variables flash)
-- Call stack panel: frame list with line numbers and frame labels like `factorial(6)`
+- Call Stack panel: frames from `mergeScopesForDisplay()`. A "Global" frame is always shown first (even when the call stack is empty), followed by call frames (innermost-first, with labels like `factorial(6)`; the innermost frame is highlighted)
+- Changed variables flash
 
+> The former "State" tab's Current Step card (phase/nodeType/line/value) and Variables card (redundant with the Call Stack's innermost frame) were removed per [ADR-026](../docs/adr/ADR-026-callstack-view-simplification.md).
 > **Console output is in the always-visible panel** at the bottom of the right pane (see F-14).
 
-**Input**: `state.event`, `state.variables`, `state.scopes`, `state.callStack`, `state.frameEnvs`
+**Input**: `state.event`, `state.scopes`, `state.callStack`, `state.frameEnvs`
 
 ---
 

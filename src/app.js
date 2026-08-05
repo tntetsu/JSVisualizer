@@ -21,7 +21,7 @@ import { t, getLang, setLang } from './i18n.js';
 import { sessionLogger }   from './core/session-logger.js'; // STUDY: logRun/logReset のため残置
 import './components/study-panel.js'; // STUDY: 実験UI（削除手順は study-panel.js 冒頭を参照）
 import { CodeView }         from './views/code-view/index.js';
-import { StateView }        from './views/state-view/index.js';
+import { CallStackView }    from './views/state-view/index.js';
 import { LineTrace }        from './views/line-trace/index.js';
 import { TraceTable }       from './views/trace-table/index.js';
 import { ExecTrace }        from './views/exec-trace/index.js';
@@ -141,10 +141,10 @@ codeView.init(codeDisplay);
 // 右ペイン: ViewSwitcher でタブ切り替え管理
 const switcher = new ViewSwitcher(viewTabsEl, viewContainerEl);
 switcher.register('state',
-  { ja: '変数・スタック', en: 'State' },
-  StateView,
-  { ja: '現在ステップの変数値・スコープ・コールスタックを一覧表示します。',
-    en: 'Shows variables, scopes, and call stack at the current step.' });
+  { ja: 'コールスタック', en: 'Call Stack' },
+  CallStackView,
+  { ja: 'Global・関数呼び出しのスコープごとに変数値を一覧表示します。',
+    en: 'Shows variables scoped to Global and each function-call frame.' });
 switcher.register('trace',
   { ja: 'トレース表', en: 'Trace' },
   LineTrace,

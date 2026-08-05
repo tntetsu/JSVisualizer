@@ -28,9 +28,8 @@ JSVisualizer/
 │   │   └── format.js             # formatValueDiff・mergeScopesForDisplay 等の表示整形ヘルパー
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
 │   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅
-│   │   ├── state-view/           # 変数・コールスタック統合パネル（Console は常時パネルへ移動）✅
+│   │   ├── state-view/           # コールスタックビュー（CallStackView・Global疑似フレーム＋関数フレーム）✅ ← タブ「コールスタック」
 │   │   ├── scope-view/           # スコープ・変数ビュー（ネスト枠）  ← タブ登録なし（非アクティブ）
-│   │   ├── callstack-view/       # コールスタックビュー              ← タブ登録なし（非アクティブ）
 │   │   ├── line-trace/           # トレース表（行番号+スニペット列+変数表・列表示切替・D&D）  ✅  ← タブ「トレース表」
 │   │   ├── exec-trace/           # 実行順トレース表（humanStep 順・変数列+条件列）          ✅  ← タブ「実行トレース」
 │   │   ├── trace-table/          # 静的トレース表（全ステップ・対象列付き）               ✅  ← タブ登録なし（非アクティブ）
@@ -360,7 +359,8 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 - **ビルドツール**: esbuild（JSInterpreter と同方式）
 - **コードエディタ**: CodeMirror 6（`codemirror` + `@codemirror/lang-javascript` + `@codemirror/theme-one-dark`）を採用。`Compartment` で動的テーマ切り替え。`MutationObserver` で `html[data-theme]` の変化を検知してダークテーマを自動適用
 - **ペインリサイザー**: `.app-main` の CSS 変数 `--editor-pct` をマウスドラッグで更新。`localStorage('jsv-editor-pct')` に永続化し、15% 〜 75% でクランプ
-- **Console 常時表示**: StateView からは Console カードを取り除き、`debug-pane` 下部に固定の `#console-panel` を配置。`app.js` の `updateConsolePanel()` が `'ready'` / `'step'` イベントごとに更新する。上端の `#console-resizer` をドラッグして高さ変更可（40〜400px、`localStorage('jsv-console-h')` に永続化）
+- **Console 常時表示**: CallStackView（旧StateView）からは Console カードを取り除き、`debug-pane` 下部に固定の `#console-panel` を配置。`app.js` の `updateConsolePanel()` が `'ready'` / `'step'` イベントごとに更新する。上端の `#console-resizer` をドラッグして高さ変更可（40〜400px、`localStorage('jsv-console-h')` に永続化）
+- **Call Stack ビューの Global 疑似フレーム**: `CallStackView`（`state-view/index.js`）は `mergeScopesForDisplay()` が返す `label === 'global'` のフレームを、返却順序（関数呼び出し中は末尾）に関わらず常に先頭に「Global」として表示する。これにより callStack が空（グローバルスコープ実行中）でも変数が可視化される。詳細は [ADR-026](docs/adr/ADR-026-callstack-view-simplification.md)
 - **可視化ライブラリ**: 使用しない（DOM + CSS アニメーション + SVG 手動描画で実装）。CodeMirror 6 が唯一の外部 UI ライブラリ
 - **SVG レイアウト**: 再帰ツリーは再帰的幅計算、ObjectGraph は階層型レイアウト（Kahn トポロジカルソート + 最長パス法で列を決定、左→右配置。エッジは肘型コネクタ）
 - **ObjectGraph 連結成分分離**: 無向 BFS で連結成分を検出し、各成分を独立に `hierarchicalLayout()` で配置後 y 軸方向に COMP_GAP=24px で積み上げる。成分が 2 つ以上のとき点線の境界矩形を描画

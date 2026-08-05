@@ -34,3 +34,7 @@
 - タブ登録数が 15 → 13 になった
 - `state-view` の `mergeScopesForDisplay()` が「公式の」スコープ表示として確立された
 - ScopeView / CallStackView のコードは参照実装として残る
+
+## 追記（2026-08-05）
+
+`src/views/callstack-view/` は非登録のまま2ヶ月以上再利用されなかったため、[ADR-026](ADR-026-callstack-view-simplification.md) で `state-view` を `StateView`→`CallStackView` にリネームする際に名前が衝突した。再利用実績がなかったことから、`callstack-view/` ディレクトリ自体を削除し、`CallStackView` という名前は `state-view/index.js` の新クラスに一本化した。`scope-view/` は今回の対象外のため残置する。

@@ -32,3 +32,4 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [023](ADR-023-var-let-const-semantics.md) | var/let/const スコープセマンティクスの正確な実装 | 2026-06-16 |
 | [024](ADR-024-session-logger.md) | Session Logger — 操作ログ機能（ワンクリックマーカー含む） | 2026-07-16 |
 | [025](ADR-025-i18n-system.md) | 言語切替（i18n）システム | 2026-07-20 |
+| [026](ADR-026-callstack-view-simplification.md) | Call Stack ビューの簡略化と Global 疑似フレーム導入 | 2026-08-05 |
