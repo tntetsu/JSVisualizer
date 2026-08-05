@@ -1168,12 +1168,17 @@ function buildHeap(scopes) {
 
 **スタックレンダリング**: `#renderStack(scopes, callStack, changed, refMap, heap, frameEnvs)` が `mergeScopesForDisplay(scopes, callStack, frameEnvs)` を呼びフレームごとの変数を取得する。外側フレームは `frameEnvs[i]`（callEnv スナップショット）から params・デフォルト引数・function-body 変数を表示。
 
-**参照セルの HTML**: スタック・ヒープともに参照値のセルに `data-ref-heap="N"` 属性を付与
+**参照セルの HTML**: スタック・ヒープともに参照値のセル（`.mv-var-row`/`.mv-heap-cell--ref`）に `data-ref-heap="N"` 属性を付与し、内部に実際のバッジ要素 `.mv-ref-indicator`（「→ #N」）を持つ
 
-**SVG 矢印描画** (`#drawArrows()`):
+**SVG 矢印描画** (`#drawArrows()`、2026-08-05 改修):
 ```
 requestAnimationFrame → getBoundingClientRect() → layoutEl 基準の座標計算
-→ ベジェ曲線パス M x1,y1 C mx,y1 mx,y2 x2,y2
+→ data-ref-heap 要素を対象 heapId ごとにグループ化（Map<heapId, refEl[]>）
+→ 始点: 親行/セルではなく .mv-ref-indicator 要素自体の中心 x・上端/下端
+→ 終点: 親ヒープボックス全体ではなく .mv-heap-title 要素の中心 x・上端/下端
+→ 上端/下端の選択: from/to の中心Y比較で要素自身を跨がない側を選ぶ
+→ 同一 heapId に集まる矢印は .mv-heap-title 幅内で終点 x を均等分散（矢じり重なり回避）
+→ ベジェ曲線パス M x1,y1 C x1,my x2,my x2,y2（my = (y1+y2)/2、垂直方向のS字カーブ）
 → SVG に <path class="mv-arrow" marker-end="url(#mv-arr)"> を追加
 ```
 

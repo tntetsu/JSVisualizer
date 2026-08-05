@@ -282,33 +282,53 @@ export class MemoryView extends BaseView {
     this.#svgEl.setAttribute('width',  containerRect.width);
     this.#svgEl.setAttribute('height', containerRect.height);
 
-    // スタックとヒープ両方の参照インジケーターからの矢印
+    // スタックとヒープ両方の参照インジケーターからの矢印。
+    // 同じ heapId を参照する矢印をグループ化し、終点をタイトル幅内で分散させる
+    // （矢じり同士が重ならないようにするため）。
     const refEls = this.#layoutEl.querySelectorAll('[data-ref-heap]');
-
+    const byTarget = new Map(); // heapId → refEl[]
     for (const refEl of refEls) {
       const heapId = refEl.dataset.refHeap;
+      if (!byTarget.has(heapId)) byTarget.set(heapId, []);
+      byTarget.get(heapId).push(refEl);
+    }
+
+    for (const [heapId, srcEls] of byTarget) {
       const heapObj = this.#heapEl.querySelector(`[data-heap-id="${heapId}"]`);
       if (!heapObj) continue;
+      // 終点は「#1 Object」ラベル要素そのもの（親のヒープボックス全体ではない）
+      const titleEl = heapObj.querySelector('.mv-heap-title') || heapObj;
+      const toRect  = titleEl.getBoundingClientRect();
 
-      const from = refEl.getBoundingClientRect();
-      const to   = heapObj.getBoundingClientRect();
+      srcEls.forEach((refEl, i) => {
+        // 始点は「→ #1」インジケーター要素そのもの（親の行・セルではない）
+        const indicatorEl = refEl.querySelector('.mv-ref-indicator') || refEl;
+        const from = indicatorEl.getBoundingClientRect();
 
-      // 矢印の始終点
-      const x1 = from.right  - containerRect.left;
-      const y1 = from.top    + from.height / 2 - containerRect.top;
-      const x2 = to.left     - containerRect.left;
-      const y2 = to.top      + to.height  / 2 - containerRect.top;
+        // 上下どちらから出す/入れるかは、要素自身を跨がないよう相対位置で決める
+        const fromCy = from.top + from.height / 2;
+        const toCy   = toRect.top + toRect.height / 2;
+        const fromIsBelow = fromCy > toCy;
 
-      // ベジェ制御点
-      const mx = (x1 + x2) / 2;
+        const x1 = from.left + from.width / 2 - containerRect.left;
+        const y1 = (fromIsBelow ? from.top : from.bottom) - containerRect.top;
 
-      const path = svgEl('path', {
-        class: 'mv-arrow',
-        d: `M ${x1},${y1} C ${mx},${y1} ${mx},${y2} ${x2},${y2}`,
-        fill: 'none',
-        'marker-end': 'url(#mv-arr)',
+        // 終点はタイトル幅内で均等分散（同じ対象に集まる矢印の矢じり重なりを回避）
+        const n    = srcEls.length;
+        const frac = (i + 1) / (n + 1);
+        const x2   = toRect.left + toRect.width * frac - containerRect.left;
+        const y2   = (fromIsBelow ? toRect.bottom : toRect.top) - containerRect.top;
+
+        const my = (y1 + y2) / 2;
+
+        const path = svgEl('path', {
+          class: 'mv-arrow',
+          d: `M ${x1},${y1} C ${x1},${my} ${x2},${my} ${x2},${y2}`,
+          fill: 'none',
+          'marker-end': 'url(#mv-arr)',
+        });
+        this.#svgEl.appendChild(path);
       });
-      this.#svgEl.appendChild(path);
     }
   }
 }
