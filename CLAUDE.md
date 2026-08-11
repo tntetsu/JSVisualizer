@@ -396,6 +396,7 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 - **操作ログ（SessionLogger）**: `src/core/session-logger.js` にモジュールレベルシングルトン `sessionLogger` を実装。`startSession()` 呼び出し後のみエントリを蓄積し、非アクティブ時は全コール no-op。`step-controller.js`・`view-switcher.js`・`app.js` から `logStep` / `logView` / `logRun` / `logReset` を呼び出す。JSON・CSV エクスポート対応（`Blob` + `<a>` タグ）。詳細は ADR-024
 - **評価実験 UI の隔離（study-panel.js）**: 評価実験固有の UI（Session Log 配線・ワンクリックマーカーボタン 9 個）を `src/components/study-panel.js` に集約。実験後の削除手順: ①このファイルを削除、② `app.js` の `// STUDY:` import 行を削除、③ `index.html` の `<!-- STUDY MODE -->` ブロックを削除。`session-logger.js` 本体と各モジュールの `logStep`/`logView` 呼び出しは no-op のため残置可
 - **Study Tasks サンプル**: `code-editor.js` に `─ Study Tasks ─` グループ（studyWarmup / studyTask1 / studyTask2 / studyTask3）を追加（CELDA 2026 評価実験用）。実験後は SAMPLES の 4 エントリと `#buildSampleOptions()` の 1 行を削除
+- **BhvVisualizer 連携（`# BHV:` タグ）**: [BhvVisualizer](../BhvVisualizer) から `<iframe>` 埋め込みされた際、操作ログをリアルタイムに送信する配線を `# BHV:` タグで隔離している（`# STUDY:` タグと同様の隔離方式・別目的）。`session-logger.js` の `enableRemoteLogging()`/`#postToParent()`、`app.js` 末尾の `message`(initハンドシェイク)・`pagehide`・`visibilitychange` リスナーが該当。埋め込まれていない、または `init` ハンドシェイクを受け取らない場合は完全に no-op のため、スタンドアロン動作・公開デモには影響しない。プロトコル仕様は [BhvVisualizer/docs/logging-spec.md](../BhvVisualizer/docs/logging-spec.md) を正とする。動作検証は `verify-bhv-hook.mjs`（`node verify-bhv-hook.mjs`）
 
 ## 依存 JSInterpreter の主要 API
 

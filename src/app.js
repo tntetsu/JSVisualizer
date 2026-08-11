@@ -18,7 +18,7 @@ import { SettingsPanel }    from './components/settings-panel.js';
 import { PaneResizer }      from './components/pane-resizer.js';
 import { esc }              from './utils/format.js';
 import { t, getLang, setLang } from './i18n.js';
-import { sessionLogger }   from './core/session-logger.js'; // STUDY: logRun/logReset のため残置
+import { sessionLogger }   from './core/session-logger.js'; // STUDY:/BHV: logRun/logReset/logLifecycle/logVisibility のため残置
 import './components/study-panel.js'; // STUDY: 実験UI（削除手順は study-panel.js 冒頭を参照）
 import { CodeView }         from './views/code-view/index.js';
 import { CallStackView }    from './views/state-view/index.js';
@@ -246,7 +246,9 @@ adapter.addEventListener('ready', (e) => {
   const sampleName  = (selectedOpt && selectedOpt.value)
     ? selectedOpt.text
     : 'custom';
-  sessionLogger.logRun(sampleName, adapter.getTrace().length); // STUDY:
+  sessionLogger.logRun({ // STUDY:
+    sampleName, code: source, success: true, traceLength: adapter.getTrace().length,
+  });
 
   // ViewSwitcher に builder + 初期 state を通知（builder 付きで再マウント）
   switcher.onReady(state, builder);
@@ -267,6 +269,14 @@ adapter.addEventListener('ready', (e) => {
 adapter.addEventListener('error', (e) => {
   const { message, errorType, loc } = e.detail;
   editor.showError(message, errorType, loc);
+
+  // BHV: 構文/実行時エラーも run イベントとして記録する（成功時と統合的に扱う）
+  const selectedOpt = sampleSelect.options[sampleSelect.selectedIndex];
+  const sampleName  = (selectedOpt && selectedOpt.value) ? selectedOpt.text : 'custom';
+  sessionLogger.logRun({
+    sampleName, code: editor.getCode(), success: false,
+    errorType, errorMessage: message, errorLoc: loc ?? null,
+  });
 });
 
 adapter.addEventListener('step', (e) => {
@@ -319,4 +329,37 @@ function resetAll() {
 
   sessionLogger.logReset(); // STUDY:
 }
+
+// ── BhvVisualizer 連携（BHV） ────────────────────────────────────────────
+//
+// BhvVisualizer に埋め込まれ、かつ init ハンドシェイクを受け取った場合にのみ
+// 動作する。それ以外（スタンドアロン起動・公開デモ利用者を含む）では
+// 以下のリスナーは一切副作用を持たない。詳細は
+// BhvVisualizer/docs/logging-spec.md を参照。
+
+// BHV: postMessage の送信元として許可するオリジン（BhvVisualizerのホスティング先）
+const BHV_ALLOWED_ORIGINS = [
+  'https://bhv-visualizer.web.app',
+  'https://bhv-visualizer.firebaseapp.com',
+  'http://localhost:5000', // Firebase Hosting エミュレータ
+];
+
+window.addEventListener('message', (event) => {
+  const data = event.data;
+  if (!data || data.source !== 'bhv' || data.type !== 'init') return;
+  if (!BHV_ALLOWED_ORIGINS.includes(event.origin)) return;
+  if (typeof data.sessionId !== 'string' || !data.sessionId) return;
+
+  sessionLogger.enableRemoteLogging(data.sessionId, event.origin);
+  sessionLogger.startSession();
+  sessionLogger.logLifecycle('start');
+});
+
+window.addEventListener('pagehide', () => {
+  sessionLogger.logLifecycle('end');
+});
+
+document.addEventListener('visibilitychange', () => {
+  sessionLogger.logVisibility(document.hidden ? 'hidden' : 'visible');
+});
 

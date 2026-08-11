@@ -1,14 +1,16 @@
 /**
- * session-logger.js — 操作ログ記録・エクスポート（評価実験用）
+ * session-logger.js — 操作ログ記録・エクスポート（評価実験用 + BhvVisualizer連携）
  *
  * シングルトンインスタンス `sessionLogger` をエクスポートする。
  * どのモジュールからも import するだけで使用可能。
  *
  * ログエントリ型:
- *   { t, type: 'run',    sampleName, traceLength }
+ *   { t, type: 'lifecycle', phase }
+ *   { t, type: 'run',    sampleName, code, success, errorType, errorMessage, errorLoc, traceLength }
  *   { t, type: 'reset' }
- *   { t, type: 'step',   action, cursorBefore, cursorAfter }
+ *   { t, type: 'step',   action, cursorBefore, cursorAfter, loc, callDepth }
  *   { t, type: 'view',   viewId }
+ *   { t, type: 'visibility', state }
  *   { t, type: 'marker', label }
  *
  * action の値:
@@ -18,6 +20,10 @@
  *   callFwd / callBack   … 関数単位
  *   goStart / goEnd      … 先頭/末尾ジャンプ
  *   slider               … スライダー操作
+ *
+ * BHV: BhvVisualizerに埋め込まれ `enableRemoteLogging()` が呼ばれている間は、
+ * エントリを記録するたびに window.parent へも postMessage する
+ * （詳細は BhvVisualizer/docs/logging-spec.md）。呼ばれていなければ完全に無効。
  */
 
 class SessionLogger {
@@ -29,6 +35,12 @@ class SessionLogger {
 
   /** @type {Array<(count: number) => void>} カウント変化時のコールバック */
   #listeners = [];
+
+  /** @type {string|null} BHV: BhvVisualizer側で発行されたセッションID */
+  #remoteSessionId = null;
+
+  /** @type {string|null} BHV: postMessage送信先オリジン（未設定なら送信しない） */
+  #remoteTargetOrigin = null;
 
   // ── 公開 API ──────────────────────────────────────────────────────────────
 
@@ -56,12 +68,18 @@ class SessionLogger {
   // ── ログ記録メソッド ──────────────────────────────────────────────────────
 
   /**
-   * コード実行をログに記録する。
-   * @param {string} sampleName サンプル名、またはカスタムコードなら 'custom'
-   * @param {number} traceLength trace 配列の長さ
+   * コード実行結果をログに記録する（成功・失敗（構文/実行時エラー）のいずれも）。
+   * @param {Object} result
+   * @param {string} result.sampleName サンプル名、またはカスタムコードなら 'custom'
+   * @param {string} result.code 実行時点のソースコード全文
+   * @param {boolean} result.success
+   * @param {'parse'|'runtime'|null} [result.errorType]
+   * @param {string|null} [result.errorMessage]
+   * @param {{line:number,column:number}|null} [result.errorLoc]
+   * @param {number|null} [result.traceLength] success: true のときのみ
    */
-  logRun(sampleName, traceLength) {
-    this.#log({ type: 'run', sampleName, traceLength });
+  logRun({ sampleName, code, success, errorType = null, errorMessage = null, errorLoc = null, traceLength = null }) {
+    this.#log({ type: 'run', sampleName, code, success, errorType, errorMessage, errorLoc, traceLength });
   }
 
   /** リセット（編集モードへ戻る）をログに記録する。 */
@@ -74,9 +92,11 @@ class SessionLogger {
    * @param {string} action     操作の種類（exprFwd, stmtBack, ... など）
    * @param {number} cursorBefore 操作前の cursor 位置
    * @param {number} cursorAfter  操作後の cursor 位置
+   * @param {{line:number,column:number}|null} [loc] 操作後の位置に対応するソース上の行・列
+   * @param {number|null} [callDepth] 操作後の位置での関数呼び出し深さ
    */
-  logStep(action, cursorBefore, cursorAfter) {
-    this.#log({ type: 'step', action, cursorBefore, cursorAfter });
+  logStep(action, cursorBefore, cursorAfter, loc = null, callDepth = null) {
+    this.#log({ type: 'step', action, cursorBefore, cursorAfter, loc, callDepth });
   }
 
   /**
@@ -88,11 +108,41 @@ class SessionLogger {
   }
 
   /**
+   * タブの表示状態変化をログに記録する。
+   * @param {'hidden'|'visible'} state
+   */
+  logVisibility(state) {
+    this.#log({ type: 'visibility', state });
+  }
+
+  /**
+   * セッション境界（開始・終了）をログに記録する。
+   * @param {'start'|'end'} phase
+   */
+  logLifecycle(phase) {
+    this.#log({ type: 'lifecycle', phase });
+  }
+
+  /**
    * 実験者が任意のタイミングで記録するマーカー。
    * @param {string} label マーカーラベル（例: 'task1-start', 'task2-end'）
    */
   logMarker(label) {
     this.#log({ type: 'marker', label: label.trim() || '(無題)' });
+  }
+
+  // ── BhvVisualizer 連携（BHV） ────────────────────────────────────────────
+
+  /**
+   * BhvVisualizerへのリアルタイム送信を有効化する。
+   * 以降 startSession() が呼ばれている間、記録したエントリを window.parent へ
+   * postMessage するようになる。init ハンドシェイクの受理時にのみ呼ぶこと。
+   * @param {string} sessionId BhvVisualizer側で発行されたセッションID
+   * @param {string} targetOrigin postMessage の送信先オリジン（検証済みの event.origin）
+   */
+  enableRemoteLogging(sessionId, targetOrigin) {
+    this.#remoteSessionId    = sessionId;
+    this.#remoteTargetOrigin = targetOrigin;
   }
 
   // ── エクスポート ──────────────────────────────────────────────────────────
@@ -151,8 +201,19 @@ class SessionLogger {
   /** セッション未開始のときは記録しない。 */
   #log(entry) {
     if (!this.#sessionStart) return;
-    this.#entries.push({ t: Date.now() - this.#sessionStart, ...entry });
+    const full = { t: Date.now() - this.#sessionStart, ...entry };
+    this.#entries.push(full);
     this.#notify();
+    this.#postToParent(full);
+  }
+
+  /** BHV: リアルタイム送信が有効なら window.parent へ postMessage する。 */
+  #postToParent(entry) {
+    if (!this.#remoteTargetOrigin || window.parent === window) return;
+    window.parent.postMessage(
+      { source: 'jsvisualizer', sessionId: this.#remoteSessionId, ...entry },
+      this.#remoteTargetOrigin,
+    );
   }
 
   #notify() {

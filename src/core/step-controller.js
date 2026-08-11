@@ -49,7 +49,8 @@ export class StepController {
     const before = dbg.cursor;
     dbg.stepIn();
     this.#adapter.moveTo(dbg.cursor);
-    sessionLogger.logStep('exprFwd', before, dbg.cursor);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('exprFwd', before, dbg.cursor, loc, callDepth);
   }
 
   /** 式単位で 1 ステップ後退（stepBack） */
@@ -59,7 +60,8 @@ export class StepController {
     const before = dbg.cursor;
     dbg.stepBack();
     this.#adapter.moveTo(dbg.cursor);
-    sessionLogger.logStep('exprBack', before, dbg.cursor);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('exprBack', before, dbg.cursor, loc, callDepth);
   }
 
   // ── ステップ操作（文単位） ────────────────────────────────────────────────
@@ -71,7 +73,8 @@ export class StepController {
     const before = dbg.cursor;
     dbg.stepOver();
     this.#adapter.moveTo(dbg.cursor);
-    sessionLogger.logStep('stmtFwd', before, dbg.cursor);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('stmtFwd', before, dbg.cursor, loc, callDepth);
   }
 
   /** 文単位で 1 ステップ後退（stepOver の逆） */
@@ -81,7 +84,8 @@ export class StepController {
     const before = dbg.cursor;
     this.#stepOverBack(dbg);
     this.#adapter.moveTo(dbg.cursor);
-    sessionLogger.logStep('stmtBack', before, dbg.cursor);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('stmtBack', before, dbg.cursor, loc, callDepth);
   }
 
   // ── ステップ操作（人間単位） ──────────────────────────────────────────────
@@ -93,7 +97,8 @@ export class StepController {
     const before = dbg.cursor;
     dbg.humanStep();
     this.#adapter.moveTo(dbg.cursor);
-    sessionLogger.logStep('humanFwd', before, dbg.cursor);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('humanFwd', before, dbg.cursor, loc, callDepth);
   }
 
   /** 人間単位で 1 ステップ後退（humanStepBack） */
@@ -103,7 +108,8 @@ export class StepController {
     const before = dbg.cursor;
     dbg.humanStepBack();
     this.#adapter.moveTo(dbg.cursor);
-    sessionLogger.logStep('humanBack', before, dbg.cursor);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('humanBack', before, dbg.cursor, loc, callDepth);
   }
 
   // ── ステップ操作（関数呼び出し単位） ─────────────────────────────────────
@@ -125,7 +131,8 @@ export class StepController {
     }
     const target = Math.min(next, trace.length);
     this.#adapter.moveTo(target);
-    sessionLogger.logStep('callFwd', before, target);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('callFwd', before, target, loc, callDepth);
   }
 
   /**
@@ -143,7 +150,8 @@ export class StepController {
       prev--;
     }
     this.#adapter.moveTo(prev);
-    sessionLogger.logStep('callBack', before, prev);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('callBack', before, prev, loc, callDepth);
   }
 
   // ── 後方互換: 粒度指定ステップ ───────────────────────────────────────────
@@ -194,9 +202,11 @@ export class StepController {
 
   /** 先頭（cursor = 0）へ移動 */
   goToStart() {
-    const before = this.#adapter.getDebugger()?.cursor ?? 0;
+    const dbg = this.#adapter.getDebugger();
+    const before = dbg?.cursor ?? 0;
     this.#adapter.moveTo(0);
-    sessionLogger.logStep('goStart', before, 0);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('goStart', before, 0, loc, callDepth);
   }
 
   /** 末尾（cursor = trace.length）へ移動 */
@@ -206,7 +216,8 @@ export class StepController {
     const before = dbg.cursor;
     const target = dbg.trace.length;
     this.#adapter.moveTo(target);
-    sessionLogger.logStep('goEnd', before, target);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('goEnd', before, target, loc, callDepth);
   }
 
   /**
@@ -214,12 +225,24 @@ export class StepController {
    * @param {number} cursor
    */
   jumpTo(cursor) {
-    const before = this.#adapter.getDebugger()?.cursor ?? 0;
+    const dbg = this.#adapter.getDebugger();
+    const before = dbg?.cursor ?? 0;
     this.#adapter.moveTo(cursor);
-    sessionLogger.logStep('slider', before, cursor);
+    const { loc, callDepth } = this.#locInfo(dbg);
+    sessionLogger.logStep('slider', before, cursor, loc, callDepth);
   }
 
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
+
+  /**
+   * 現在の cursor 位置に対応する loc/callDepth を返す（BhvVisualizer連携ログ用）。
+   * @param {*} dbg JSDebugger インスタンス（null 許容）
+   * @returns {{ loc: {line:number,column:number}|null, callDepth: number|null }}
+   */
+  #locInfo(dbg) {
+    const ev = dbg?.trace?.[dbg.cursor];
+    return { loc: ev?.loc ?? null, callDepth: ev?.callDepth ?? null };
+  }
 
   /**
    * stmt 粒度の後退:
