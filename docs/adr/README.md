@@ -1,7 +1,7 @@
 # JSVisualizer — アーキテクチャ決定記録（ADR）
 
 このディレクトリには、JSVisualizer の設計で行った重要な決定を記録した ADR（Architecture Decision Record）が含まれています。  
-git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2026-06-14 に作成。2026-06-15 に ADR-016〜019 を追加。2026-06-16 に ADR-020〜023 を追加。2026-07-23 に ADR-024〜025 を追加。
+git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2026-06-14 に作成。2026-06-15 に ADR-016〜019 を追加。2026-06-16 に ADR-020〜023 を追加。2026-07-23 に ADR-024〜025 を追加。2026-08-11 に ADR-028 を追加。
 
 ## 一覧
 
@@ -34,3 +34,4 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [025](ADR-025-i18n-system.md) | 言語切替（i18n）システム | 2026-07-20 |
 | [026](ADR-026-callstack-view-simplification.md) | Call Stack ビューの簡略化と Global 疑似フレーム導入 | 2026-08-05 |
 | [027](ADR-027-calltree-recursiontree-merge.md) | CallTree / RecursionTree の統合、RecursionTree の非アクティブ化 | 2026-08-05 |
+| [028](ADR-028-bhv-visualizer-integration-hooks.md) | BhvVisualizer 連携フック（`# BHV:` タグ）の設計 | 2026-08-11 |

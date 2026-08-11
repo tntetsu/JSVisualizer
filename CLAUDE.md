@@ -67,7 +67,7 @@ JSVisualizer/
 │   ├── functional-spec.en.md     # 機能仕様書（英語版）
 │   ├── design.md                 # 詳細設計書
 │   ├── development-plan.md       # 開発計画書
-│   ├── adr/                      # Architecture Decision Records（ADR-001〜ADR-025）
+│   ├── adr/                      # Architecture Decision Records（ADR-001〜、随時追加）
 │   └── study/                    # 評価実験資料（CELDA 2026 向け・.gitignore 対象）← STUDY: 削除可
 │       ├── consent-form.md       #   研究参加同意書
 │       ├── participant-guide.md  #   参加者向け説明資料（操作説明）
@@ -396,7 +396,8 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 - **操作ログ（SessionLogger）**: `src/core/session-logger.js` にモジュールレベルシングルトン `sessionLogger` を実装。`startSession()` 呼び出し後のみエントリを蓄積し、非アクティブ時は全コール no-op。`step-controller.js`・`view-switcher.js`・`app.js` から `logStep` / `logView` / `logRun` / `logReset` を呼び出す。JSON・CSV エクスポート対応（`Blob` + `<a>` タグ）。詳細は ADR-024
 - **評価実験 UI の隔離（study-panel.js）**: 評価実験固有の UI（Session Log 配線・ワンクリックマーカーボタン 9 個）を `src/components/study-panel.js` に集約。実験後の削除手順: ①このファイルを削除、② `app.js` の `// STUDY:` import 行を削除、③ `index.html` の `<!-- STUDY MODE -->` ブロックを削除。`session-logger.js` 本体と各モジュールの `logStep`/`logView` 呼び出しは no-op のため残置可
 - **Study Tasks サンプル**: `code-editor.js` に `─ Study Tasks ─` グループ（studyWarmup / studyTask1 / studyTask2 / studyTask3）を追加（CELDA 2026 評価実験用）。実験後は SAMPLES の 4 エントリと `#buildSampleOptions()` の 1 行を削除
-- **BhvVisualizer 連携（`# BHV:` タグ）**: [BhvVisualizer](../BhvVisualizer) から `<iframe>` 埋め込みされた際、操作ログをリアルタイムに送信する配線を `# BHV:` タグで隔離している（`# STUDY:` タグと同様の隔離方式・別目的）。`session-logger.js` の `enableRemoteLogging()`/`#postToParent()`、`app.js` 末尾の `message`(initハンドシェイク)・`pagehide`・`visibilitychange` リスナーが該当。埋め込まれていない、または `init` ハンドシェイクを受け取らない場合は完全に no-op のため、スタンドアロン動作・公開デモには影響しない。プロトコル仕様は [BhvVisualizer/docs/logging-spec.md](../BhvVisualizer/docs/logging-spec.md) を正とする。動作検証は `verify-bhv-hook.mjs`（`node verify-bhv-hook.mjs`）
+- **BhvVisualizer 連携（`# BHV:` タグ）**: [BhvVisualizer](../BhvVisualizer) から `<iframe>` 埋め込みされた際、操作ログをリアルタイムに送信する配線を `# BHV:` タグで隔離している（`# STUDY:` タグと同様の隔離方式・別目的）。`session-logger.js` の `enableRemoteLogging()`/`#postToParent()`、`app.js` 末尾の `message`(initハンドシェイク)・`pagehide`・`visibilitychange` リスナーが該当。埋め込まれていない、または `init` ハンドシェイクを受け取らない場合は完全に no-op のため、スタンドアロン動作・公開デモには影響しない。プロトコル仕様は [BhvVisualizer/docs/logging-spec.md](../BhvVisualizer/docs/logging-spec.md) を正とする。動作検証は `verify-bhv-hook.mjs`（`node verify-bhv-hook.mjs`）。設計判断の背景は [ADR-028](docs/adr/ADR-028-bhv-visualizer-integration-hooks.md)
+- **ADR運用ルール**: BhvVisualizerからの要求でJSVisualizerに変更を加えたとき（`# BHV:` タグの配線に限らず、単体機能改善として本体に取り込むものも含む）は、**都度 `docs/adr/` に ADR を追加**し、`docs/adr/README.md` の一覧表も更新する。変更の背景（なぜ必要か）と代替案を残すことで、BhvVisualizer側の事情を知らない将来のJSVisualizer単体の contributor にも意図が伝わるようにする
 
 ## 依存 JSInterpreter の主要 API
 
