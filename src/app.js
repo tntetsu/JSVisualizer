@@ -37,6 +37,7 @@ import { MemoryView }       from './views/memory-view/index.js';
 import { ObjectGraph }      from './views/object-graph/index.js';
 import { SubstTrace }      from './views/subst-trace/index.js';
 import { ExprTrace }       from './views/expr-trace/index.js';
+import { loadExerciseFromQuery } from './core/exercise-source.js';
 
 // ── DOM 参照 ───────────────────────────────────────────────────────────────
 
@@ -217,6 +218,10 @@ const editor = new CodeEditor({
   onRun:          (code) => runCode(code),
   onReset:        () => resetAll(),
 });
+
+// exerciseId/codeId クエリがあれば、BhvVisualizerの公開APIからコードを読み込む（design.md 2.4節）。
+// クエリが無ければ何もせず、既定のFibonacciサンプルのまま起動する。
+loadExerciseFromQuery(editor).catch((err) => console.error('[exercise-source]', err));
 
 const stepControls = new StepControls({
   controller:       controller,

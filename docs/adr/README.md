@@ -1,7 +1,9 @@
 # JSVisualizer — アーキテクチャ決定記録（ADR）
 
 このディレクトリには、JSVisualizer の設計で行った重要な決定を記録した ADR（Architecture Decision Record）が含まれています。  
-git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2026-06-14 に作成。2026-06-15 に ADR-016〜019 を追加。2026-06-16 に ADR-020〜023 を追加。2026-07-23 に ADR-024〜025 を追加。2026-08-11 に ADR-028 を追加。
+git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2026-06-14 に作成。2026-06-15 に ADR-016〜019 を追加。2026-06-16 に ADR-020〜023 を追加。2026-07-23 に ADR-024〜025 を追加。2026-08-11 に ADR-028 を追加。2026-08-12 に ADR-029〜030 を追加。
+
+**ADR運用ルール**: BhvVisualizerからの要求による変更に限らず、JSVisualizer単体の改良のための変更も含め、重要な設計判断を伴う場合は都度ADRを追加し、この一覧表も更新する（2026-08-12改定、ADR-030参照）。
 
 ## 一覧
 
@@ -35,3 +37,5 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [026](ADR-026-callstack-view-simplification.md) | Call Stack ビューの簡略化と Global 疑似フレーム導入 | 2026-08-05 |
 | [027](ADR-027-calltree-recursiontree-merge.md) | CallTree / RecursionTree の統合、RecursionTree の非アクティブ化 | 2026-08-05 |
 | [028](ADR-028-bhv-visualizer-integration-hooks.md) | BhvVisualizer 連携フック（`# BHV:` タグ）の設計 | 2026-08-11 |
+| [029](ADR-029-url-query-exercise-loading.md) | URLクエリ（exerciseId/codeId）によるコード読み込み | 2026-08-12 |
+| [030](ADR-030-error-msg-hidden-attribute-cascade-fix.md) | `error-msg`の`hidden`属性がCSSカスケードで無効化される不具合の修正 | 2026-08-12 |

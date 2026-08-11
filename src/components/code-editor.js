@@ -446,6 +446,9 @@ export class CodeEditor {
   /** @type {() => void} */
   #onReset;
 
+  /** @type {Map<string, {title:string, code:string}>} exerciseId経由で取得したコード（BhvVisualizer連携。addRemoteGroup参照） */
+  #remoteCodes = new Map();
+
   /** @type {MutationObserver|null} テーマ変更監視 */
   #themeObserver = null;
 
@@ -484,6 +487,37 @@ export class CodeEditor {
   /** 現在のエディタ内容を返す */
   getCode() {
     return this.#view.state.doc.toString();
+  }
+
+  /**
+   * エディタ内容を外部から設定する（BhvVisualizer連携: URLクエリ経由のコード読み込み。
+   * exercise-source.js から呼ばれる）。
+   * @param {string} code
+   * @param {string} [label] プログラム名表示に使うラベル
+   * @param {string} [selectValue] 設定後にサンプルセレクタへ反映する値（addRemoteGroupで登録したキー等）
+   */
+  setCode(code, label = '', selectValue = '') {
+    this.#applyCode(code, label);
+    if (selectValue) this.#sampleSelect.value = selectValue;
+  }
+
+  /**
+   * exerciseId 由来のコード群をサンプルセレクタに追加する（既存の21種の組み込みサンプルは変更しない）。
+   * @param {string} label optgroupのラベル
+   * @param {{id:string, title:string, code:string}[]} items
+   */
+  addRemoteGroup(label, items) {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = label;
+    for (const item of items) {
+      const key = `remote:${item.id}`;
+      this.#remoteCodes.set(key, { title: item.title, code: item.code });
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = item.title;
+      optgroup.appendChild(opt);
+    }
+    this.#sampleSelect.appendChild(optgroup);
   }
 
   /**
@@ -600,6 +634,15 @@ export class CodeEditor {
     this.#themeObserver.observe(document.documentElement, { attributes: true });
   }
 
+  /** エディタ内容をコードに置き換え、プログラム名表示を更新する（サンプル選択・setCode共通処理） */
+  #applyCode(code, label) {
+    this.#view.dispatch({
+      changes: { from: 0, to: this.#view.state.doc.length, insert: code },
+    });
+    this.showError(null);
+    if (this.#programNameEl) this.#programNameEl.textContent = label ?? '';
+  }
+
   #buildSampleOptions() {
     const groups = [
       { label: '─ Search ─',             keys: ['linearSearch', 'binarySearch'] },
@@ -636,15 +679,10 @@ export class CodeEditor {
 
     this.#sampleSelect.addEventListener('change', () => {
       const key = this.#sampleSelect.value;
-      if (key && SAMPLES[key]) {
-        // エディタの内容をサンプルコードに置き換える
-        const code = SAMPLES[key].code;
-        this.#view.dispatch({
-          changes: { from: 0, to: this.#view.state.doc.length, insert: code },
-        });
+      const item = this.#remoteCodes.get(key) ?? SAMPLES[key];
+      if (key && item) {
+        this.#applyCode(item.code, item.title ?? item.label);
         this.#sampleSelect.value = '';  // 再選択可能にリセット
-        this.showError(null);
-        if (this.#programNameEl) this.#programNameEl.textContent = SAMPLES[key].label;
       }
     });
 

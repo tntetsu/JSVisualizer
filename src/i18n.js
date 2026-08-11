@@ -16,6 +16,7 @@ const STRINGS = {
     'source-title':          'ソース',
     // ── サンプルセレクト ──────────────────────────────────────
     'sample-ph':             '— サンプル —',
+    'editor-hint':           'コードは自由に編集して実行できます',
     // ── ステップボタンラベル ──────────────────────────────────
     'label-func':            '関数',
     'label-human':           '人',
@@ -61,6 +62,7 @@ const STRINGS = {
     'btn-run':               '▶ Run',
     'source-title':          'Source',
     'sample-ph':             '— Sample —',
+    'editor-hint':           'You can freely edit and run this code',
     'label-func':            'Func',
     'label-human':           'Human',
     'label-stmt':            'Stmt',

@@ -247,6 +247,13 @@ body {
   text-overflow: ellipsis;
 }
 
+.editor-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* ── 左ペイン: エディタ ───────────────────────────────────────── */
 .editor-pane {
   width: calc(var(--editor-pct) * 1%);
@@ -397,6 +404,13 @@ body {
   align-items: baseline;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+/* .error-msg{display:flex} はUAスタイルシートの [hidden]{display:none} より優先度が高い
+   （author normal > user-agent normal はスペシフィシティ以前にカスケードで決まるため）。
+   hidden属性(code-editor.jsの showError() が真偽値で切り替える)を明示的に上書きする。 */
+.error-msg[hidden] {
+  display: none;
 }
 
 /* エラー種別バッジ */
