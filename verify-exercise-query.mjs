@@ -1,9 +1,9 @@
 /**
- * verify-exercise-query.mjs — exerciseId/codeId クエリによるコード読み込み機能の単体動作検証
+ * verify-exercise-query.mjs — URLクエリ（code/exercise）によるコード読み込み機能の単体動作検証
  *
- * BhvVisualizer公開APIを模した簡易サーバーを立て、実ブラウザ(Playwright)で
- * URLクエリ4パターン + 404 + スタンドアロン起動時の回帰（既定のFibonacci表示・
- * 組み込みサンプルの動作）を確認する。BhvVisualizer本体・Firestoreは使わない。
+ * 外部API（呼び出し元が完全なURLで指定する想定）を模した簡易サーバーを立て、実ブラウザ
+ * (Playwright)でURLクエリのパターン + 404 + スタンドアロン起動時の回帰（既定のFibonacci
+ * 表示・組み込みサンプルの動作）を確認する。BhvVisualizer本体・Firestoreは使わない。
  *
  * 実行: node verify-exercise-query.mjs
  */
@@ -35,14 +35,12 @@ function serveDir(dir, port) {
 }
 
 const FIXTURE_EXERCISE = {
-  id: 'ex1',
-  title: '演習1',
   codes: [
-    { id: 'co1', title: 'コード1', code: 'console.log("code1");' },
-    { id: 'co2', title: 'コード2', code: 'console.log("code2");' },
+    { title: 'コード1', code: 'console.log("code1");' },
+    { title: 'コード2', code: 'console.log("code2");' },
   ],
 };
-const FIXTURE_CODE = { id: 'co3', title: '単体コード', code: 'console.log("standalone code");', exerciseId: 'ex-other' };
+const FIXTURE_CODE = { title: '単体コード', code: 'console.log("standalone code");' };
 
 function serveApi(port) {
   const server = http.createServer((req, res) => {
@@ -89,53 +87,67 @@ async function run() {
       await page.close();
     }
 
-    // ── テストB: exerciseIdのみ → セレクタに追加され、エディタはFibonacciのまま ──
+    // ── テストB: exerciseのみ → セレクタに追加され、かつ先頭のコードが自動表示される ──
     {
       const page = await browser.newPage();
-      await page.goto(`http://localhost:${JSV_PORT}/index.html?exerciseId=ex1&bhvApiBase=${API_BASE}`, { waitUntil: 'networkidle' });
+      const exerciseUrl = encodeURIComponent(`${API_BASE}/exercises/ex1`);
+      await page.goto(`http://localhost:${JSV_PORT}/index.html?exercise=${exerciseUrl}`, { waitUntil: 'networkidle' });
       await page.waitForTimeout(300);
 
       const optgroupLabel = await page.locator('#sample-select optgroup').last().getAttribute('label');
-      check('[B] exerciseId指定でセレクタに演習用optgroupが追加される', optgroupLabel === '─ Exercise ─');
+      check('[B] exercise指定でセレクタに演習用optgroupが追加される', optgroupLabel === '─ Exercise ─');
 
       const code = await page.locator('.cm-content').textContent();
-      check('[B] codeId未指定ならエディタはFibonacciのまま（上書きされない）', code.includes('fib'));
-      await page.close();
-    }
-
-    // ── テストC: exerciseId+codeId → セレクタ追加 かつ 指定コードで上書き ──
-    {
-      const page = await browser.newPage();
-      await page.goto(`http://localhost:${JSV_PORT}/index.html?exerciseId=ex1&codeId=co2&bhvApiBase=${API_BASE}`, { waitUntil: 'networkidle' });
-      await page.waitForTimeout(300);
-
-      const code = await page.locator('.cm-content').textContent();
-      check('[C] exerciseId+codeId指定でエディタが指定コードに上書きされる', code.includes('code2'));
+      check('[B] code未指定なら演習の先頭コードが自動表示される', code.includes('code1'));
 
       const programName = await page.locator('#program-name').textContent();
-      check('[C] プログラム名がコードのtitleに更新される', programName.includes('コード2'));
+      check('[B] プログラム名が先頭コードのtitleになる', programName.includes('コード1'));
       await page.close();
     }
 
-    // ── テストD: codeIdのみ → /api/codes/:id を直接取得してエディタに反映 ──
+    // ── テストC: exercise+code → セレクタ追加 かつ codeで指定したコードが優先して表示 ──
     {
       const page = await browser.newPage();
-      await page.goto(`http://localhost:${JSV_PORT}/index.html?codeId=co3&bhvApiBase=${API_BASE}`, { waitUntil: 'networkidle' });
+      const exerciseUrl = encodeURIComponent(`${API_BASE}/exercises/ex1`);
+      const codeUrl = encodeURIComponent(`${API_BASE}/codes/co3`);
+      await page.goto(`http://localhost:${JSV_PORT}/index.html?exercise=${exerciseUrl}&code=${codeUrl}`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(300);
+
+      const optgroupLabel = await page.locator('#sample-select optgroup').last().getAttribute('label');
+      check('[C] exercise+code指定でもセレクタにoptgroupが追加される', optgroupLabel === '─ Exercise ─');
+
+      const code = await page.locator('.cm-content').textContent();
+      check('[C] exercise+code指定でエディタはcode側の内容になる（先頭コードではない）', code.includes('standalone code'));
+
+      const programName = await page.locator('#program-name').textContent();
+      check('[C] プログラム名がcode側のtitleになる', programName.includes('単体コード'));
+      await page.close();
+    }
+
+    // ── テストD: codeのみ → 指定URLを直接取得してエディタに反映 ──
+    {
+      const page = await browser.newPage();
+      const codeUrl = encodeURIComponent(`${API_BASE}/codes/co3`);
+      await page.goto(`http://localhost:${JSV_PORT}/index.html?code=${codeUrl}`, { waitUntil: 'networkidle' });
       await page.waitForTimeout(300);
 
       const code = await page.locator('.cm-content').textContent();
-      check('[D] codeIdのみ指定でエディタが該当コードに上書きされる', code.includes('standalone code'));
+      check('[D] codeのみ指定でエディタが該当コードに上書きされる', code.includes('standalone code'));
+
+      const optgroupCount = await page.locator('#sample-select optgroup').count();
+      check('[D] codeのみ指定ではExercise用optgroupは追加されない', optgroupCount === 8); // 既定の8グループのまま
       await page.close();
     }
 
-    // ── テストE: 存在しないcodeId(404) → エラーメッセージが表示される ──
+    // ── テストE: 存在しないcode URL(404) → エラーメッセージが表示される ──
     {
       const page = await browser.newPage();
-      await page.goto(`http://localhost:${JSV_PORT}/index.html?codeId=nope&bhvApiBase=${API_BASE}`, { waitUntil: 'networkidle' });
+      const codeUrl = encodeURIComponent(`${API_BASE}/codes/nope`);
+      await page.goto(`http://localhost:${JSV_PORT}/index.html?code=${codeUrl}`, { waitUntil: 'networkidle' });
       await page.waitForTimeout(300);
 
       const errorVisible = await page.locator('#error-msg').isVisible();
-      check('[E] 存在しないcodeIdでエラーメッセージが表示される', errorVisible);
+      check('[E] 存在しないcode URLでエラーメッセージが表示される', errorVisible);
       await page.close();
     }
   } finally {

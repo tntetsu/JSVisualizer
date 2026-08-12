@@ -502,21 +502,21 @@ export class CodeEditor {
   }
 
   /**
-   * exerciseId 由来のコード群をサンプルセレクタに追加する（既存の21種の組み込みサンプルは変更しない）。
+   * exercise 由来のコード群をサンプルセレクタに追加する（既存の21種の組み込みサンプルは変更しない）。
    * @param {string} label optgroupのラベル
-   * @param {{id:string, title:string, code:string}[]} items
+   * @param {{title:string, code:string}[]} items
    */
   addRemoteGroup(label, items) {
     const optgroup = document.createElement('optgroup');
     optgroup.label = label;
-    for (const item of items) {
-      const key = `remote:${item.id}`;
+    items.forEach((item, index) => {
+      const key = `remote:${index}`;
       this.#remoteCodes.set(key, { title: item.title, code: item.code });
       const opt = document.createElement('option');
       opt.value = key;
       opt.textContent = item.title;
       optgroup.appendChild(opt);
-    }
+    });
     this.#sampleSelect.appendChild(optgroup);
   }
 

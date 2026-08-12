@@ -24,27 +24,25 @@ afterEach(() => {
 });
 
 describe('parseQuery', () => {
-  test('クエリなしなら全てnull・apiBaseは既定値', () => {
-    expect(parseQuery('')).toEqual({
-      exerciseId: null, codeId: null, apiBase: 'https://bhv-visualizer.web.app/api',
+  test('クエリなしなら全てnull', () => {
+    expect(parseQuery('')).toEqual({ codeUrl: null, exerciseUrl: null });
+  });
+
+  test('codeのみ', () => {
+    expect(parseQuery('?code=https%3A%2F%2Fexample.com%2Fcodes%2Fabc')).toEqual({
+      codeUrl: 'https://example.com/codes/abc', exerciseUrl: null,
     });
   });
 
-  test('exerciseIdのみ', () => {
-    expect(parseQuery('?exerciseId=ex1')).toEqual({
-      exerciseId: 'ex1', codeId: null, apiBase: 'https://bhv-visualizer.web.app/api',
+  test('exerciseのみ', () => {
+    expect(parseQuery('?exercise=https%3A%2F%2Fexample.com%2Fexercises%2Fex1')).toEqual({
+      codeUrl: null, exerciseUrl: 'https://example.com/exercises/ex1',
     });
   });
 
-  test('codeIdのみ', () => {
-    expect(parseQuery('?codeId=co1')).toEqual({
-      exerciseId: null, codeId: 'co1', apiBase: 'https://bhv-visualizer.web.app/api',
-    });
-  });
-
-  test('exerciseId+codeId+bhvApiBase', () => {
-    expect(parseQuery('?exerciseId=ex1&codeId=co1&bhvApiBase=http://localhost:5000/api')).toEqual({
-      exerciseId: 'ex1', codeId: 'co1', apiBase: 'http://localhost:5000/api',
+  test('code+exercise', () => {
+    expect(parseQuery('?exercise=https://example.com/exercises/ex1&code=https://example.com/codes/co2')).toEqual({
+      codeUrl: 'https://example.com/codes/co2', exerciseUrl: 'https://example.com/exercises/ex1',
     });
   });
 });
@@ -59,51 +57,73 @@ describe('loadExerciseFromQuery', () => {
     expect(editor.addRemoteGroup).not.toHaveBeenCalled();
   });
 
-  test('exerciseIdのみ: addRemoteGroupが呼ばれ、setCodeは呼ばれない', async () => {
-    const codes = [{ id: 'co1', title: 'コード1', code: 'a' }];
-    global.fetch = jest.fn().mockReturnValue(jsonResponse({ id: 'ex1', title: '演習1', codes }));
+  test('codeのみ: 指定URLをfetchしsetCode', async () => {
+    global.fetch = jest.fn().mockReturnValue(jsonResponse({ title: 'コード1', code: 'a' }));
     const editor = makeEditor();
-    await loadExerciseFromQuery(editor, { search: '?exerciseId=ex1' });
-    expect(global.fetch).toHaveBeenCalledWith('https://bhv-visualizer.web.app/api/exercises/ex1');
-    expect(editor.addRemoteGroup).toHaveBeenCalledWith('─ Exercise ─', codes);
-    expect(editor.setCode).not.toHaveBeenCalled();
-  });
-
-  test('exerciseId+codeId: addRemoteGroup後、該当コードでsetCode', async () => {
-    const codes = [
-      { id: 'co1', title: 'コード1', code: 'a' },
-      { id: 'co2', title: 'コード2', code: 'b' },
-    ];
-    global.fetch = jest.fn().mockReturnValue(jsonResponse({ id: 'ex1', title: '演習1', codes }));
-    const editor = makeEditor();
-    await loadExerciseFromQuery(editor, { search: '?exerciseId=ex1&codeId=co2' });
-    expect(editor.addRemoteGroup).toHaveBeenCalledWith('─ Exercise ─', codes);
-    expect(editor.setCode).toHaveBeenCalledWith('b', 'コード2', 'remote:co2');
-  });
-
-  test('codeIdのみ: /codes/:id をfetchしsetCode', async () => {
-    global.fetch = jest.fn().mockReturnValue(
-      jsonResponse({ id: 'co1', title: 'コード1', code: 'a', exerciseId: 'ex1' }),
-    );
-    const editor = makeEditor();
-    await loadExerciseFromQuery(editor, { search: '?codeId=co1' });
-    expect(global.fetch).toHaveBeenCalledWith('https://bhv-visualizer.web.app/api/codes/co1');
+    await loadExerciseFromQuery(editor, { search: '?code=https://example.com/codes/co1' });
+    expect(global.fetch).toHaveBeenCalledWith('https://example.com/codes/co1');
     expect(editor.setCode).toHaveBeenCalledWith('a', 'コード1');
     expect(editor.addRemoteGroup).not.toHaveBeenCalled();
+  });
+
+  test('exerciseのみ: addRemoteGroupが呼ばれ、先頭のコードがsetCodeされる', async () => {
+    const codes = [
+      { title: 'コード1', code: 'a' },
+      { title: 'コード2', code: 'b' },
+    ];
+    global.fetch = jest.fn().mockReturnValue(jsonResponse({ codes }));
+    const editor = makeEditor();
+    await loadExerciseFromQuery(editor, { search: '?exercise=https://example.com/exercises/ex1' });
+    expect(global.fetch).toHaveBeenCalledWith('https://example.com/exercises/ex1');
+    expect(editor.addRemoteGroup).toHaveBeenCalledWith('─ Exercise ─', codes);
+    expect(editor.setCode).toHaveBeenCalledWith('a', 'コード1', 'remote:0');
+  });
+
+  test('exercise+code: addRemoteGroup後、code側のコードでsetCode（先頭ではなくcode優先）', async () => {
+    const codes = [
+      { title: 'コード1', code: 'a' },
+      { title: 'コード2', code: 'b' },
+    ];
+    global.fetch = jest.fn()
+      .mockImplementationOnce(() => jsonResponse({ codes }))
+      .mockImplementationOnce(() => jsonResponse({ title: 'コード2', code: 'b' }));
+    const editor = makeEditor();
+    await loadExerciseFromQuery(editor, {
+      search: '?exercise=https://example.com/exercises/ex1&code=https://example.com/codes/co2',
+    });
+    expect(editor.addRemoteGroup).toHaveBeenCalledWith('─ Exercise ─', codes);
+    expect(editor.setCode).toHaveBeenCalledTimes(1);
+    expect(editor.setCode).toHaveBeenCalledWith('b', 'コード2');
+  });
+
+  test('exerciseのcodesが空配列なら自動読み込みしない', async () => {
+    global.fetch = jest.fn().mockReturnValue(jsonResponse({ codes: [] }));
+    const editor = makeEditor();
+    await loadExerciseFromQuery(editor, { search: '?exercise=https://example.com/exercises/ex1' });
+    expect(editor.addRemoteGroup).toHaveBeenCalledWith('─ Exercise ─', []);
+    expect(editor.setCode).not.toHaveBeenCalled();
   });
 
   test('404（存在しない/非公開）: showErrorが呼ばれる', async () => {
     global.fetch = jest.fn().mockReturnValue(jsonResponse(null, false));
     const editor = makeEditor();
-    await loadExerciseFromQuery(editor, { search: '?codeId=nope' });
+    await loadExerciseFromQuery(editor, { search: '?code=https://example.com/codes/nope' });
     expect(editor.showError).toHaveBeenCalled();
     expect(editor.setCode).not.toHaveBeenCalled();
+  });
+
+  test('exerciseが不正な形式（codesが配列でない）: showErrorが呼ばれる', async () => {
+    global.fetch = jest.fn().mockReturnValue(jsonResponse({ notCodes: [] }));
+    const editor = makeEditor();
+    await loadExerciseFromQuery(editor, { search: '?exercise=https://example.com/exercises/ex1' });
+    expect(editor.showError).toHaveBeenCalled();
+    expect(editor.addRemoteGroup).not.toHaveBeenCalled();
   });
 
   test('ネットワークエラー: showErrorが呼ばれる', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('network down'));
     const editor = makeEditor();
-    await loadExerciseFromQuery(editor, { search: '?codeId=co1' });
+    await loadExerciseFromQuery(editor, { search: '?code=https://example.com/codes/co1' });
     expect(editor.showError).toHaveBeenCalled();
   });
 });

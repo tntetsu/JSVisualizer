@@ -71,66 +71,66 @@ Console 出力（`console.log` ログ）は、どのタブを選択中でも右�
 
 ### URLクエリでコードを外部から読み込む
 
-サンプル選択やコードの貼り付けとは別に、URLクエリパラメータを使って外部（例: [BhvVisualizer](https://github.com/tntetsu/BhvVisualizer)などの連携アプリ）からコードを直接読み込ませることができます。JSVisualizer単体でも「特定のコードへの直リンク」として機能する汎用機能です（`# BHV:`タグのログ送信配線とは無関係。設計の背景は[ADR-029](docs/adr/ADR-029-url-query-exercise-loading.md)を参照）。
+サンプル選択やコードの貼り付けとは別に、URLクエリパラメータを使って外部（例: [BhvVisualizer](https://github.com/tntetsu/BhvVisualizer)などの連携アプリ、あるいは自前でホストした静的JSON）からコードを直接読み込ませることができます。JSVisualizer単体でも「特定のコードへの直リンク」として機能する汎用機能です（`# BHV:`タグのログ送信配線とは無関係。設計の背景は[ADR-031](docs/adr/ADR-031-url-based-exercise-loading.md)を参照）。
 
 | クエリパラメータ | 意味 |
 |---|---|
-| `exerciseId` | 「演習」（コードの集合）のID。指定すると、その演習に含まれるコード群がサンプル選択に「─ Exercise ─」というグループとして追加される |
-| `codeId` | **表示させたい個別のコードのID**。指定すると、そのコードがエディタに直接読み込まれる |
-| `bhvApiBase` | コードの取得元となる公開APIのベースURL（省略時は既定で `https://bhv-visualizer.web.app/api`） |
+| `exercise` | 演習（コードの集合）を取得するための**完全なURL**。指定すると、そのURLをfetchして得られるコード群がサンプル選択に「─ Exercise ─」というグループとして追加される |
+| `code` | **表示させたい個別のコードを取得するための完全なURL**。指定すると、そのコードがエディタに直接読み込まれる |
+
+`exercise`・`code` はJSVisualizer自身が発行するIDやAPIパス規約を必要としません。**呼び出し元がfetch可能な完全なURLをそのまま渡すだけ**です。JSVisualizerはそのURLをfetchして`title`/`code`フィールドを読み取るだけで、コードがどこにホストされているか（BhvVisualizerか、それ以外の自前サーバーか）には関与しません。
 
 組み合わせによる動作の違い:
 
 | 指定 | 動作 |
 |---|---|
-| `exerciseId` のみ | サンプル選択に演習のコード群が追加される。エディタは既定のFibonacciサンプルのまま（一覧から選ぶまで内容は変わらない） |
-| `codeId` のみ | 指定したコード1件がエディタに直接読み込まれる |
-| `exerciseId` + `codeId` | サンプル選択に演習のコード群が追加され、かつエディタは指定したコードの内容で開始する |
+| `exercise` のみ | サンプル選択に演習のコード群が追加され、**その先頭のコードが自動的にエディタへ読み込まれる** |
+| `code` のみ | 指定したコード1件がエディタに直接読み込まれる |
+| `exercise` + `code` | サンプル選択に演習のコード群が追加され、かつエディタは`code`で指定したコードの内容になる（先頭コードの自動読み込みより`code`が優先される） |
 | 指定なし | 何も起きない（既定のFibonacciサンプルのまま、21種の組み込みサンプルにも影響なし） |
-
-`exerciseId`・`codeId` は JSVisualizer自身が発行するIDではなく、**コードを提供する側のシステム（`bhvApiBase`が指すAPI）が管理するID**です。JSVisualizerは `GET {bhvApiBase}/exercises/:exerciseId` と `GET {bhvApiBase}/codes/:codeId` を呼び出してコード本文を取得するだけで、IDの発行・採番方法自体には関与しません（BhvVisualizer連携の場合は、教員が作成した演習・コードのFirestoreドキュメントIDがそのままこのIDになります）。
 
 例:
 
 ```
 # 個別コードへの直リンク
-https://tntetsu.github.io/JSVisualizer/?codeId=abc123
+https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Fbhv-visualizer.web.app%2Fapi%2Fcodes%2Fabc123
+
+# 演習を開く（先頭のコードが自動表示され、他のコードはサンプル選択から切り替えられる）
+https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Fbhv-visualizer.web.app%2Fapi%2Fexercises%2Fex1
 
 # 演習内の特定コードを指定して開く
-https://tntetsu.github.io/JSVisualizer/?exerciseId=ex1&codeId=co2
+https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Fbhv-visualizer.web.app%2Fapi%2Fexercises%2Fex1&code=https%3A%2F%2Fbhv-visualizer.web.app%2Fapi%2Fcodes%2Fco2
 
-# ローカル開発中のAPIを参照させる
-https://tntetsu.github.io/JSVisualizer/?codeId=abc123&bhvApiBase=http://localhost:5000/api
+# ローカル開発中のAPIを参照させる（bhvApiBaseのような専用パラメータは不要。URL自体をローカル向けにするだけ）
+https://tntetsu.github.io/JSVisualizer/?code=http%3A%2F%2Flocalhost%3A5000%2Fapi%2Fcodes%2Fabc123
 ```
 
-存在しないID・非公開のコードを指定した場合は、エラーメッセージ欄にその旨が表示されます。なお、コード内の**特定の行番号やカーソル位置を指定してジャンプする機能はありません**（URLクエリで制御できるのは「どのコードを読み込むか」のみです）。
+`exercise`・`code` の値はURLエンコードした状態で渡す必要があります（`URLSearchParams`で組み立てれば自動的にエンコードされます）。存在しないURL・非公開のコードを指定した場合は、エラーメッセージ欄にその旨が表示されます。なお、コード内の**特定の行番号やカーソル位置を指定してジャンプする機能はありません**（URLクエリで制御できるのは「どのコードを読み込むか」のみです）。
 
 #### 期待するAPIレスポンス形式
 
-`bhvApiBase` が指すAPIは、以下のJSON形式でレスポンスを返す必要があります（`src/core/exercise-source.js`が読み取る形式）。
+`exercise`・`code` が指すURLは、以下のJSON形式でレスポンスを返す必要があります（`src/core/exercise-source.js`が読み取る形式）。
 
 ```
-GET {bhvApiBase}/exercises/:exerciseId
+GET <exercise の値>
   200 OK →
     {
-      "id": "...",
-      "title": "...",
       "codes": [
-        { "id": "...", "title": "...", "code": "...（JavaScriptソース文字列）" },
+        { "title": "...", "code": "...（JavaScriptソース文字列）" },
         ...
       ]
     }
   200以外（404など） → 演習が見つからない・非公開として扱う
 
-GET {bhvApiBase}/codes/:codeId
+GET <code の値>
   200 OK →
-    { "id": "...", "title": "...", "code": "...（JavaScriptソース文字列）", "exerciseId": "..." }
+    { "title": "...", "code": "...（JavaScriptソース文字列）" }
   200以外（404など） → コードが見つからない・非公開として扱う
 ```
 
-JSVisualizerが実際に参照するのは、演習取得時は `codes[].id` / `codes[].title` / `codes[].code`、コード単体取得時は `code` / `title` のみです。それ以外のフィールド（トップレベルの `id`・`exerciseId` など）が含まれていても無視されます。200以外のステータスはすべて「見つからない・非公開」として扱われるため、エラー時のレスポンスボディの形式は問いません。
+JSVisualizerが実際に参照するのはこれらのフィールドのみです。他のフィールドが含まれていても無視されます。200以外のステータスはすべて「見つからない・非公開」として扱われるため、エラー時のレスポンスボディの形式は問いません。
 
-この形式は BhvVisualizer の公開API（[BhvVisualizer/docs/design.md](https://github.com/tntetsu/BhvVisualizer/blob/main/docs/design.md) 2.4.2節）の実装に合わせたものです。同じ形式でレスポンスを返すAPIであれば、BhvVisualizer以外のシステムから読み込ませることもできます。
+この形式で応答するAPIであれば、BhvVisualizer以外の任意のシステム（自前で書いた静的JSONホスティングなど）から読み込ませることもできます。BhvVisualizerの実装は[BhvVisualizer/docs/design.md](https://github.com/tntetsu/BhvVisualizer/blob/main/docs/design.md) 2.4節を参照してください。
 
 ### テーマ
 

@@ -69,66 +69,66 @@ The code panel simultaneously displays three highlight layers:
 
 ### Loading code from a URL query
 
-Besides picking a built-in sample or pasting your own code, JSVisualizer can load code directly from a URL query string, driven by an external app (e.g. [BhvVisualizer](https://github.com/tntetsu/BhvVisualizer)). This works as a general-purpose "direct link to a specific piece of code" feature even when JSVisualizer is used standalone — it has nothing to do with the `# BHV:`-tagged logging wiring (see [ADR-029](docs/adr/ADR-029-url-query-exercise-loading.md) for the design background).
+Besides picking a built-in sample or pasting your own code, JSVisualizer can load code directly from a URL query string, driven by an external app (e.g. [BhvVisualizer](https://github.com/tntetsu/BhvVisualizer), or your own self-hosted static JSON). This works as a general-purpose "direct link to a specific piece of code" feature even when JSVisualizer is used standalone — it has nothing to do with the `# BHV:`-tagged logging wiring (see [ADR-031](docs/adr/ADR-031-url-based-exercise-loading.md) for the design background).
 
 | Query parameter | Meaning |
 |---|---|
-| `exerciseId` | ID of an "exercise" (a set of code). When present, the exercise's codes are added to the sample selector as a "─ Exercise ─" group |
-| `codeId` | ID of the **specific code to display**. When present, that code is loaded directly into the editor |
-| `bhvApiBase` | Base URL of the public API the code is fetched from (defaults to `https://bhv-visualizer.web.app/api`) |
+| `exercise` | A **complete URL** to fetch an exercise (a set of code) from. When present, the fetched codes are added to the sample selector as a "─ Exercise ─" group |
+| `code` | A **complete URL** to fetch the specific code to display. When present, that code is loaded directly into the editor |
+
+`exercise`/`code` don't require JSVisualizer to know any ID scheme or API path convention — **the caller just passes a fetchable URL directly**. JSVisualizer fetches that URL and reads its `title`/`code` fields; it has no opinion on where the code is hosted (BhvVisualizer or anything else).
 
 Behavior by combination:
 
 | Params present | Behavior |
 |---|---|
-| `exerciseId` only | The exercise's codes are added to the sample selector. The editor stays on the default Fibonacci sample until one is picked from the list |
-| `codeId` only | The specified code is loaded directly into the editor |
-| `exerciseId` + `codeId` | The sample selector is extended, and the editor starts with the specified code |
+| `exercise` only | The exercise's codes are added to the sample selector, and **the first one is automatically loaded into the editor** |
+| `code` only | The specified code is loaded directly into the editor |
+| `exercise` + `code` | The sample selector is extended, and the editor shows the code specified by `code` (which takes priority over the automatic first-code load) |
 | Neither | Nothing happens (editor stays on the default Fibonacci sample, and the 21 built-in samples are unaffected) |
-
-`exerciseId`/`codeId` are **not IDs JSVisualizer issues itself** — they belong to whatever system serves the code (the API at `bhvApiBase`). JSVisualizer only calls `GET {bhvApiBase}/exercises/:exerciseId` and `GET {bhvApiBase}/codes/:codeId` to fetch the code body; it has no say in how those IDs are assigned (in the BhvVisualizer integration, they're simply the Firestore document IDs of the exercise/code a teacher created).
 
 Examples:
 
 ```
 # Direct link to a single piece of code
-https://tntetsu.github.io/JSVisualizer/?codeId=abc123
+https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Fbhv-visualizer.web.app%2Fapi%2Fcodes%2Fabc123
+
+# Open an exercise (first code shown automatically; others reachable via the sample selector)
+https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Fbhv-visualizer.web.app%2Fapi%2Fexercises%2Fex1
 
 # Open a specific code within an exercise
-https://tntetsu.github.io/JSVisualizer/?exerciseId=ex1&codeId=co2
+https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Fbhv-visualizer.web.app%2Fapi%2Fexercises%2Fex1&code=https%3A%2F%2Fbhv-visualizer.web.app%2Fapi%2Fcodes%2Fco2
 
-# Point at a local development API
-https://tntetsu.github.io/JSVisualizer/?codeId=abc123&bhvApiBase=http://localhost:5000/api
+# Point at a local development API (no dedicated bhvApiBase-style param needed — just point the URL locally)
+https://tntetsu.github.io/JSVisualizer/?code=http%3A%2F%2Flocalhost%3A5000%2Fapi%2Fcodes%2Fabc123
 ```
 
-If an ID doesn't exist or isn't public, an error message is shown in the error banner. Note that there is **no way to jump to a specific line or cursor position** — the URL query only controls which code gets loaded, not where the cursor lands.
+`exercise`/`code` values must be URL-encoded (building them with `URLSearchParams` handles this automatically). If a URL doesn't exist or isn't public, an error message is shown in the error banner. Note that there is **no way to jump to a specific line or cursor position** — the URL query only controls which code gets loaded, not where the cursor lands.
 
 #### Expected API response format
 
-The API at `bhvApiBase` must return JSON in the following shape (this is what `src/core/exercise-source.js` reads).
+The URL(s) passed via `exercise`/`code` must return JSON in the following shape (this is what `src/core/exercise-source.js` reads).
 
 ```
-GET {bhvApiBase}/exercises/:exerciseId
+GET <value of exercise>
   200 OK →
     {
-      "id": "...",
-      "title": "...",
       "codes": [
-        { "id": "...", "title": "...", "code": "...(JavaScript source string)" },
+        { "title": "...", "code": "...(JavaScript source string)" },
         ...
       ]
     }
   Non-200 (404, etc.) → treated as "exercise not found / not public"
 
-GET {bhvApiBase}/codes/:codeId
+GET <value of code>
   200 OK →
-    { "id": "...", "title": "...", "code": "...(JavaScript source string)", "exerciseId": "..." }
+    { "title": "...", "code": "...(JavaScript source string)" }
   Non-200 (404, etc.) → treated as "code not found / not public"
 ```
 
-JSVisualizer only reads `codes[].id` / `codes[].title` / `codes[].code` when fetching an exercise, and `code` / `title` when fetching a single code — any other fields (top-level `id`, `exerciseId`, etc.) are ignored. Any non-200 status is treated as "not found / not public" regardless of reason, so the response body format on error doesn't matter.
+JSVisualizer only reads these fields; anything else is ignored. Any non-200 status is treated as "not found / not public" regardless of reason, so the response body format on error doesn't matter.
 
-This shape matches BhvVisualizer's public API implementation ([BhvVisualizer/docs/design.md](https://github.com/tntetsu/BhvVisualizer/blob/main/docs/design.md), section 2.4.2). Any system that returns responses in this same shape can be used in place of BhvVisualizer.
+Any API that responds in this shape can be used in place of BhvVisualizer — including your own self-hosted static JSON. BhvVisualizer's implementation is documented in [BhvVisualizer/docs/design.md](https://github.com/tntetsu/BhvVisualizer/blob/main/docs/design.md), section 2.4.
 
 ### Themes
 

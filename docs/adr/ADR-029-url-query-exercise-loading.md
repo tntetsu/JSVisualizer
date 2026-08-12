@@ -60,3 +60,5 @@ BhvVisualizer/docs/design.md 2.1節・2.4節の方針により、この機能は
 ADR-028と同様、外部埋め込み利用者（BhvVisualizer）からの要求でJSVisualizerに変更を加える場合は、`# BHV:`タグの有無を問わず都度ADRを追加する。
 
 > **2026-08-12改定（ADR-030）**: この運用ルールはさらに、外部埋め込み利用者からの要求によらないJSVisualizer単体の改良のための変更にも適用範囲を広げた。重要な設計判断を伴う変更であれば、駆動要因を問わず都度ADRを追加する。
+
+> **2026-08-12再設計（ADR-031）**: 本ADRで採用した「ID + `bhvApiBase`」方式は、同日中に「呼び出し元が完全なURLを直接渡す」方式へ再設計された。`exerciseId`/`codeId`/`bhvApiBase`パラメータ、レスポンス中の`id`/`exerciseId`フィールドは[ADR-031](ADR-031-url-based-exercise-loading.md)で廃止済み。現行の仕様はADR-031・READMEを参照。

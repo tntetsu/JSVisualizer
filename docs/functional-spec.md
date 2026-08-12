@@ -1,7 +1,7 @@
 # 機能仕様書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 1.9  
+**バージョン**: 1.10  
 **作成日**: 2026-05-25  
 **最終更新**: 2026-08-12  
 **作成者**: Tetsuo Tanaka
@@ -33,6 +33,7 @@
 | 1.7 | 2026-07-20 | (1) **ヘッダーレイアウト刷新**: Editモードは Edit/Run ボタン＋サンプルセレクト、Runモードは Edit/Run ボタン＋ステップコントロールをヘッダー中央に表示（フッター廃止）。`.app-header.run-mode` クラスで CSS 表示切替。ヘッダー高さを auto（最小高さ 44px）に変更し `app-main` は `flex: 1` で残高を充填。(2) **スライダー最大化・2行レイアウト**: `.slider-area { min-width: 180px }` の折り返しによりウィンドウ幅が狭い場合はスライダーが2行目に折り返す。`body { min-width: 820px }` + `html { overflow-x: auto }` で最小幅以下では横スクロールバーを表示。(3) **ビュー説明バー**: タブ直下に `.view-desc` 要素を自動挿入。`ViewSwitcher.register()` の第4引数 `description` でビューの説明文を登録し、タブ切り替え時に表示。13ビュー全てに説明文を追加。(4) **ライトモード UI 改善**: アクティブタブを白背景＋青トップボーダー＋青テキスト＋太字（`:root:not([data-theme="dark"])`）でコントラスト強化。コンソール背景を白（`var(--bg)`）に変更（ライトモードのみ）。|
 | 1.8 | 2026-07-20 | **言語切替（i18n）**: `src/i18n.js` 新規追加（`STRINGS` オブジェクト・`t(key)` / `getLang()` / `setLang()` 関数・`langchange` カスタムイベント）。`localStorage('jsv-lang')` に `'ja'`/`'en'` を永続化し、デフォルト `'ja'`。ヘッダー右端に `btn-lang`（EN/日）ボタンを追加。静的 HTML 要素は `data-i18n="key"` 属性で管理し `applyI18n()` が一括更新。タブラベル・説明文は `ViewSwitcher.register()` に `{ ja: '...', en: '...' }` オブジェクトを渡す形式に拡張し、`ViewSwitcher.setLang(lang)` で再描画。`resolveStr(v, lang)` ヘルパーで文字列と `{ja,en}` オブジェクトの両方を解決。 |
 | 1.9 | 2026-08-12 | **F-04 URLクエリによるコード読み込みを追加**: `exerciseId`/`codeId`/`bhvApiBase` クエリパラメータで外部（BhvVisualizer等）からコードを読み込む機能を新規実装・文書化（`src/core/exercise-source.js`、[ADR-029](adr/ADR-029-url-query-exercise-loading.md)）。既定のFibonacciサンプル表示・21種の組み込みサンプルは変更しない加算的な機能。README にクエリパラメータの使い方・期待するAPIレスポンスのJSON形式を追記 |
+| 1.10 | 2026-08-12 | **F-04を「ID+ベースURL」方式から「完全なURL」方式へ再設計**: `exerciseId`/`codeId`/`bhvApiBase`を廃止し`exercise`/`code`（呼び出し元がfetch可能な完全なURLを直接渡す）に変更（[ADR-031](adr/ADR-031-url-based-exercise-loading.md)）。レスポンス形式から未使用の`id`/`exerciseId`を削除し`title`/`code`のみに簡素化。IDでの突き合わせが不要になったため`exerciseId`+`codeId`の探索ロジックを廃止し、代わりに`exercise`のみ指定時は先頭のコードを自動読み込みする仕様を追加。`exercise`+`code`は独立したfetchとして併用可（`code`優先）。後方互換なし（本番未投入のため旧パラメータは完全に廃止） |
 
 ---
 
@@ -162,12 +163,12 @@
 
 | 項目 | 仕様 |
 |------|------|
-| クエリパラメータ | `exerciseId`（演習ID）・`codeId`（コードID）・`bhvApiBase`（取得元の公開APIベースURL、省略時は既定値） |
-| 取得方法 | `GET {bhvApiBase}/exercises/:exerciseId`・`GET {bhvApiBase}/codes/:codeId` を`fetch`で呼び出し、レスポンスのコード本文をエディタ・サンプル選択に反映する（`src/core/exercise-source.js`） |
-| 動作 | `exerciseId`のみ→サンプル選択に演習のコード群を「─ Exercise ─」グループとして追加（エディタは既定のまま変更しない）。`codeId`のみ→該当コードを直接エディタへ読み込む。両方指定→サンプル選択への追加とエディタへの読み込みを両方行う。指定なし→何もしない（既定のFibonacciサンプル・21種の組み込みサンプルは不変） |
-| エラー処理 | 存在しない/非公開のID・ネットワークエラー時は、エディタ下部のエラー表示欄にメッセージを表示する |
-| 期待するレスポンス形式 | `/exercises/:id`→`{ id, title, codes: [{ id, title, code }] }`、`/codes/:id`→`{ id, title, code, exerciseId }`。200以外は「見つからない/非公開」として扱う。JSON形式の詳細は[README](../README.md)「期待するAPIレスポンス形式」節を参照 |
-| 用途 | JSVisualizer単体でも「特定のコードへの直リンク」として機能する汎用機能。BhvVisualizer（別リポジトリ）との連携では、教員が作成した演習・コードを学習者に配信する経路として利用する。詳細は[README](../README.md)「URLクエリでコードを外部から読み込む」節・[ADR-029](adr/ADR-029-url-query-exercise-loading.md)を参照 |
+| クエリパラメータ | `exercise`（演習を取得する完全なURL）・`code`（個別コードを取得する完全なURL）。呼び出し元がfetch可能なURLをそのまま渡す方式で、JSVisualizerはID発行やAPIパス規約を一切知らない |
+| 取得方法 | `exercise`/`code`の値をそのまま`fetch`で呼び出し、レスポンスのコード本文をエディタ・サンプル選択に反映する（`src/core/exercise-source.js`） |
+| 動作 | `exercise`のみ→演習のコード群をサンプル選択に「─ Exercise ─」グループとして追加し、**先頭のコードを自動でエディタに読み込む**。`code`のみ→該当コードを直接エディタへ読み込む。両方指定→サンプル選択への追加を行いつつ、エディタは`code`側の内容になる（先頭コードの自動読み込みより優先）。指定なし→何もしない（既定のFibonacciサンプル・21種の組み込みサンプルは不変） |
+| エラー処理 | 存在しない/非公開のURL・ネットワークエラー時は、エディタ下部のエラー表示欄にメッセージを表示する |
+| 期待するレスポンス形式 | `exercise`→`{ codes: [{ title, code }] }`、`code`→`{ title, code }`。200以外は「見つからない/非公開」として扱う。JSON形式の詳細は[README](../README.md)「期待するAPIレスポンス形式」節を参照 |
+| 用途 | JSVisualizer単体でも「特定のコードへの直リンク」として機能する汎用機能。BhvVisualizer（別リポジトリ）との連携では、教員が作成した演習・コードを学習者に配信する経路として利用する。完全なURLを渡す方式のため、BhvVisualizer以外の任意のホスティング先からも読み込める。詳細は[README](../README.md)「URLクエリでコードを外部から読み込む」節・[ADR-031](adr/ADR-031-url-based-exercise-loading.md)を参照 |
 
 ---
 
