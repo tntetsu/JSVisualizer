@@ -69,6 +69,42 @@ Console 出力（`console.log` ログ）は、どのタブを選択中でも右�
 - **ペインリサイザー** — 左右ペインの境界をドラッグして幅を自由に調整（幅は自動保存）
 - **プログラム名表示** — サンプルを選択するとヘッダーにサンプル名を表示
 
+### URLクエリでコードを外部から読み込む
+
+サンプル選択やコードの貼り付けとは別に、URLクエリパラメータを使って外部（例: [BhvVisualizer](https://github.com/tntetsu/BhvVisualizer)などの連携アプリ）からコードを直接読み込ませることができます。JSVisualizer単体でも「特定のコードへの直リンク」として機能する汎用機能です（`# BHV:`タグのログ送信配線とは無関係。設計の背景は[ADR-029](docs/adr/ADR-029-url-query-exercise-loading.md)を参照）。
+
+| クエリパラメータ | 意味 |
+|---|---|
+| `exerciseId` | 「演習」（コードの集合）のID。指定すると、その演習に含まれるコード群がサンプル選択に「─ Exercise ─」というグループとして追加される |
+| `codeId` | **表示させたい個別のコードのID**。指定すると、そのコードがエディタに直接読み込まれる |
+| `bhvApiBase` | コードの取得元となる公開APIのベースURL（省略時は既定で `https://bhv-visualizer.web.app/api`） |
+
+組み合わせによる動作の違い:
+
+| 指定 | 動作 |
+|---|---|
+| `exerciseId` のみ | サンプル選択に演習のコード群が追加される。エディタは既定のFibonacciサンプルのまま（一覧から選ぶまで内容は変わらない） |
+| `codeId` のみ | 指定したコード1件がエディタに直接読み込まれる |
+| `exerciseId` + `codeId` | サンプル選択に演習のコード群が追加され、かつエディタは指定したコードの内容で開始する |
+| 指定なし | 何も起きない（既定のFibonacciサンプルのまま、21種の組み込みサンプルにも影響なし） |
+
+`exerciseId`・`codeId` は JSVisualizer自身が発行するIDではなく、**コードを提供する側のシステム（`bhvApiBase`が指すAPI）が管理するID**です。JSVisualizerは `GET {bhvApiBase}/exercises/:exerciseId` と `GET {bhvApiBase}/codes/:codeId` を呼び出してコード本文を取得するだけで、IDの発行・採番方法自体には関与しません（BhvVisualizer連携の場合は、教員が作成した演習・コードのFirestoreドキュメントIDがそのままこのIDになります）。
+
+例:
+
+```
+# 個別コードへの直リンク
+https://tntetsu.github.io/JSVisualizer/?codeId=abc123
+
+# 演習内の特定コードを指定して開く
+https://tntetsu.github.io/JSVisualizer/?exerciseId=ex1&codeId=co2
+
+# ローカル開発中のAPIを参照させる
+https://tntetsu.github.io/JSVisualizer/?codeId=abc123&bhvApiBase=http://localhost:5000/api
+```
+
+存在しないID・非公開のコードを指定した場合は、エラーメッセージ欄にその旨が表示されます。なお、コード内の**特定の行番号やカーソル位置を指定してジャンプする機能はありません**（URLクエリで制御できるのは「どのコードを読み込むか」のみです）。
+
 ### テーマ
 
 右上の ⚙ ボタンから**ライトテーマ**と**ダークテーマ**を切り替えられます。

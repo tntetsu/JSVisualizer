@@ -67,6 +67,42 @@ The code panel simultaneously displays three highlight layers:
 - **Pane resizer** — Drag the divider to resize the editor and visualization panes (width is saved)
 - **Program name display** — Selecting a sample shows the sample name in the header
 
+### Loading code from a URL query
+
+Besides picking a built-in sample or pasting your own code, JSVisualizer can load code directly from a URL query string, driven by an external app (e.g. [BhvVisualizer](https://github.com/tntetsu/BhvVisualizer)). This works as a general-purpose "direct link to a specific piece of code" feature even when JSVisualizer is used standalone — it has nothing to do with the `# BHV:`-tagged logging wiring (see [ADR-029](docs/adr/ADR-029-url-query-exercise-loading.md) for the design background).
+
+| Query parameter | Meaning |
+|---|---|
+| `exerciseId` | ID of an "exercise" (a set of code). When present, the exercise's codes are added to the sample selector as a "─ Exercise ─" group |
+| `codeId` | ID of the **specific code to display**. When present, that code is loaded directly into the editor |
+| `bhvApiBase` | Base URL of the public API the code is fetched from (defaults to `https://bhv-visualizer.web.app/api`) |
+
+Behavior by combination:
+
+| Params present | Behavior |
+|---|---|
+| `exerciseId` only | The exercise's codes are added to the sample selector. The editor stays on the default Fibonacci sample until one is picked from the list |
+| `codeId` only | The specified code is loaded directly into the editor |
+| `exerciseId` + `codeId` | The sample selector is extended, and the editor starts with the specified code |
+| Neither | Nothing happens (editor stays on the default Fibonacci sample, and the 21 built-in samples are unaffected) |
+
+`exerciseId`/`codeId` are **not IDs JSVisualizer issues itself** — they belong to whatever system serves the code (the API at `bhvApiBase`). JSVisualizer only calls `GET {bhvApiBase}/exercises/:exerciseId` and `GET {bhvApiBase}/codes/:codeId` to fetch the code body; it has no say in how those IDs are assigned (in the BhvVisualizer integration, they're simply the Firestore document IDs of the exercise/code a teacher created).
+
+Examples:
+
+```
+# Direct link to a single piece of code
+https://tntetsu.github.io/JSVisualizer/?codeId=abc123
+
+# Open a specific code within an exercise
+https://tntetsu.github.io/JSVisualizer/?exerciseId=ex1&codeId=co2
+
+# Point at a local development API
+https://tntetsu.github.io/JSVisualizer/?codeId=abc123&bhvApiBase=http://localhost:5000/api
+```
+
+If an ID doesn't exist or isn't public, an error message is shown in the error banner. Note that there is **no way to jump to a specific line or cursor position** — the URL query only controls which code gets loaded, not where the cursor lands.
+
 ### Themes
 
 Click the ⚙ button (top-right) to switch between **Light** and **Dark** themes.  
