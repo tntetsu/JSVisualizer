@@ -1,7 +1,7 @@
 # Functional Specification
 
 **Project**: JSVisualizer  
-**Version**: 1.10  
+**Version**: 1.11  
 **Created**: 2026-05-25  
 **Last updated**: 2026-08-12  
 **Author**: Tetsuo Tanaka
@@ -34,6 +34,7 @@
 | 1.8 | 2026-07-20 | **Language switching (i18n)**: New `src/i18n.js` module (`STRINGS` object, `t(key)` / `getLang()` / `setLang()` functions, `langchange` custom event). Language persisted to `localStorage('jsv-lang')` as `'ja'` or `'en'`; defaults to `'ja'`. EN/日 toggle button (`btn-lang`) added to the right of the header. Static HTML elements use `data-i18n="key"` attributes, batch-updated by `applyI18n()`. Tab labels and descriptions are passed to `ViewSwitcher.register()` as `{ ja: '...', en: '...' }` objects and re-rendered by `ViewSwitcher.setLang(lang)`. `resolveStr(v, lang)` helper resolves both plain strings and `{ja,en}` objects. |
 | 1.9 | 2026-08-12 | **F-04 URL query code loading added**: new `exerciseId`/`codeId`/`bhvApiBase` query params load code from an external source (e.g. BhvVisualizer) (`src/core/exercise-source.js`, [ADR-029](adr/ADR-029-url-query-exercise-loading.md)). Purely additive — the default Fibonacci sample and the 21 built-in samples are unaffected. README documents the query params and the expected API response JSON shape |
 | 1.10 | 2026-08-12 | **F-04 redesigned from "ID + base URL" to "complete URL"**: replaced `exerciseId`/`codeId`/`bhvApiBase` with `exercise`/`code` (the caller passes a directly fetchable URL) ([ADR-031](adr/ADR-031-url-based-exercise-loading.md)). Simplified the response format to `title`/`code` only, dropping the unused `id`/`exerciseId`. Since ID matching is no longer needed, removed the `exerciseId`+`codeId` lookup logic and instead auto-loads the first code when `exercise` alone is given. `exercise`+`code` can be combined as two independent fetches (`code` wins). No backward compatibility (pre-launch, so the old params were dropped outright) |
+| 1.11 | 2026-08-12 | **F-04: added optional `title` to the `exercise` response, reflected in the sample selector placeholder**: `code-editor.js` gained `setPlaceholderLabel()` — when an exercise title is available, it replaces the sample selector's default placeholder ("─ Sample ─") with the exercise title (removing the target option's `data-i18n` attribute so a later language switch doesn't overwrite it) ([ADR-032](adr/ADR-032-exercise-title-placeholder.md)). Also stopped changing the sample selector's value when auto-loading the first code for `exercise`-only requests, so the placeholder keeps showing the exercise title |
 
 ---
 
@@ -167,7 +168,8 @@ Button colors: fine-grained (Expr/Human) = accent blue; coarse-grained (Stmt/Fun
 | Fetching | Fetches the `exercise`/`code` value directly and applies the response to the editor / sample selector (`src/core/exercise-source.js`) |
 | Behavior | `exercise` only → adds the exercise's codes to the sample selector as a "─ Exercise ─" group and **automatically loads the first one into the editor**. `code` only → loads that code directly into the editor. Both → extends the selector, and the editor shows the `code` value (which takes priority over the automatic first-code load). Neither → no-op (default Fibonacci sample and the 21 built-in samples are unaffected) |
 | Error handling | A nonexistent/non-public URL or a network error shows a message in the error banner below the editor |
-| Expected response format | `exercise` → `{ codes: [{ title, code }] }`; `code` → `{ title, code }`. Any non-200 status is treated as "not found / not public". See the README ("Expected API response format") for the full JSON shape |
+| Expected response format | `exercise` → `{ title?, codes: [{ title, code }] }`; `code` → `{ title, code }`. Any non-200 status is treated as "not found / not public". See the README ("Expected API response format") for the full JSON shape |
+| Placeholder display | If the `exercise` response includes a `title`, the sample selector's placeholder (default "─ Sample ─") is replaced with the exercise title (`code-editor.js`'s `setPlaceholderLabel()`, [ADR-032](adr/ADR-032-exercise-title-placeholder.md)) |
 | Purpose | Works as a general-purpose "direct link to a specific piece of code" even when JSVisualizer is used standalone. In the BhvVisualizer integration, this is the delivery path for exercises/codes a teacher created. Because a complete URL is passed, code can be hosted anywhere, not just on BhvVisualizer. See the [README](../README.en.md) ("Loading code from a URL query") and [ADR-031](adr/ADR-031-url-based-exercise-loading.md) for details |
 
 ---

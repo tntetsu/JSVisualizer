@@ -82,9 +82,9 @@ Behavior by combination:
 
 | Params present | Behavior |
 |---|---|
-| `exercise` only | The exercise's codes are added to the sample selector, and **the first one is automatically loaded into the editor** |
+| `exercise` only | The exercise's codes are added to the sample selector, and **the first one is automatically loaded into the editor**. If the exercise has a title, the sample selector's placeholder (normally "─ Sample ─") is replaced with it |
 | `code` only | The specified code is loaded directly into the editor |
-| `exercise` + `code` | The sample selector is extended, and the editor shows the code specified by `code` (which takes priority over the automatic first-code load) |
+| `exercise` + `code` | The sample selector is extended, and the editor shows the code specified by `code` (which takes priority over the automatic first-code load). The selector's placeholder still becomes the exercise title |
 | Neither | Nothing happens (editor stays on the default Fibonacci sample, and the 21 built-in samples are unaffected) |
 
 Examples:
@@ -105,6 +105,15 @@ https://tntetsu.github.io/JSVisualizer/?code=http%3A%2F%2Flocalhost%3A5000%2Fapi
 
 `exercise`/`code` values must be URL-encoded (building them with `URLSearchParams` handles this automatically). If a URL doesn't exist or isn't public, an error message is shown in the error banner. Note that there is **no way to jump to a specific line or cursor position** — the URL query only controls which code gets loaded, not where the cursor lands.
 
+#### Live demo
+
+These links load static JSON files hosted at `web/samples/` in this repository (served via GitHub Pages, unrelated to BhvVisualizer). Click them to see the feature in action.
+
+- [`code` demo (opens a single piece of code directly)](https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fcode-demo.json)
+- [`exercise` demo (adds multiple codes to the sample selector, auto-loads the first one)](https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fexercise-demo.json)
+
+The JSON files themselves ([`code-demo.json`](web/samples/code-demo.json), [`exercise-demo.json`](web/samples/exercise-demo.json)) also serve as live examples of the expected API response format.
+
 #### Expected API response format
 
 The URL(s) passed via `exercise`/`code` must return JSON in the following shape (this is what `src/core/exercise-source.js` reads).
@@ -113,6 +122,7 @@ The URL(s) passed via `exercise`/`code` must return JSON in the following shape 
 GET <value of exercise>
   200 OK →
     {
+      "title": "...",
       "codes": [
         { "title": "...", "code": "...(JavaScript source string)" },
         ...
@@ -126,7 +136,7 @@ GET <value of code>
   Non-200 (404, etc.) → treated as "code not found / not public"
 ```
 
-JSVisualizer only reads these fields; anything else is ignored. Any non-200 status is treated as "not found / not public" regardless of reason, so the response body format on error doesn't matter.
+The top-level `title` on the `exercise` response is optional — if present, it's used for the sample selector's placeholder; if omitted, the placeholder stays as the default "─ Sample ─". JSVisualizer only reads these fields; anything else is ignored. Any non-200 status is treated as "not found / not public" regardless of reason, so the response body format on error doesn't matter.
 
 Any API that responds in this shape can be used in place of BhvVisualizer — including your own self-hosted static JSON. BhvVisualizer's implementation is documented in [BhvVisualizer/docs/design.md](https://github.com/tntetsu/BhvVisualizer/blob/main/docs/design.md), section 2.4.
 

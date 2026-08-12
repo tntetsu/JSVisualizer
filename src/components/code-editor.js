@@ -521,6 +521,18 @@ export class CodeEditor {
   }
 
   /**
+   * サンプルセレクタのプレースホルダ（既定は「— サンプル —」）を演習タイトルに置き換える。
+   * 以後 i18n の言語切替で上書きされないよう data-i18n 属性を外す。
+   * @param {string} title
+   */
+  setPlaceholderLabel(title) {
+    const placeholder = this.#sampleSelect.querySelector('option[value=""]');
+    if (!placeholder) return;
+    placeholder.removeAttribute('data-i18n');
+    placeholder.textContent = title;
+  }
+
+  /**
    * エラーメッセージを表示する（null で非表示）。
    * @param {string|null} msg
    * @param {'parse'|'runtime'|null} [errorType]

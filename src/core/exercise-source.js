@@ -38,11 +38,12 @@ export async function loadExerciseFromQuery(editor, opts = {}) {
       if (!exercise || !Array.isArray(exercise.codes)) {
         editor.showError('演習が見つからないか非公開です');
       } else {
+        if (exercise.title) editor.setPlaceholderLabel(exercise.title);
         editor.addRemoteGroup('─ Exercise ─', exercise.codes);
-        // code未指定なら先頭のコードを既定表示にする
+        // code未指定なら先頭のコードを既定表示にする（セレクタの表示は演習タイトルのまま変えない）
         if (!codeUrl && exercise.codes.length > 0) {
           const first = exercise.codes[0];
-          editor.setCode(first.code, first.title, 'remote:0');
+          editor.setCode(first.code, first.title);
         }
       }
     }

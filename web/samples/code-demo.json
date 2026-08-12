@@ -1,0 +1,4 @@
+{
+  "title": "URLから読み込んだサンプル（?codeデモ）",
+  "code": "// このコードは ?code=<URL> パラメータ経由で\n// このファイル（samples/code-demo.json）から読み込まれています。\n// JSVisualizerはこのJSONを配信しているサーバーがBhvVisualizerかどうかを一切気にしません。\n\nfunction greet(name) {\n  return `Hello, ${name}!`;\n}\n\nconsole.log(greet('JSVisualizer'));\n"
+}

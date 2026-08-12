@@ -35,6 +35,7 @@ function serveDir(dir, port) {
 }
 
 const FIXTURE_EXERCISE = {
+  title: '演習1',
   codes: [
     { title: 'コード1', code: 'console.log("code1");' },
     { title: 'コード2', code: 'console.log("code2");' },
@@ -102,6 +103,9 @@ async function run() {
 
       const programName = await page.locator('#program-name').textContent();
       check('[B] プログラム名が先頭コードのtitleになる', programName.includes('コード1'));
+
+      const placeholderText = await page.locator('#sample-select option[value=""]').textContent();
+      check('[B] サンプルセレクタのプレースホルダが演習タイトルになる', placeholderText === '演習1');
       await page.close();
     }
 
@@ -121,6 +125,9 @@ async function run() {
 
       const programName = await page.locator('#program-name').textContent();
       check('[C] プログラム名がcode側のtitleになる', programName.includes('単体コード'));
+
+      const placeholderText = await page.locator('#sample-select option[value=""]').textContent();
+      check('[C] exercise+code指定でもサンプルセレクタのプレースホルダは演習タイトルになる', placeholderText === '演習1');
       await page.close();
     }
 

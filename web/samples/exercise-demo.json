@@ -1,0 +1,17 @@
+{
+  "title": "URLクエリ機能のデモ演習（?exerciseデモ）",
+  "codes": [
+    {
+      "title": "1. 挨拶を組み立てる",
+      "code": "// この演習は ?exercise=<URL> パラメータ経由で\n// このファイル（samples/exercise-demo.json）から読み込まれています。\n// サンプル選択のプレースホルダに、このJSONの\"title\"（演習タイトル）が表示されているはずです。\n// サンプル選択の「─ Exercise ─」グループから他のコードにも切り替えられます。\n\nfunction greet(name) {\n  return `Hello, ${name}!`;\n}\n\nconsole.log(greet('JSVisualizer'));\n"
+    },
+    {
+      "title": "2. 配列の合計を求める",
+      "code": "function sum(numbers) {\n  let total = 0;\n  for (const n of numbers) {\n    total += n;\n  }\n  return total;\n}\n\nconsole.log(sum([1, 2, 3, 4, 5]));\n"
+    },
+    {
+      "title": "3. 再帰でフィボナッチ数列",
+      "code": "function fib(n) {\n  if (n <= 1) return n;\n  return fib(n - 1) + fib(n - 2);\n}\n\nconsole.log(fib(6));\n"
+    }
+  ]
+}

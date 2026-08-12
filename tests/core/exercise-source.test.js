@@ -11,6 +11,7 @@ function makeEditor() {
   return {
     setCode: jest.fn(),
     addRemoteGroup: jest.fn(),
+    setPlaceholderLabel: jest.fn(),
     showError: jest.fn(),
   };
 }
@@ -66,31 +67,41 @@ describe('loadExerciseFromQuery', () => {
     expect(editor.addRemoteGroup).not.toHaveBeenCalled();
   });
 
-  test('exerciseのみ: addRemoteGroupが呼ばれ、先頭のコードがsetCodeされる', async () => {
+  test('exerciseのみ: addRemoteGroupが呼ばれ、先頭のコードがsetCodeされ、セレクタのプレースホルダが演習タイトルになる', async () => {
     const codes = [
       { title: 'コード1', code: 'a' },
       { title: 'コード2', code: 'b' },
     ];
-    global.fetch = jest.fn().mockReturnValue(jsonResponse({ codes }));
+    global.fetch = jest.fn().mockReturnValue(jsonResponse({ title: '演習1', codes }));
     const editor = makeEditor();
     await loadExerciseFromQuery(editor, { search: '?exercise=https://example.com/exercises/ex1' });
     expect(global.fetch).toHaveBeenCalledWith('https://example.com/exercises/ex1');
+    expect(editor.setPlaceholderLabel).toHaveBeenCalledWith('演習1');
     expect(editor.addRemoteGroup).toHaveBeenCalledWith('─ Exercise ─', codes);
-    expect(editor.setCode).toHaveBeenCalledWith('a', 'コード1', 'remote:0');
+    expect(editor.setCode).toHaveBeenCalledWith('a', 'コード1');
   });
 
-  test('exercise+code: addRemoteGroup後、code側のコードでsetCode（先頭ではなくcode優先）', async () => {
+  test('exerciseのtitleが無ければsetPlaceholderLabelは呼ばれない', async () => {
+    const codes = [{ title: 'コード1', code: 'a' }];
+    global.fetch = jest.fn().mockReturnValue(jsonResponse({ codes }));
+    const editor = makeEditor();
+    await loadExerciseFromQuery(editor, { search: '?exercise=https://example.com/exercises/ex1' });
+    expect(editor.setPlaceholderLabel).not.toHaveBeenCalled();
+  });
+
+  test('exercise+code: addRemoteGroup後、code側のコードでsetCode（先頭ではなくcode優先）、セレクタのプレースホルダは演習タイトル', async () => {
     const codes = [
       { title: 'コード1', code: 'a' },
       { title: 'コード2', code: 'b' },
     ];
     global.fetch = jest.fn()
-      .mockImplementationOnce(() => jsonResponse({ codes }))
+      .mockImplementationOnce(() => jsonResponse({ title: '演習1', codes }))
       .mockImplementationOnce(() => jsonResponse({ title: 'コード2', code: 'b' }));
     const editor = makeEditor();
     await loadExerciseFromQuery(editor, {
       search: '?exercise=https://example.com/exercises/ex1&code=https://example.com/codes/co2',
     });
+    expect(editor.setPlaceholderLabel).toHaveBeenCalledWith('演習1');
     expect(editor.addRemoteGroup).toHaveBeenCalledWith('─ Exercise ─', codes);
     expect(editor.setCode).toHaveBeenCalledTimes(1);
     expect(editor.setCode).toHaveBeenCalledWith('b', 'コード2');

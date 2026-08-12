@@ -1,7 +1,7 @@
 # 機能仕様書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 1.10  
+**バージョン**: 1.11  
 **作成日**: 2026-05-25  
 **最終更新**: 2026-08-12  
 **作成者**: Tetsuo Tanaka
@@ -34,6 +34,7 @@
 | 1.8 | 2026-07-20 | **言語切替（i18n）**: `src/i18n.js` 新規追加（`STRINGS` オブジェクト・`t(key)` / `getLang()` / `setLang()` 関数・`langchange` カスタムイベント）。`localStorage('jsv-lang')` に `'ja'`/`'en'` を永続化し、デフォルト `'ja'`。ヘッダー右端に `btn-lang`（EN/日）ボタンを追加。静的 HTML 要素は `data-i18n="key"` 属性で管理し `applyI18n()` が一括更新。タブラベル・説明文は `ViewSwitcher.register()` に `{ ja: '...', en: '...' }` オブジェクトを渡す形式に拡張し、`ViewSwitcher.setLang(lang)` で再描画。`resolveStr(v, lang)` ヘルパーで文字列と `{ja,en}` オブジェクトの両方を解決。 |
 | 1.9 | 2026-08-12 | **F-04 URLクエリによるコード読み込みを追加**: `exerciseId`/`codeId`/`bhvApiBase` クエリパラメータで外部（BhvVisualizer等）からコードを読み込む機能を新規実装・文書化（`src/core/exercise-source.js`、[ADR-029](adr/ADR-029-url-query-exercise-loading.md)）。既定のFibonacciサンプル表示・21種の組み込みサンプルは変更しない加算的な機能。README にクエリパラメータの使い方・期待するAPIレスポンスのJSON形式を追記 |
 | 1.10 | 2026-08-12 | **F-04を「ID+ベースURL」方式から「完全なURL」方式へ再設計**: `exerciseId`/`codeId`/`bhvApiBase`を廃止し`exercise`/`code`（呼び出し元がfetch可能な完全なURLを直接渡す）に変更（[ADR-031](adr/ADR-031-url-based-exercise-loading.md)）。レスポンス形式から未使用の`id`/`exerciseId`を削除し`title`/`code`のみに簡素化。IDでの突き合わせが不要になったため`exerciseId`+`codeId`の探索ロジックを廃止し、代わりに`exercise`のみ指定時は先頭のコードを自動読み込みする仕様を追加。`exercise`+`code`は独立したfetchとして併用可（`code`優先）。後方互換なし（本番未投入のため旧パラメータは完全に廃止） |
+| 1.11 | 2026-08-12 | **F-04: `exercise`レスポンスに任意の`title`を追加し、サンプル選択のプレースホルダに反映**: `code-editor.js`に`setPlaceholderLabel()`を追加し、演習タイトルが取得できた場合はサンプル選択の初期表示（既定「─ サンプル ─」）を演習タイトルに置き換える（i18nの言語切替で上書きされないよう対象optionの`data-i18n`属性を除去）（[ADR-032](adr/ADR-032-exercise-title-placeholder.md)）。あわせて、`exercise`のみ指定時の先頭コード自動読み込みでサンプル選択の値を変更しないよう修正（プレースホルダに演習タイトルを表示し続けるため） |
 
 ---
 
@@ -167,7 +168,8 @@
 | 取得方法 | `exercise`/`code`の値をそのまま`fetch`で呼び出し、レスポンスのコード本文をエディタ・サンプル選択に反映する（`src/core/exercise-source.js`） |
 | 動作 | `exercise`のみ→演習のコード群をサンプル選択に「─ Exercise ─」グループとして追加し、**先頭のコードを自動でエディタに読み込む**。`code`のみ→該当コードを直接エディタへ読み込む。両方指定→サンプル選択への追加を行いつつ、エディタは`code`側の内容になる（先頭コードの自動読み込みより優先）。指定なし→何もしない（既定のFibonacciサンプル・21種の組み込みサンプルは不変） |
 | エラー処理 | 存在しない/非公開のURL・ネットワークエラー時は、エディタ下部のエラー表示欄にメッセージを表示する |
-| 期待するレスポンス形式 | `exercise`→`{ codes: [{ title, code }] }`、`code`→`{ title, code }`。200以外は「見つからない/非公開」として扱う。JSON形式の詳細は[README](../README.md)「期待するAPIレスポンス形式」節を参照 |
+| 期待するレスポンス形式 | `exercise`→`{ title?, codes: [{ title, code }] }`、`code`→`{ title, code }`。200以外は「見つからない/非公開」として扱う。JSON形式の詳細は[README](../README.md)「期待するAPIレスポンス形式」節を参照 |
+| プレースホルダ表示 | `exercise`のレスポンスに`title`があれば、サンプル選択の初期表示（既定「─ サンプル ─」）をその演習タイトルに置き換える（`code-editor.js`の`setPlaceholderLabel()`、[ADR-032](adr/ADR-032-exercise-title-placeholder.md)） |
 | 用途 | JSVisualizer単体でも「特定のコードへの直リンク」として機能する汎用機能。BhvVisualizer（別リポジトリ）との連携では、教員が作成した演習・コードを学習者に配信する経路として利用する。完全なURLを渡す方式のため、BhvVisualizer以外の任意のホスティング先からも読み込める。詳細は[README](../README.md)「URLクエリでコードを外部から読み込む」節・[ADR-031](adr/ADR-031-url-based-exercise-loading.md)を参照 |
 
 ---

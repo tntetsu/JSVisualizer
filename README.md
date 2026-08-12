@@ -84,9 +84,9 @@ Console 出力（`console.log` ログ）は、どのタブを選択中でも右�
 
 | 指定 | 動作 |
 |---|---|
-| `exercise` のみ | サンプル選択に演習のコード群が追加され、**その先頭のコードが自動的にエディタへ読み込まれる** |
+| `exercise` のみ | サンプル選択に演習のコード群が追加され、**その先頭のコードが自動的にエディタへ読み込まれる**。演習のタイトルが取得できた場合、サンプル選択の初期表示（「─ サンプル ─」の位置）が演習タイトルに置き換わる |
 | `code` のみ | 指定したコード1件がエディタに直接読み込まれる |
-| `exercise` + `code` | サンプル選択に演習のコード群が追加され、かつエディタは`code`で指定したコードの内容になる（先頭コードの自動読み込みより`code`が優先される） |
+| `exercise` + `code` | サンプル選択に演習のコード群が追加され、かつエディタは`code`で指定したコードの内容になる（先頭コードの自動読み込みより`code`が優先される）。サンプル選択の初期表示は演習タイトルになる |
 | 指定なし | 何も起きない（既定のFibonacciサンプルのまま、21種の組み込みサンプルにも影響なし） |
 
 例:
@@ -107,6 +107,15 @@ https://tntetsu.github.io/JSVisualizer/?code=http%3A%2F%2Flocalhost%3A5000%2Fapi
 
 `exercise`・`code` の値はURLエンコードした状態で渡す必要があります（`URLSearchParams`で組み立てれば自動的にエンコードされます）。存在しないURL・非公開のコードを指定した場合は、エラーメッセージ欄にその旨が表示されます。なお、コード内の**特定の行番号やカーソル位置を指定してジャンプする機能はありません**（URLクエリで制御できるのは「どのコードを読み込むか」のみです）。
 
+#### 動作するデモ
+
+このリポジトリの `web/samples/` に置いた静的JSONファイル（GitHub Pagesで配信、BhvVisualizerとは無関係）を実際に読み込むリンクです。クリックしてそのまま動作を確認できます。
+
+- [`code`のデモ（コード1件を直接開く）](https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fcode-demo.json)
+- [`exercise`のデモ（演習として複数コードをサンプル選択に追加し、先頭コードを自動表示）](https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fexercise-demo.json)
+
+これらのJSONファイル自体（[`code-demo.json`](web/samples/code-demo.json)・[`exercise-demo.json`](web/samples/exercise-demo.json)）は「期待するAPIレスポンス形式」の実例にもなっています。
+
 #### 期待するAPIレスポンス形式
 
 `exercise`・`code` が指すURLは、以下のJSON形式でレスポンスを返す必要があります（`src/core/exercise-source.js`が読み取る形式）。
@@ -115,6 +124,7 @@ https://tntetsu.github.io/JSVisualizer/?code=http%3A%2F%2Flocalhost%3A5000%2Fapi
 GET <exercise の値>
   200 OK →
     {
+      "title": "...",
       "codes": [
         { "title": "...", "code": "...（JavaScriptソース文字列）" },
         ...
@@ -128,7 +138,7 @@ GET <code の値>
   200以外（404など） → コードが見つからない・非公開として扱う
 ```
 
-JSVisualizerが実際に参照するのはこれらのフィールドのみです。他のフィールドが含まれていても無視されます。200以外のステータスはすべて「見つからない・非公開」として扱われるため、エラー時のレスポンスボディの形式は問いません。
+`exercise`側のトップレベル`title`は任意項目です。含まれていればサンプル選択の初期表示に使われ、省略した場合は既定の「─ サンプル ─」のままになります。JSVisualizerが実際に参照するのはこれらのフィールドのみです。他のフィールドが含まれていても無視されます。200以外のステータスはすべて「見つからない・非公開」として扱われるため、エラー時のレスポンスボディの形式は問いません。
 
 この形式で応答するAPIであれば、BhvVisualizer以外の任意のシステム（自前で書いた静的JSONホスティングなど）から読み込ませることもできます。BhvVisualizerの実装は[BhvVisualizer/docs/design.md](https://github.com/tntetsu/BhvVisualizer/blob/main/docs/design.md) 2.4節を参照してください。
 
