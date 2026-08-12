@@ -2,8 +2,9 @@
  * verify-exercise-query.mjs — URLクエリ（code/exercise）によるコード読み込み機能の単体動作検証
  *
  * 外部API（呼び出し元が完全なURLで指定する想定）を模した簡易サーバーを立て、実ブラウザ
- * (Playwright)でURLクエリのパターン + 404 + スタンドアロン起動時の回帰（既定のFibonacci
- * 表示・組み込みサンプルの動作）を確認する。BhvVisualizer本体・Firestoreは使わない。
+ * (Playwright)でURLクエリのパターン（クエリがあれば組み込みサンプルは消え、指定されたコード
+ * だけがセレクタに残る）+ 404 + スタンドアロン起動時の回帰（既定のFibonacci表示・組み込み
+ * サンプルの動作）を確認する。BhvVisualizer本体・Firestoreは使わない。
  *
  * 実行: node verify-exercise-query.mjs
  */
@@ -88,15 +89,18 @@ async function run() {
       await page.close();
     }
 
-    // ── テストB: exerciseのみ → セレクタに追加され、かつ先頭のコードが自動表示される ──
+    // ── テストB: exerciseのみ → 組み込みサンプルは消え、演習のコード一覧だけになり、先頭が自動表示される ──
     {
       const page = await browser.newPage();
       const exerciseUrl = encodeURIComponent(`${API_BASE}/exercises/ex1`);
       await page.goto(`http://localhost:${JSV_PORT}/index.html?exercise=${exerciseUrl}`, { waitUntil: 'networkidle' });
       await page.waitForTimeout(300);
 
-      const optgroupLabel = await page.locator('#sample-select optgroup').last().getAttribute('label');
-      check('[B] exercise指定でセレクタに演習用optgroupが追加される', optgroupLabel === '─ Exercise ─');
+      const optgroupCount = await page.locator('#sample-select optgroup').count();
+      check('[B] exercise指定で組み込みサンプルのoptgroupが消える', optgroupCount === 0);
+
+      const optionTexts = await page.locator('#sample-select option:not([value=""])').allTextContents();
+      check('[B] セレクタの選択肢が演習のコード一覧（2件）だけになる', JSON.stringify(optionTexts) === JSON.stringify(['コード1', 'コード2']));
 
       const code = await page.locator('.cm-content').textContent();
       check('[B] code未指定なら演習の先頭コードが自動表示される', code.includes('code1'));
@@ -109,7 +113,7 @@ async function run() {
       await page.close();
     }
 
-    // ── テストC: exercise+code → セレクタ追加 かつ codeで指定したコードが優先して表示 ──
+    // ── テストC: exercise+code → セレクタは演習の一覧のまま、エディタはcodeで指定したコードが優先して表示 ──
     {
       const page = await browser.newPage();
       const exerciseUrl = encodeURIComponent(`${API_BASE}/exercises/ex1`);
@@ -117,8 +121,8 @@ async function run() {
       await page.goto(`http://localhost:${JSV_PORT}/index.html?exercise=${exerciseUrl}&code=${codeUrl}`, { waitUntil: 'networkidle' });
       await page.waitForTimeout(300);
 
-      const optgroupLabel = await page.locator('#sample-select optgroup').last().getAttribute('label');
-      check('[C] exercise+code指定でもセレクタにoptgroupが追加される', optgroupLabel === '─ Exercise ─');
+      const optionTexts = await page.locator('#sample-select option:not([value=""])').allTextContents();
+      check('[C] exercise+code指定でもセレクタは演習のコード一覧（2件）のまま', JSON.stringify(optionTexts) === JSON.stringify(['コード1', 'コード2']));
 
       const code = await page.locator('.cm-content').textContent();
       check('[C] exercise+code指定でエディタはcode側の内容になる（先頭コードではない）', code.includes('standalone code'));
@@ -131,7 +135,7 @@ async function run() {
       await page.close();
     }
 
-    // ── テストD: codeのみ → 指定URLを直接取得してエディタに反映 ──
+    // ── テストD: codeのみ → 組み込みサンプルは消え、指定コード1件だけがセレクタに表示される ──
     {
       const page = await browser.newPage();
       const codeUrl = encodeURIComponent(`${API_BASE}/codes/co3`);
@@ -142,7 +146,10 @@ async function run() {
       check('[D] codeのみ指定でエディタが該当コードに上書きされる', code.includes('standalone code'));
 
       const optgroupCount = await page.locator('#sample-select optgroup').count();
-      check('[D] codeのみ指定ではExercise用optgroupは追加されない', optgroupCount === 8); // 既定の8グループのまま
+      check('[D] codeのみ指定で組み込みサンプルのoptgroupが消える', optgroupCount === 0);
+
+      const optionTexts = await page.locator('#sample-select option:not([value=""])').allTextContents();
+      check('[D] セレクタの選択肢が指定コード1件だけになる', JSON.stringify(optionTexts) === JSON.stringify(['単体コード']));
       await page.close();
     }
 

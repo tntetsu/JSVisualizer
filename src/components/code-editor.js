@@ -494,7 +494,7 @@ export class CodeEditor {
    * exercise-source.js から呼ばれる）。
    * @param {string} code
    * @param {string} [label] プログラム名表示に使うラベル
-   * @param {string} [selectValue] 設定後にサンプルセレクタへ反映する値（addRemoteGroupで登録したキー等）
+   * @param {string} [selectValue] 設定後にサンプルセレクタへ反映する値（setRemoteCodesで登録したキー等）
    */
   setCode(code, label = '', selectValue = '') {
     this.#applyCode(code, label);
@@ -502,22 +502,21 @@ export class CodeEditor {
   }
 
   /**
-   * exercise 由来のコード群をサンプルセレクタに追加する（既存の21種の組み込みサンプルは変更しない）。
-   * @param {string} label optgroupのラベル
+   * サンプルセレクタの内容を、外部（exercise/code）から指定されたコード群だけに置き換える。
+   * 組み込みの21種のサンプルはセレクタから取り除かれる（プレースホルダのoptionのみ残す）。
    * @param {{title:string, code:string}[]} items
    */
-  addRemoteGroup(label, items) {
-    const optgroup = document.createElement('optgroup');
-    optgroup.label = label;
+  setRemoteCodes(items) {
+    this.#remoteCodes.clear();
+    this.#sampleSelect.querySelectorAll('optgroup').forEach((el) => el.remove());
     items.forEach((item, index) => {
       const key = `remote:${index}`;
       this.#remoteCodes.set(key, { title: item.title, code: item.code });
       const opt = document.createElement('option');
       opt.value = key;
       opt.textContent = item.title;
-      optgroup.appendChild(opt);
+      this.#sampleSelect.appendChild(opt);
     });
-    this.#sampleSelect.appendChild(optgroup);
   }
 
   /**

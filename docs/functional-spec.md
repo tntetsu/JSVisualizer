@@ -1,7 +1,7 @@
 # 機能仕様書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 1.11  
+**バージョン**: 1.12  
 **作成日**: 2026-05-25  
 **最終更新**: 2026-08-12  
 **作成者**: Tetsuo Tanaka
@@ -35,6 +35,7 @@
 | 1.9 | 2026-08-12 | **F-04 URLクエリによるコード読み込みを追加**: `exerciseId`/`codeId`/`bhvApiBase` クエリパラメータで外部（BhvVisualizer等）からコードを読み込む機能を新規実装・文書化（`src/core/exercise-source.js`、[ADR-029](adr/ADR-029-url-query-exercise-loading.md)）。既定のFibonacciサンプル表示・21種の組み込みサンプルは変更しない加算的な機能。README にクエリパラメータの使い方・期待するAPIレスポンスのJSON形式を追記 |
 | 1.10 | 2026-08-12 | **F-04を「ID+ベースURL」方式から「完全なURL」方式へ再設計**: `exerciseId`/`codeId`/`bhvApiBase`を廃止し`exercise`/`code`（呼び出し元がfetch可能な完全なURLを直接渡す）に変更（[ADR-031](adr/ADR-031-url-based-exercise-loading.md)）。レスポンス形式から未使用の`id`/`exerciseId`を削除し`title`/`code`のみに簡素化。IDでの突き合わせが不要になったため`exerciseId`+`codeId`の探索ロジックを廃止し、代わりに`exercise`のみ指定時は先頭のコードを自動読み込みする仕様を追加。`exercise`+`code`は独立したfetchとして併用可（`code`優先）。後方互換なし（本番未投入のため旧パラメータは完全に廃止） |
 | 1.11 | 2026-08-12 | **F-04: `exercise`レスポンスに任意の`title`を追加し、サンプル選択のプレースホルダに反映**: `code-editor.js`に`setPlaceholderLabel()`を追加し、演習タイトルが取得できた場合はサンプル選択の初期表示（既定「─ サンプル ─」）を演習タイトルに置き換える（i18nの言語切替で上書きされないよう対象optionの`data-i18n`属性を除去）（[ADR-032](adr/ADR-032-exercise-title-placeholder.md)）。あわせて、`exercise`のみ指定時の先頭コード自動読み込みでサンプル選択の値を変更しないよう修正（プレースホルダに演習タイトルを表示し続けるため） |
+| 1.12 | 2026-08-12 | **F-04: `exercise`/`code`指定時に組み込みサンプルをサンプル選択から取り除くよう変更**: 実機での動作確認で「─ Exercise ─」グループが組み込み8グループの後ろに埋もれ見つけにくいという指摘を受け、単純な並べ替えではなく組み込みサンプルを一時的に非表示にする方式へ変更。`code-editor.js`の`addRemoteGroup()`を廃止し`setRemoteCodes(items)`に置き換え（組み込みoptgroupを全削除してから渡されたコード一覧だけを追加）。`code`のみ指定時も同じ関数でコード1件だけの選択肢にする（[ADR-033](adr/ADR-033-hide-builtin-samples-when-remote.md)）。クエリなしのスタンドアロン起動は影響を受けない |
 
 ---
 
@@ -166,7 +167,7 @@
 |------|------|
 | クエリパラメータ | `exercise`（演習を取得する完全なURL）・`code`（個別コードを取得する完全なURL）。呼び出し元がfetch可能なURLをそのまま渡す方式で、JSVisualizerはID発行やAPIパス規約を一切知らない |
 | 取得方法 | `exercise`/`code`の値をそのまま`fetch`で呼び出し、レスポンスのコード本文をエディタ・サンプル選択に反映する（`src/core/exercise-source.js`） |
-| 動作 | `exercise`のみ→演習のコード群をサンプル選択に「─ Exercise ─」グループとして追加し、**先頭のコードを自動でエディタに読み込む**。`code`のみ→該当コードを直接エディタへ読み込む。両方指定→サンプル選択への追加を行いつつ、エディタは`code`側の内容になる（先頭コードの自動読み込みより優先）。指定なし→何もしない（既定のFibonacciサンプル・21種の組み込みサンプルは不変） |
+| 動作 | `exercise`のみ→サンプル選択が**組み込みサンプルの代わりに**演習のコード一覧に置き換わり、**先頭のコードを自動でエディタに読み込む**。`code`のみ→該当コードを直接エディタへ読み込み、サンプル選択もそのコード1件だけに置き換わる。両方指定→サンプル選択は演習の一覧のまま、エディタは`code`側の内容になる（先頭コードの自動読み込みより優先）。指定なし→何もしない（既定のFibonacciサンプル・21種の組み込みサンプルは不変）。`exercise`/`code`のいずれかがある間、組み込みサンプルはサンプル選択の選択肢から一時的に取り除かれる（[ADR-033](adr/ADR-033-hide-builtin-samples-when-remote.md)） |
 | エラー処理 | 存在しない/非公開のURL・ネットワークエラー時は、エディタ下部のエラー表示欄にメッセージを表示する |
 | 期待するレスポンス形式 | `exercise`→`{ title?, codes: [{ title, code }] }`、`code`→`{ title, code }`。200以外は「見つからない/非公開」として扱う。JSON形式の詳細は[README](../README.md)「期待するAPIレスポンス形式」節を参照 |
 | プレースホルダ表示 | `exercise`のレスポンスに`title`があれば、サンプル選択の初期表示（既定「─ サンプル ─」）をその演習タイトルに置き換える（`code-editor.js`の`setPlaceholderLabel()`、[ADR-032](adr/ADR-032-exercise-title-placeholder.md)） |

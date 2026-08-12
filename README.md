@@ -75,8 +75,8 @@ Console 出力（`console.log` ログ）は、どのタブを選択中でも右�
 
 | クエリパラメータ | 意味 |
 |---|---|
-| `exercise` | 演習（コードの集合）を取得するための**完全なURL**。指定すると、そのURLをfetchして得られるコード群がサンプル選択に「─ Exercise ─」というグループとして追加される |
-| `code` | **表示させたい個別のコードを取得するための完全なURL**。指定すると、そのコードがエディタに直接読み込まれる |
+| `exercise` | 演習（コードの集合）を取得するための**完全なURL**。指定すると、サンプル選択が**組み込みサンプルの代わりに**そのURLをfetchして得られるコード一覧だけになる |
+| `code` | **表示させたい個別のコードを取得するための完全なURL**。指定すると、そのコードがエディタに直接読み込まれ、サンプル選択も**組み込みサンプルの代わりに**そのコード1件だけになる |
 
 `exercise`・`code` はJSVisualizer自身が発行するIDやAPIパス規約を必要としません。**呼び出し元がfetch可能な完全なURLをそのまま渡すだけ**です。JSVisualizerはそのURLをfetchして`title`/`code`フィールドを読み取るだけで、コードがどこにホストされているか（BhvVisualizerか、それ以外の自前サーバーか）には関与しません。
 
@@ -84,10 +84,12 @@ Console 出力（`console.log` ログ）は、どのタブを選択中でも右�
 
 | 指定 | 動作 |
 |---|---|
-| `exercise` のみ | サンプル選択に演習のコード群が追加され、**その先頭のコードが自動的にエディタへ読み込まれる**。演習のタイトルが取得できた場合、サンプル選択の初期表示（「─ サンプル ─」の位置）が演習タイトルに置き換わる |
-| `code` のみ | 指定したコード1件がエディタに直接読み込まれる |
-| `exercise` + `code` | サンプル選択に演習のコード群が追加され、かつエディタは`code`で指定したコードの内容になる（先頭コードの自動読み込みより`code`が優先される）。サンプル選択の初期表示は演習タイトルになる |
-| 指定なし | 何も起きない（既定のFibonacciサンプルのまま、21種の組み込みサンプルにも影響なし） |
+| `exercise` のみ | サンプル選択が演習のコード一覧に置き換わり（組み込み21種のサンプルは選択肢から消える）、**先頭のコードが自動的にエディタへ読み込まれる**。演習のタイトルが取得できた場合、サンプル選択の初期表示（「─ サンプル ─」の位置）が演習タイトルに置き換わる |
+| `code` のみ | 指定したコード1件がエディタに直接読み込まれ、サンプル選択もそのコード1件だけの選択肢になる |
+| `exercise` + `code` | サンプル選択は演習のコード一覧のまま、エディタは`code`で指定したコードの内容になる（先頭コードの自動読み込みより`code`が優先される）。サンプル選択の初期表示は演習タイトルになる |
+| 指定なし | 何も起きない（既定のFibonacciサンプル・21種の組み込みサンプルはそのまま） |
+
+`exercise`・`code`のいずれかが指定されている間は、組み込みサンプルはサンプル選択の選択肢から**一時的に取り除かれます**（学習用URLとして配信する際に無関係なサンプルが混ざらないようにするため。[ADR-033](docs/adr/ADR-033-hide-builtin-samples-when-remote.md)）。クエリを外してスタンドアロンでアクセスした場合は、従来通り21種すべてが選択できます。
 
 例:
 
@@ -112,7 +114,7 @@ https://tntetsu.github.io/JSVisualizer/?code=http%3A%2F%2Flocalhost%3A5000%2Fapi
 このリポジトリの `web/samples/` に置いた静的JSONファイル（GitHub Pagesで配信、BhvVisualizerとは無関係）を実際に読み込むリンクです。クリックしてそのまま動作を確認できます。
 
 - [`code`のデモ（コード1件を直接開く）](https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fcode-demo.json)
-- [`exercise`のデモ（演習として複数コードをサンプル選択に追加し、先頭コードを自動表示）](https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fexercise-demo.json)
+- [`exercise`のデモ（サンプル選択が演習のコード一覧に置き換わり、先頭コードを自動表示）](https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fexercise-demo.json)
 
 これらのJSONファイル自体（[`code-demo.json`](web/samples/code-demo.json)・[`exercise-demo.json`](web/samples/exercise-demo.json)）は「期待するAPIレスポンス形式」の実例にもなっています。
 

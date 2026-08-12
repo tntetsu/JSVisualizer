@@ -73,8 +73,8 @@ Besides picking a built-in sample or pasting your own code, JSVisualizer can loa
 
 | Query parameter | Meaning |
 |---|---|
-| `exercise` | A **complete URL** to fetch an exercise (a set of code) from. When present, the fetched codes are added to the sample selector as a "─ Exercise ─" group |
-| `code` | A **complete URL** to fetch the specific code to display. When present, that code is loaded directly into the editor |
+| `exercise` | A **complete URL** to fetch an exercise (a set of code) from. When present, the sample selector's contents are **replaced** with the fetched codes instead of the built-in samples |
+| `code` | A **complete URL** to fetch the specific code to display. When present, that code is loaded directly into the editor, and the sample selector is **replaced** with just that one code instead of the built-in samples |
 
 `exercise`/`code` don't require JSVisualizer to know any ID scheme or API path convention — **the caller just passes a fetchable URL directly**. JSVisualizer fetches that URL and reads its `title`/`code` fields; it has no opinion on where the code is hosted (BhvVisualizer or anything else).
 
@@ -82,10 +82,12 @@ Behavior by combination:
 
 | Params present | Behavior |
 |---|---|
-| `exercise` only | The exercise's codes are added to the sample selector, and **the first one is automatically loaded into the editor**. If the exercise has a title, the sample selector's placeholder (normally "─ Sample ─") is replaced with it |
-| `code` only | The specified code is loaded directly into the editor |
-| `exercise` + `code` | The sample selector is extended, and the editor shows the code specified by `code` (which takes priority over the automatic first-code load). The selector's placeholder still becomes the exercise title |
+| `exercise` only | The sample selector is replaced with the exercise's code list (the 21 built-in samples disappear from it), and **the first one is automatically loaded into the editor**. If the exercise has a title, the sample selector's placeholder (normally "─ Sample ─") is replaced with it |
+| `code` only | The specified code is loaded directly into the editor, and the sample selector's only option becomes that code |
+| `exercise` + `code` | The sample selector stays as the exercise's code list, and the editor shows the code specified by `code` (which takes priority over the automatic first-code load). The selector's placeholder still becomes the exercise title |
 | Neither | Nothing happens (editor stays on the default Fibonacci sample, and the 21 built-in samples are unaffected) |
+
+While `exercise` or `code` is present, the built-in samples are **temporarily removed** from the sample selector, so they don't clutter a URL meant for a specific learning context ([ADR-033](docs/adr/ADR-033-hide-builtin-samples-when-remote.md)). Loading the page standalone, without either query param, still offers all 21 as before.
 
 Examples:
 
@@ -110,7 +112,7 @@ https://tntetsu.github.io/JSVisualizer/?code=http%3A%2F%2Flocalhost%3A5000%2Fapi
 These links load static JSON files hosted at `web/samples/` in this repository (served via GitHub Pages, unrelated to BhvVisualizer). Click them to see the feature in action.
 
 - [`code` demo (opens a single piece of code directly)](https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fcode-demo.json)
-- [`exercise` demo (adds multiple codes to the sample selector, auto-loads the first one)](https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fexercise-demo.json)
+- [`exercise` demo (replaces the sample selector with the exercise's codes, auto-loads the first one)](https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fexercise-demo.json)
 
 The JSON files themselves ([`code-demo.json`](web/samples/code-demo.json), [`exercise-demo.json`](web/samples/exercise-demo.json)) also serve as live examples of the expected API response format.
 
