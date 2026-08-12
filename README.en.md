@@ -103,6 +103,33 @@ https://tntetsu.github.io/JSVisualizer/?codeId=abc123&bhvApiBase=http://localhos
 
 If an ID doesn't exist or isn't public, an error message is shown in the error banner. Note that there is **no way to jump to a specific line or cursor position** — the URL query only controls which code gets loaded, not where the cursor lands.
 
+#### Expected API response format
+
+The API at `bhvApiBase` must return JSON in the following shape (this is what `src/core/exercise-source.js` reads).
+
+```
+GET {bhvApiBase}/exercises/:exerciseId
+  200 OK →
+    {
+      "id": "...",
+      "title": "...",
+      "codes": [
+        { "id": "...", "title": "...", "code": "...(JavaScript source string)" },
+        ...
+      ]
+    }
+  Non-200 (404, etc.) → treated as "exercise not found / not public"
+
+GET {bhvApiBase}/codes/:codeId
+  200 OK →
+    { "id": "...", "title": "...", "code": "...(JavaScript source string)", "exerciseId": "..." }
+  Non-200 (404, etc.) → treated as "code not found / not public"
+```
+
+JSVisualizer only reads `codes[].id` / `codes[].title` / `codes[].code` when fetching an exercise, and `code` / `title` when fetching a single code — any other fields (top-level `id`, `exerciseId`, etc.) are ignored. Any non-200 status is treated as "not found / not public" regardless of reason, so the response body format on error doesn't matter.
+
+This shape matches BhvVisualizer's public API implementation ([BhvVisualizer/docs/design.md](https://github.com/tntetsu/BhvVisualizer/blob/main/docs/design.md), section 2.4.2). Any system that returns responses in this same shape can be used in place of BhvVisualizer.
+
 ### Themes
 
 Click the ⚙ button (top-right) to switch between **Light** and **Dark** themes.  

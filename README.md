@@ -105,6 +105,33 @@ https://tntetsu.github.io/JSVisualizer/?codeId=abc123&bhvApiBase=http://localhos
 
 存在しないID・非公開のコードを指定した場合は、エラーメッセージ欄にその旨が表示されます。なお、コード内の**特定の行番号やカーソル位置を指定してジャンプする機能はありません**（URLクエリで制御できるのは「どのコードを読み込むか」のみです）。
 
+#### 期待するAPIレスポンス形式
+
+`bhvApiBase` が指すAPIは、以下のJSON形式でレスポンスを返す必要があります（`src/core/exercise-source.js`が読み取る形式）。
+
+```
+GET {bhvApiBase}/exercises/:exerciseId
+  200 OK →
+    {
+      "id": "...",
+      "title": "...",
+      "codes": [
+        { "id": "...", "title": "...", "code": "...（JavaScriptソース文字列）" },
+        ...
+      ]
+    }
+  200以外（404など） → 演習が見つからない・非公開として扱う
+
+GET {bhvApiBase}/codes/:codeId
+  200 OK →
+    { "id": "...", "title": "...", "code": "...（JavaScriptソース文字列）", "exerciseId": "..." }
+  200以外（404など） → コードが見つからない・非公開として扱う
+```
+
+JSVisualizerが実際に参照するのは、演習取得時は `codes[].id` / `codes[].title` / `codes[].code`、コード単体取得時は `code` / `title` のみです。それ以外のフィールド（トップレベルの `id`・`exerciseId` など）が含まれていても無視されます。200以外のステータスはすべて「見つからない・非公開」として扱われるため、エラー時のレスポンスボディの形式は問いません。
+
+この形式は BhvVisualizer の公開API（[BhvVisualizer/docs/design.md](https://github.com/tntetsu/BhvVisualizer/blob/main/docs/design.md) 2.4.2節）の実装に合わせたものです。同じ形式でレスポンスを返すAPIであれば、BhvVisualizer以外のシステムから読み込ませることもできます。
+
 ### テーマ
 
 右上の ⚙ ボタンから**ライトテーマ**と**ダークテーマ**を切り替えられます。

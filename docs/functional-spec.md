@@ -32,7 +32,7 @@
 | 1.6 | 2026-07-17 | (1) **タブ整理**: V-03 TraceTable（全ステップ）・V-06 BarChart（棒グラフ）・V-08 Timeline（時系列）をタブ非登録（非アクティブ）に変更。タブ登録数 16 → 13。(2) **ControlFlow 刷新**: `buildControlFlow()` を廃止し `buildCFG()` を導入。AST ベースの DOM フローチャートで if/else を true/false 列横並び・ループを条件＋本体の入れ子構造で描画。未実行ノードを `cf-node--dead` でグレーアウト表示（通らなかった分岐が一目でわかる）。実行回数バッジ（`×N`）を各ノードに表示。(3) **execCount 修正**: `CfgBuilder` の行実行回数カウントをすべての AST enter ではなく「行遷移時のみ」カウントに修正（前回 enter と異なる行のみ計上）。(4) **SubstTrace・ExprTrace オブジェクト展開**: `fmtPlain()` に `depth` 引数を追加。depth < 3 ではプロパティ値のみ（キーなし）を再帰展開（`{3, null}`, `{2, {3, null}}` 形式）、depth ≥ 3 で `{…}` に省略。関数値プロパティはフィルタ除外。(5) **サンプル拡充**: CELDA 2026 評価実験用 Study Tasks 4種追加（studyWarmup / studyTask1 / studyTask2 / studyTask3）。サンプル総数 17 → 21。テスト総数 66 → 70 件 |
 | 1.7 | 2026-07-20 | (1) **ヘッダーレイアウト刷新**: Editモードは Edit/Run ボタン＋サンプルセレクト、Runモードは Edit/Run ボタン＋ステップコントロールをヘッダー中央に表示（フッター廃止）。`.app-header.run-mode` クラスで CSS 表示切替。ヘッダー高さを auto（最小高さ 44px）に変更し `app-main` は `flex: 1` で残高を充填。(2) **スライダー最大化・2行レイアウト**: `.slider-area { min-width: 180px }` の折り返しによりウィンドウ幅が狭い場合はスライダーが2行目に折り返す。`body { min-width: 820px }` + `html { overflow-x: auto }` で最小幅以下では横スクロールバーを表示。(3) **ビュー説明バー**: タブ直下に `.view-desc` 要素を自動挿入。`ViewSwitcher.register()` の第4引数 `description` でビューの説明文を登録し、タブ切り替え時に表示。13ビュー全てに説明文を追加。(4) **ライトモード UI 改善**: アクティブタブを白背景＋青トップボーダー＋青テキスト＋太字（`:root:not([data-theme="dark"])`）でコントラスト強化。コンソール背景を白（`var(--bg)`）に変更（ライトモードのみ）。|
 | 1.8 | 2026-07-20 | **言語切替（i18n）**: `src/i18n.js` 新規追加（`STRINGS` オブジェクト・`t(key)` / `getLang()` / `setLang()` 関数・`langchange` カスタムイベント）。`localStorage('jsv-lang')` に `'ja'`/`'en'` を永続化し、デフォルト `'ja'`。ヘッダー右端に `btn-lang`（EN/日）ボタンを追加。静的 HTML 要素は `data-i18n="key"` 属性で管理し `applyI18n()` が一括更新。タブラベル・説明文は `ViewSwitcher.register()` に `{ ja: '...', en: '...' }` オブジェクトを渡す形式に拡張し、`ViewSwitcher.setLang(lang)` で再描画。`resolveStr(v, lang)` ヘルパーで文字列と `{ja,en}` オブジェクトの両方を解決。 |
-| 1.9 | 2026-08-12 | **F-04 URLクエリによるコード読み込みを追加**: `exerciseId`/`codeId`/`bhvApiBase` クエリパラメータで外部（BhvVisualizer等）からコードを読み込む機能を新規実装・文書化（`src/core/exercise-source.js`、[ADR-029](adr/ADR-029-url-query-exercise-loading.md)）。既定のFibonacciサンプル表示・21種の組み込みサンプルは変更しない加算的な機能。README にも利用方法を追記 |
+| 1.9 | 2026-08-12 | **F-04 URLクエリによるコード読み込みを追加**: `exerciseId`/`codeId`/`bhvApiBase` クエリパラメータで外部（BhvVisualizer等）からコードを読み込む機能を新規実装・文書化（`src/core/exercise-source.js`、[ADR-029](adr/ADR-029-url-query-exercise-loading.md)）。既定のFibonacciサンプル表示・21種の組み込みサンプルは変更しない加算的な機能。README にクエリパラメータの使い方・期待するAPIレスポンスのJSON形式を追記 |
 
 ---
 
@@ -166,6 +166,7 @@
 | 取得方法 | `GET {bhvApiBase}/exercises/:exerciseId`・`GET {bhvApiBase}/codes/:codeId` を`fetch`で呼び出し、レスポンスのコード本文をエディタ・サンプル選択に反映する（`src/core/exercise-source.js`） |
 | 動作 | `exerciseId`のみ→サンプル選択に演習のコード群を「─ Exercise ─」グループとして追加（エディタは既定のまま変更しない）。`codeId`のみ→該当コードを直接エディタへ読み込む。両方指定→サンプル選択への追加とエディタへの読み込みを両方行う。指定なし→何もしない（既定のFibonacciサンプル・21種の組み込みサンプルは不変） |
 | エラー処理 | 存在しない/非公開のID・ネットワークエラー時は、エディタ下部のエラー表示欄にメッセージを表示する |
+| 期待するレスポンス形式 | `/exercises/:id`→`{ id, title, codes: [{ id, title, code }] }`、`/codes/:id`→`{ id, title, code, exerciseId }`。200以外は「見つからない/非公開」として扱う。JSON形式の詳細は[README](../README.md)「期待するAPIレスポンス形式」節を参照 |
 | 用途 | JSVisualizer単体でも「特定のコードへの直リンク」として機能する汎用機能。BhvVisualizer（別リポジトリ）との連携では、教員が作成した演習・コードを学習者に配信する経路として利用する。詳細は[README](../README.md)「URLクエリでコードを外部から読み込む」節・[ADR-029](adr/ADR-029-url-query-exercise-loading.md)を参照 |
 
 ---
