@@ -52,8 +52,14 @@ export async function loadExerciseFromQuery(editor, opts = {}) {
     if (codeUrl) {
       const code = await fetchJson(codeUrl);
       if (!code) return editor.showError('コードが見つからないか非公開です');
-      // exercise未指定なら、組み込みサンプルの代わりにこのコード1件だけをセレクタに表示する
-      if (!exerciseUrl) editor.setRemoteCodes([{ title: code.title, code: code.code }]);
+      if (!exerciseUrl) {
+        // exercise未指定なら、組み込みサンプルの代わりにこのコード1件だけをセレクタに表示する。
+        // 切り替え先の候補が存在しないため、プレースホルダはコードタイトルに置き換えた上で
+        // セレクタ自体を選択不可にする。
+        editor.setRemoteCodes([{ title: code.title, code: code.code }]);
+        editor.setPlaceholderLabel(code.title);
+        editor.disableSampleSelect();
+      }
       editor.setCode(code.code, code.title);
     }
   } catch (err) {

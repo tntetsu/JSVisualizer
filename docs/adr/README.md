@@ -42,3 +42,4 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [031](ADR-031-url-based-exercise-loading.md) | URLクエリを「ID+ベースURL」方式から「完全なURL」方式へ再設計 | 2026-08-12 |
 | [032](ADR-032-exercise-title-placeholder.md) | `exercise`レスポンスの`title`をサンプル選択のプレースホルダに表示 | 2026-08-12 |
 | [033](ADR-033-hide-builtin-samples-when-remote.md) | `exercise`/`code`指定時は組み込みサンプルをサンプル選択から取り除く | 2026-08-12 |
+| [034](ADR-034-code-only-placeholder-and-disable.md) | `code`単体指定時もプレースホルダをコードタイトルにし、サンプル選択を選択不可にする | 2026-08-12 |

@@ -150,6 +150,12 @@ async function run() {
 
       const optionTexts = await page.locator('#sample-select option:not([value=""])').allTextContents();
       check('[D] セレクタの選択肢が指定コード1件だけになる', JSON.stringify(optionTexts) === JSON.stringify(['単体コード']));
+
+      const placeholderText = await page.locator('#sample-select option[value=""]').textContent();
+      check('[D] サンプルセレクタのプレースホルダがコードタイトルになる', placeholderText === '単体コード');
+
+      const isDisabled = await page.locator('#sample-select').isDisabled();
+      check('[D] codeのみ指定でサンプルセレクタが選択不可になる', isDisabled);
       await page.close();
     }
 

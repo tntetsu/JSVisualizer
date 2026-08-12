@@ -452,6 +452,9 @@ export class CodeEditor {
   /** @type {MutationObserver|null} テーマ変更監視 */
   #themeObserver = null;
 
+  /** @type {boolean} trueの間はsetRunningModeの呼び出しに関わらずサンプルセレクタを無効化し続ける（disableSampleSelect参照） */
+  #sampleSelectLocked = false;
+
   /**
    * @param {Object} opts
    * @param {HTMLElement}            opts.container     CodeMirror を mount する div
@@ -532,6 +535,16 @@ export class CodeEditor {
   }
 
   /**
+   * サンプルセレクタを選択不可にする（BhvVisualizer連携: 単一コードを`?code=`で指定された場合、
+   * 切り替え先が存在せず選択の余地がないため）。以後setRunningModeによるEdit/Run切り替えでも
+   * 有効化されない。
+   */
+  disableSampleSelect() {
+    this.#sampleSelectLocked = true;
+    this.#sampleSelect.disabled = true;
+  }
+
+  /**
    * エラーメッセージを表示する（null で非表示）。
    * @param {string|null} msg
    * @param {'parse'|'runtime'|null} [errorType]
@@ -598,7 +611,7 @@ export class CodeEditor {
   /** Edit / Run モードの切り替え（ボタンのアクティブ状態と編集エリア表示を更新） */
   setRunningMode(running) {
     this.#container.hidden      = running;
-    this.#sampleSelect.disabled = running;
+    this.#sampleSelect.disabled = running || this.#sampleSelectLocked;
     this.#editBtn.classList.toggle('btn-mode--active', !running);
     this.#editBtn.classList.toggle('btn-mode', running);
     this.#runBtn.classList.toggle('btn-mode--active', running);

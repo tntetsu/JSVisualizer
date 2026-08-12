@@ -12,6 +12,7 @@ function makeEditor() {
     setCode: jest.fn(),
     setRemoteCodes: jest.fn(),
     setPlaceholderLabel: jest.fn(),
+    disableSampleSelect: jest.fn(),
     showError: jest.fn(),
   };
 }
@@ -58,12 +59,14 @@ describe('loadExerciseFromQuery', () => {
     expect(editor.setRemoteCodes).not.toHaveBeenCalled();
   });
 
-  test('codeのみ: 指定URLをfetchしsetCode、セレクタはそのコード1件だけに置き換わる', async () => {
+  test('codeのみ: 指定URLをfetchしsetCode、セレクタはそのコード1件だけに置き換わり、プレースホルダがコードタイトルになった上で選択不可になる', async () => {
     global.fetch = jest.fn().mockReturnValue(jsonResponse({ title: 'コード1', code: 'a' }));
     const editor = makeEditor();
     await loadExerciseFromQuery(editor, { search: '?code=https://example.com/codes/co1' });
     expect(global.fetch).toHaveBeenCalledWith('https://example.com/codes/co1');
     expect(editor.setRemoteCodes).toHaveBeenCalledWith([{ title: 'コード1', code: 'a' }]);
+    expect(editor.setPlaceholderLabel).toHaveBeenCalledWith('コード1');
+    expect(editor.disableSampleSelect).toHaveBeenCalled();
     expect(editor.setCode).toHaveBeenCalledWith('a', 'コード1');
   });
 
@@ -106,6 +109,9 @@ describe('loadExerciseFromQuery', () => {
     expect(editor.setRemoteCodes).toHaveBeenCalledWith(codes);
     expect(editor.setCode).toHaveBeenCalledTimes(1);
     expect(editor.setCode).toHaveBeenCalledWith('b', 'コード2');
+    // exercise指定時はコード切り替えの余地があるため、code側のtitleでプレースホルダを
+    // 上書きしたり選択不可にしたりしない（演習タイトルのまま・選択可能なまま）
+    expect(editor.disableSampleSelect).not.toHaveBeenCalled();
   });
 
   test('exerciseのcodesが空配列なら自動読み込みしない（セレクタは空になる）', async () => {
