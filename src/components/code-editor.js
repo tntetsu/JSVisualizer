@@ -632,6 +632,7 @@ export class CodeEditor {
           javascript(),
           keymap.of([indentWithTab]),
           lightTheme,
+          EditorView.lineWrapping,
           this.#themeCompartment.of(isDark ? oneDark : []),
         ],
       }),
