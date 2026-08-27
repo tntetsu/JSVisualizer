@@ -39,6 +39,9 @@ export class ViewSwitcher {
   /** @type {string|null} 現在アクティブなビュー ID */
   #activeId = null;
 
+  /** @type {string|null} 次の初回 onReady() でのみ使う、外部から指定された初期ビュー ID */
+  #presetId = null;
+
   /** @type {import('../core/debugger-adapter.js').AppState|null} 最後の state */
   #lastState = null;
 
@@ -80,6 +83,16 @@ export class ViewSwitcher {
   }
 
   /**
+   * 次の初回 onReady() で開くビューを指定する（URLクエリ`view`等、外部からの初期ビュー指定用。
+   * ADR-036）。登録されていない ID は無視する。既にアクティブビューがある場合（2回目以降の
+   * onReady()）には影響しない。localStorage の「前回使ったタブ」は書き換えない。
+   * @param {string} id
+   */
+  setInitialView(id) {
+    if (this.#registry.has(id)) this.#presetId = id;
+  }
+
+  /**
    * 実行開始時に呼ぶ。builder をセットしてアクティブビューを再初期化する。
    * @param {import('../core/debugger-adapter.js').AppState}     state
    * @param {import('../core/trace-builder.js').TraceBuilder}    builder
@@ -103,11 +116,11 @@ export class ViewSwitcher {
       }
       this.#mountView(this.#activeId);
     } else {
-      // 前回保存したタブ → なければ最初のビュー
+      // 優先順位: 外部からの初期ビュー指定（setInitialView） > 前回保存したタブ > 最初のビュー
       const savedId = localStorage.getItem(STORAGE_KEY_TAB);
-      const targetId = (savedId && this.#registry.has(savedId))
-        ? savedId
-        : this.#registry.keys().next().value;
+      const targetId = this.#presetId
+        ?? (savedId && this.#registry.has(savedId) ? savedId : this.#registry.keys().next().value);
+      this.#presetId = null; // 一度使ったら消費する（以後の起動は通常の優先順位に戻す）
       if (targetId) this.#activate(targetId);
     }
   }

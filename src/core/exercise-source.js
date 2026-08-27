@@ -6,17 +6,22 @@
  * JSVisualizerはコードの取得元のパス規約・スキーマを一切知らない。クエリなし時は何もせず、
  * 既定のFibonacciサンプル・21種の組み込みサンプルのまま起動する。クエリがある場合は組み込み
  * サンプルをサンプル選択から取り除き、`exercise`/`code`が指すコードだけを表示する（ADR-033）。
+ *
+ * `view`（推奨初期ビューID）はコード読み込みとは独立な指定のため、`loadExerciseFromQuery()`
+ * では扱わない。`parseQuery()`が返す`viewId`を呼び出し元（`app.js`）がそのまま
+ * `ViewSwitcher.setInitialView()`に渡す（ADR-036）。
  */
 
 /**
  * @param {string} [search]
- * @returns {{ codeUrl: string|null, exerciseUrl: string|null }}
+ * @returns {{ codeUrl: string|null, exerciseUrl: string|null, viewId: string|null }}
  */
 export function parseQuery(search = location.search) {
   const params = new URLSearchParams(search);
   return {
     codeUrl: params.get('code'),
     exerciseUrl: params.get('exercise'),
+    viewId: params.get('view'),
   };
 }
 

@@ -27,24 +27,36 @@ afterEach(() => {
 
 describe('parseQuery', () => {
   test('クエリなしなら全てnull', () => {
-    expect(parseQuery('')).toEqual({ codeUrl: null, exerciseUrl: null });
+    expect(parseQuery('')).toEqual({ codeUrl: null, exerciseUrl: null, viewId: null });
   });
 
   test('codeのみ', () => {
     expect(parseQuery('?code=https%3A%2F%2Fexample.com%2Fcodes%2Fabc')).toEqual({
-      codeUrl: 'https://example.com/codes/abc', exerciseUrl: null,
+      codeUrl: 'https://example.com/codes/abc', exerciseUrl: null, viewId: null,
     });
   });
 
   test('exerciseのみ', () => {
     expect(parseQuery('?exercise=https%3A%2F%2Fexample.com%2Fexercises%2Fex1')).toEqual({
-      codeUrl: null, exerciseUrl: 'https://example.com/exercises/ex1',
+      codeUrl: null, exerciseUrl: 'https://example.com/exercises/ex1', viewId: null,
     });
   });
 
   test('code+exercise', () => {
     expect(parseQuery('?exercise=https://example.com/exercises/ex1&code=https://example.com/codes/co2')).toEqual({
-      codeUrl: 'https://example.com/codes/co2', exerciseUrl: 'https://example.com/exercises/ex1',
+      codeUrl: 'https://example.com/codes/co2', exerciseUrl: 'https://example.com/exercises/ex1', viewId: null,
+    });
+  });
+
+  test('viewのみ', () => {
+    expect(parseQuery('?view=memory')).toEqual({
+      codeUrl: null, exerciseUrl: null, viewId: 'memory',
+    });
+  });
+
+  test('code+view', () => {
+    expect(parseQuery('?code=https://example.com/codes/co2&view=objgraph')).toEqual({
+      codeUrl: 'https://example.com/codes/co2', exerciseUrl: null, viewId: 'objgraph',
     });
   });
 });

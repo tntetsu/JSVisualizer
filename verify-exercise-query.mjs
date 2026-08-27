@@ -170,6 +170,38 @@ async function run() {
       check('[E] 存在しないcode URLでエラーメッセージが表示される', errorVisible);
       await page.close();
     }
+
+    // ── テストF: code+view → 実行後、指定したビューが最初から開いている（ADR-036） ──
+    {
+      const page = await browser.newPage();
+      const codeUrl = encodeURIComponent(`${API_BASE}/codes/co3`);
+      await page.goto(`http://localhost:${JSV_PORT}/index.html?code=${codeUrl}&view=memory`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(300);
+      await page.click('#btn-run');
+      await page.waitForTimeout(300);
+
+      const isActive = await page.locator('.view-tab[data-view="memory"]').evaluate(
+        (el) => el.classList.contains('view-tab--active'),
+      );
+      check('[F] view=memory指定で実行後にMemoryタブが最初からアクティブになる', isActive);
+      await page.close();
+    }
+
+    // ── テストG: view未指定 → 従来通り最初のビュー（コールスタック）が開く（回帰確認） ──
+    {
+      const page = await browser.newPage();
+      const codeUrl = encodeURIComponent(`${API_BASE}/codes/co3`);
+      await page.goto(`http://localhost:${JSV_PORT}/index.html?code=${codeUrl}`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(300);
+      await page.click('#btn-run');
+      await page.waitForTimeout(300);
+
+      const isActive = await page.locator('.view-tab[data-view="state"]').evaluate(
+        (el) => el.classList.contains('view-tab--active'),
+      );
+      check('[G] view未指定なら従来通り最初のビュー（コールスタック）が開く（回帰確認）', isActive);
+      await page.close();
+    }
   } finally {
     await browser.close();
     jsvServer.close();
