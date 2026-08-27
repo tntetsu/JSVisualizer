@@ -107,12 +107,26 @@ https://tntetsu.github.io/JSVisualizer/?code=http%3A%2F%2Flocalhost%3A5000%2Fapi
 
 `exercise`/`code` values must be URL-encoded (building them with `URLSearchParams` handles this automatically). If a URL doesn't exist or isn't public, an error message is shown in the error banner. Note that there is **no way to jump to a specific line or cursor position** — the URL query only controls which code gets loaded, not where the cursor lands.
 
+#### Specifying the initial view (`view`)
+
+Independent of `exercise`/`code`, the `view` query parameter lets you specify **which view opens on the first run** ([ADR-036](docs/adr/ADR-036-url-query-initial-view.md)). Valid values are the following IDs, matching the tabs in the right pane:
+
+`state` (Call Stack) · `trace` (Variable) · `exectrace` (Exec Trace) · `subst` (Subst) · `exprtrace` (Expr) · `colorbox` (Arrays) · `heatmap` (Heatmap) · `calltree` (Call Tree) · `lifetime` (Lifetime) · `controlflow` (Control Flow) · `memory` (Memory) · `objgraph` (Objects)
+
+```
+# Open the code and show the Memory view on the first run
+https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Fbhv-visualizer.web.app%2Fapi%2Fcodes%2Fabc123&view=memory
+```
+
+Normally the active tab is saved to `localStorage` and restored on the next launch. When `view` is present, it takes priority over that restore — but only for **the first run on that page load**. Later runs fall back to the normal priority (last saved tab → first view), and the `localStorage` value itself is left untouched.
+
 #### Live demo
 
 These links load static JSON files hosted at `web/samples/` in this repository (served via GitHub Pages, unrelated to BhvVisualizer). Click them to see the feature in action.
 
 - [`code` demo (opens a single piece of code directly)](https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fcode-demo.json)
 - [`exercise` demo (replaces the sample selector with the exercise's codes, auto-loads the first one)](https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fexercise-demo.json)
+- [`view` demo (opens the code; click "Run" and the Memory view is already active)](https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fcode-demo.json&view=memory)
 
 The JSON files themselves ([`code-demo.json`](web/samples/code-demo.json), [`exercise-demo.json`](web/samples/exercise-demo.json)) also serve as live examples of the expected API response format.
 

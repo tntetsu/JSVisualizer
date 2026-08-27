@@ -1,9 +1,9 @@
 # Functional Specification
 
 **Project**: JSVisualizer  
-**Version**: 1.12  
+**Version**: 1.13  
 **Created**: 2026-05-25  
-**Last updated**: 2026-08-12  
+**Last updated**: 2026-08-27  
 **Author**: Tetsuo Tanaka
 
 > [日本語版はこちら](functional-spec.md)
@@ -36,6 +36,7 @@
 | 1.10 | 2026-08-12 | **F-04 redesigned from "ID + base URL" to "complete URL"**: replaced `exerciseId`/`codeId`/`bhvApiBase` with `exercise`/`code` (the caller passes a directly fetchable URL) ([ADR-031](adr/ADR-031-url-based-exercise-loading.md)). Simplified the response format to `title`/`code` only, dropping the unused `id`/`exerciseId`. Since ID matching is no longer needed, removed the `exerciseId`+`codeId` lookup logic and instead auto-loads the first code when `exercise` alone is given. `exercise`+`code` can be combined as two independent fetches (`code` wins). No backward compatibility (pre-launch, so the old params were dropped outright) |
 | 1.11 | 2026-08-12 | **F-04: added optional `title` to the `exercise` response, reflected in the sample selector placeholder**: `code-editor.js` gained `setPlaceholderLabel()` — when an exercise title is available, it replaces the sample selector's default placeholder ("─ Sample ─") with the exercise title (removing the target option's `data-i18n` attribute so a later language switch doesn't overwrite it) ([ADR-032](adr/ADR-032-exercise-title-placeholder.md)). Also stopped changing the sample selector's value when auto-loading the first code for `exercise`-only requests, so the placeholder keeps showing the exercise title |
 | 1.12 | 2026-08-12 | **F-04: hide the built-in samples from the sample selector while `exercise`/`code` is present**: real-world testing showed the "─ Exercise ─" group was easy to miss, buried below the 8 built-in groups; rather than just reordering it, the built-in samples are now removed instead. `code-editor.js`'s `addRemoteGroup()` was replaced with `setRemoteCodes(items)` (removes all built-in optgroups, then adds only the given codes). `code`-only requests use the same function to leave a single-code selector. ([ADR-033](adr/ADR-033-hide-builtin-samples-when-remote.md)) Standalone loads without either query param are unaffected |
+| 1.13 | 2026-08-27 | **F-11: added URL query (`view`) for specifying the initial view**: for BhvVisualizer's session-level pre/post questions ("predict before touching the tool → operate to check → answer again"), leaving `ViewSwitcher`'s existing behavior (restoring the last-active tab from `localStorage`) as-is meant each student could resume from an unrelated past session's tab, so the "operate to check" step wasn't consistent across students. Added `view` to `exercise-source.js`'s `parseQuery()` and a new `ViewSwitcher.setInitialView(id)`, which takes priority over the `localStorage` value for **only the page's first run** (the stored value itself is left untouched). A `# BHV:`-tag-free general feature ([ADR-036](adr/ADR-036-url-query-initial-view.md)) |
 
 ---
 
@@ -452,6 +453,7 @@ Expression and call-site highlights use `position: absolute; calc(N * 1ch)` for 
 - On each run (`adapter.load()` → `adapter.moveTo(0)` → `'ready'` event): the view is remounted with the latest `TraceBuilder`
 - Keyboard shortcuts `1`–`9` switch to the Nth registered tab (suppressed when `<textarea>`/`<input>` is focused)
 - Active tab saved to `localStorage('jsv-active-tab')` and restored on next launch
+- If a `view=<registered ID>` URL query is present, it takes priority over the `localStorage` value for **only the page's first run**, opening that view instead (`ViewSwitcher.setInitialView()`). Consumed after use — later runs in the same page load fall back to the normal priority (`localStorage` → first registered view). The `localStorage` value itself is left untouched ([ADR-036](adr/ADR-036-url-query-initial-view.md))
 - **Tab grayout**: tabs whose view would show nothing for the entire run are grayed out (`opacity: 0.38`) via `static hasContent(builder)` — checked once per run without mounting the view
 
 #### F-12: Theme Switching

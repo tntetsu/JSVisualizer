@@ -109,12 +109,26 @@ https://tntetsu.github.io/JSVisualizer/?code=http%3A%2F%2Flocalhost%3A5000%2Fapi
 
 `exercise`・`code` の値はURLエンコードした状態で渡す必要があります（`URLSearchParams`で組み立てれば自動的にエンコードされます）。存在しないURL・非公開のコードを指定した場合は、エラーメッセージ欄にその旨が表示されます。なお、コード内の**特定の行番号やカーソル位置を指定してジャンプする機能はありません**（URLクエリで制御できるのは「どのコードを読み込むか」のみです）。
 
+#### 初期表示ビューの指定（`view`）
+
+`exercise`・`code`とは独立に、`view`クエリパラメータで**最初の実行（Run）時に開くビュー**を指定できます（[ADR-036](docs/adr/ADR-036-url-query-initial-view.md)）。指定できる値は、右ペインのタブに対応する以下のIDです。
+
+`state`（コールスタック）・`trace`（変数）・`exectrace`（実行トレース）・`subst`（代入展開）・`exprtrace`（式評価）・`colorbox`（配列）・`heatmap`（ヒートマップ）・`calltree`（呼び出しツリー）・`lifetime`（変数寿命）・`controlflow`（制御フロー）・`memory`（メモリ）・`objgraph`（オブジェクト）
+
+```
+# コードを開き、最初の実行でメモリビューを表示する
+https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Fbhv-visualizer.web.app%2Fapi%2Fcodes%2Fabc123&view=memory
+```
+
+通常、アクティブなタブは`localStorage`に保存され次回起動時に復元されますが、`view`が指定されている場合は**そのページで最初に実行したときだけ**この復元より優先されます。2回目以降の実行では通常の優先順位（前回保存したタブ→最初のビュー）に戻り、`localStorage`の保存値自体は書き換えません。
+
 #### 動作するデモ
 
 このリポジトリの `web/samples/` に置いた静的JSONファイル（GitHub Pagesで配信、BhvVisualizerとは無関係）を実際に読み込むリンクです。クリックしてそのまま動作を確認できます。
 
 - [`code`のデモ（コード1件を直接開く）](https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fcode-demo.json)
 - [`exercise`のデモ（サンプル選択が演習のコード一覧に置き換わり、先頭コードを自動表示）](https://tntetsu.github.io/JSVisualizer/?exercise=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fexercise-demo.json)
+- [`view`のデモ（コードを開いて「実行」を押すと、メモリビューが最初から開いた状態になる）](https://tntetsu.github.io/JSVisualizer/?code=https%3A%2F%2Ftntetsu.github.io%2FJSVisualizer%2Fsamples%2Fcode-demo.json&view=memory)
 
 これらのJSONファイル自体（[`code-demo.json`](web/samples/code-demo.json)・[`exercise-demo.json`](web/samples/exercise-demo.json)）は「期待するAPIレスポンス形式」の実例にもなっています。
 
