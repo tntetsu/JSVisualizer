@@ -1269,6 +1269,33 @@ body {
 .et-col-var  { min-width: 60px; text-align: right; }
 .et-col-cond { min-width: 48px; text-align: center; color: var(--accent); font-weight: 600; }
 
+/* 配列＋ポインタのミニ図（Arraysビューの .cb-* を流用、cellPx・行高はJS側で小さめに固定） */
+/* --et-diag-w: 表示枠の幅（px）。ヘッダーのドラッグハンドルで変更・localStorageに永続化 */
+/* position は .et-th の sticky を維持する（ここで relative 等に上書きしない）。
+   sticky も positioned element なので、子要素の絶対配置の基準として機能する */
+.et-col-diagram { max-width: var(--et-diag-w, 220px); padding: 1px 4px !important; }
+.et-diag-scroll { overflow-x: auto; overflow-y: hidden; max-width: var(--et-diag-w, 220px); }
+
+.et-diag-resize-handle {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.et-diag-resize-handle:hover,
+.et-diag-resize-handle.dragging {
+  background: var(--accent);
+  opacity: 0.4;
+}
+/* .cb-array-block は本来 flex アイテムとして内容幅にフィットするが（Arraysビュー）、
+   ここでは通常のブロック要素として置かれるため width:max-content で明示し、
+   横スクロールしたときも背景色（グレー）が中身の幅全体に追従するようにする */
+.et-diag-scroll .cb-array-block { width: max-content; margin: 0; padding: 1px 4px 2px; }
+.et-diag-scroll .cb-array-name  { font-size: 9px; margin-bottom: 1px; }
+.et-diag-scroll .cb-grid        { gap: 1px; }
+.et-diag-scroll .cb-row         { gap: 1px; }
+
 /* ── ScopeView ────────────────────────────────────────────────── */
 .scv-scroll {
   flex: 1;

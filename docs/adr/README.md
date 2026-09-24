@@ -45,3 +45,4 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [034](ADR-034-code-only-placeholder-and-disable.md) | `code`単体指定時もプレースホルダをコードタイトルにし、サンプル選択を選択不可にする | 2026-08-12 |
 | [035](ADR-035-editor-line-wrapping.md) | エディタの折り返し表示を常時有効にする | 2026-08-12 |
 | [036](ADR-036-url-query-initial-view.md) | URLクエリ（`view`）による初期表示ビューの指定 | 2026-08-27 |
+| [037](ADR-037-exectrace-array-pointer-overlay.md) | ExecTraceへのArraysポインタ・オーバーレイ統合 | 2026-09-24 |

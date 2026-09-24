@@ -14,7 +14,25 @@
 
 import { BaseView } from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES, formatValue, formatValueDiff, esc } from '../../utils/format.js';
+import { computeSubscriptVars, detectPointerVars, renderArrayGrid } from '../../utils/array-grid.js';
 import { t } from '../../i18n.js';
+
+/** ExecTrace内のミニ配列図のポインタラベル用フォントサイズ（px、固定） */
+const DIAGRAM_FONT_PX = 9;
+/** 1文字あたりの概算幅（px、monospace・DIAGRAM_FONT_PX に対応） */
+const DIAGRAM_CHAR_PX = 7;
+/** セル幅の下限（px） */
+const DIAGRAM_MIN_CELL_PX = 18;
+/** 各行の高さ（px、固定・コンパクト表示用。Arraysビューのcellpx比例の高さは使わない） */
+const DIAGRAM_IDX_H_PX = 9;
+const DIAGRAM_VAL_H_PX = 14;
+const DIAGRAM_PTR_H_PX = 10;
+
+/** 「配列」列の表示枠の幅（ドラッグでユーザーが変更・localStorageに永続化） */
+const DIAGRAM_W_STORAGE_KEY = 'jsv-exectrace-diagram-w';
+const DIAGRAM_W_DEFAULT = 220;
+const DIAGRAM_W_MIN = 100;
+const DIAGRAM_W_MAX = 500;
 
 // ── 条件式ヘルパー（LineTrace と共通ロジック） ──────────────────────────────
 
@@ -111,6 +129,14 @@ export class ExecTrace extends BaseView {
   #humanSteps = null;   // number[]       trace インデックス列
   #activeHi   = -1;
 
+  // ── 「配列」列リサイズ用（destroy() で必ず解除する） ────────────────────────
+  #diagResizeHandle   = null;
+  #diagResizeDragging = false;
+  #diagResizeStartX   = 0;
+  #diagResizeStartW   = 0;
+  #onDiagResizeMove   = null;
+  #onDiagResizeUp     = null;
+
   // ── BaseView ──────────────────────────────────────────────────────────────
 
   init(container, builder) {
@@ -130,9 +156,10 @@ export class ExecTrace extends BaseView {
       return;
     }
 
-    // ── 変数名を出現順に収集 ──────────────────────────────────────────────
+    // ── 変数名を出現順に収集（合わせて配列変数名も収集） ──────────────────────
     const varNames = [];
     const varSet   = new Set();
+    const arrayVarNames = new Set();
     for (const si of humanSteps) {
       const ev = trace[si];
       if (!ev) continue;
@@ -141,6 +168,22 @@ export class ExecTrace extends BaseView {
           varSet.add(k);
           varNames.push(k);
         }
+        if (Array.isArray(v)) arrayVarNames.add(k);
+      }
+    }
+
+    // 配列が1つでもあれば、ポインタ・オーバーレイ用の列を追加する
+    // （Arraysビューと同じ「配列セル＋ポインタラベル」表現、docs/study/paper-research-notes.md
+    //  2026-09-24の分析を踏まえた統合。src/utils/array-grid.js に実装を共通化している）
+    const showDiagram  = arrayVarNames.size > 0;
+    const subscriptVars = showDiagram ? computeSubscriptVars(source) : null;
+    // ポインタ候補（配列添字として使われ、配列変数自体ではない識別子）のうち
+    // 最も長い名前に合わせてセル幅を決める（"minIdx" のようなラベルが見切れないように）
+    let diagramCellPx = DIAGRAM_MIN_CELL_PX;
+    if (showDiagram) {
+      for (const name of subscriptVars) {
+        if (arrayVarNames.has(name) || !varSet.has(name)) continue;
+        diagramCellPx = Math.max(diagramCellPx, name.length * DIAGRAM_CHAR_PX + 6);
       }
     }
 
@@ -168,6 +211,9 @@ export class ExecTrace extends BaseView {
     html += '<th class="et-th et-col-num">#</th>';
     html += `<th class="et-th et-col-line">${esc(t('exectrace-col-line'))}</th>`;
     html += `<th class="et-th et-col-code">${esc(t('exectrace-col-code'))}</th>`;
+    if (showDiagram) {
+      html += `<th class="et-th et-col-diagram">${esc(t('exectrace-col-array'))}<span class="et-diag-resize-handle" title="${esc(t('exectrace-col-array'))}"></span></th>`;
+    }
     for (const name of varNames) {
       html += `<th class="et-th et-col-var">${esc(name)}</th>`;
     }
@@ -194,6 +240,26 @@ export class ExecTrace extends BaseView {
       html += `<td class="et-td et-col-line">${lineNo}</td>`;
       html += `<td class="et-td et-col-code">${esc(snippet)}</td>`;
 
+      // 配列＋ポインタのミニ図（ポインタが検出された配列のみ描画。Arraysビューと共通の
+      // renderArrayGrid() を使い、アニメーション型のArraysでは見えない「イテレーション横断の
+      // ポインタ位置ズレ」を縦スクロールで比較できるようにする）
+      if (showDiagram) {
+        let diagramHtml = '';
+        for (const arrName of arrayVarNames) {
+          const arr = envMap.get(arrName);
+          const ptrByName = detectPointerVars(envMap, arr, subscriptVars, arrayVarNames);
+          if (ptrByName.size === 0) continue;
+          const maxVal = Array.isArray(arr)
+            ? arr.reduce((m, v) => typeof v === 'number' && isFinite(v) ? Math.max(m, Math.abs(v)) : m, 0)
+            : 0;
+          diagramHtml += renderArrayGrid({
+            arrName, arr, ptrByName, cellPx: diagramCellPx, fontPx: DIAGRAM_FONT_PX, maxVal, emptyText: '',
+            idxHeightPx: DIAGRAM_IDX_H_PX, valHeightPx: DIAGRAM_VAL_H_PX, ptrHeightPx: DIAGRAM_PTR_H_PX,
+          });
+        }
+        html += `<td class="et-td et-col-diagram"><div class="et-diag-scroll">${diagramHtml}</div></td>`;
+      }
+
       // 変数列（前ステップとの差分をボールドで強調）
       for (const name of varNames) {
         const v    = envMap.get(name);
@@ -217,6 +283,58 @@ export class ExecTrace extends BaseView {
     html += '</tbody></table></div>';
     container.innerHTML = html;
     this.#rowEls = [...container.querySelectorAll('.et-row')];
+
+    if (showDiagram) {
+      const wrapEl = container.querySelector('.et-wrap');
+      const saved  = Number(localStorage.getItem(DIAGRAM_W_STORAGE_KEY));
+      const width  = (saved >= DIAGRAM_W_MIN && saved <= DIAGRAM_W_MAX) ? saved : DIAGRAM_W_DEFAULT;
+      wrapEl?.style.setProperty('--et-diag-w', `${width}px`);
+
+      const handle = container.querySelector('.et-diag-resize-handle');
+      if (handle && wrapEl) this.#bindDiagramResizer(handle, wrapEl);
+    }
+  }
+
+  /**
+   * 「配列」列の表示枠の幅をドラッグで変更する（pane-resizer.js と同じパターン、
+   * 対象は CSS 変数 --et-diag-w の px 値）。document への mousemove/mouseup リスナーは
+   * destroy() で必ず解除する。
+   * @param {HTMLElement} handle
+   * @param {HTMLElement} wrapEl `.et-wrap` 要素
+   */
+  #bindDiagramResizer(handle, wrapEl) {
+    this.#diagResizeHandle = handle;
+
+    const setWidth = (w) => {
+      const clamped = Math.max(DIAGRAM_W_MIN, Math.min(DIAGRAM_W_MAX, w));
+      wrapEl.style.setProperty('--et-diag-w', `${clamped}px`);
+      localStorage.setItem(DIAGRAM_W_STORAGE_KEY, String(clamped));
+    };
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      this.#diagResizeDragging = true;
+      this.#diagResizeStartX   = e.clientX;
+      const current = getComputedStyle(wrapEl).getPropertyValue('--et-diag-w');
+      this.#diagResizeStartW = parseFloat(current) || DIAGRAM_W_DEFAULT;
+      handle.classList.add('dragging');
+      document.body.style.cursor     = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    this.#onDiagResizeMove = (e) => {
+      if (!this.#diagResizeDragging) return;
+      setWidth(this.#diagResizeStartW + (e.clientX - this.#diagResizeStartX));
+    };
+    this.#onDiagResizeUp = () => {
+      if (!this.#diagResizeDragging) return;
+      this.#diagResizeDragging = false;
+      handle.classList.remove('dragging');
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', this.#onDiagResizeMove);
+    document.addEventListener('mouseup', this.#onDiagResizeUp);
   }
 
   update(state) {
@@ -255,6 +373,13 @@ export class ExecTrace extends BaseView {
   }
 
   destroy() {
+    if (this.#onDiagResizeMove) document.removeEventListener('mousemove', this.#onDiagResizeMove);
+    if (this.#onDiagResizeUp)   document.removeEventListener('mouseup', this.#onDiagResizeUp);
+    this.#diagResizeHandle   = null;
+    this.#diagResizeDragging = false;
+    this.#onDiagResizeMove   = null;
+    this.#onDiagResizeUp     = null;
+
     if (this.#container) this.#container.innerHTML = '';
     this.#container  = null;
     this.#rowEls     = null;

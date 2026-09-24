@@ -29,6 +29,7 @@ const STRINGS = {
     'exectrace-empty':       'ステップがありません',
     'exectrace-col-line':    '行',
     'exectrace-col-code':    'コード',
+    'exectrace-col-array':   '配列',
     // ── ColorBox（配列）ビュー ─────────────────────────────────
     'colorbox-empty':        '選択された配列が見つかりません',
     'colorbox-no-arrays':    '配列変数が見つかりません',
@@ -72,6 +73,7 @@ const STRINGS = {
     'exectrace-empty':       'No steps',
     'exectrace-col-line':    'Line',
     'exectrace-col-code':    'Code',
+    'exectrace-col-array':   'Array',
     'colorbox-empty':        'No selected arrays found',
     'colorbox-no-arrays':    'No array variables found',
     'calltree-aria':         'Call tree',

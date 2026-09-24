@@ -9,7 +9,8 @@
  */
 
 import { BaseView }                                   from '../base-view.js';
-import { flattenEnv, BUILTIN_NAMES, esc, formatValue } from '../../utils/format.js';
+import { flattenEnv, BUILTIN_NAMES, esc }              from '../../utils/format.js';
+import { computeSubscriptVars, detectPointerVars, renderArrayGrid } from '../../utils/array-grid.js';
 import { t }                                          from '../../i18n.js';
 
 /** 幅見積り用の1文字あたりの概算ピクセル幅（monospace、OBJ_FONT に対応） */
@@ -38,19 +39,6 @@ function formatObjectPlain(v) {
   }
   if (typeof v === 'string') return JSON.stringify(v);
   return String(v);
-}
-
-/**
- * 値の大きさに応じた背景色を返す（小 → 青系、大 → 赤系）
- * @param {number} val
- * @param {number} maxVal
- * @returns {string}
- */
-function valueToBoxColor(val, maxVal) {
-  if (maxVal === 0 || typeof val !== 'number') return 'var(--surface2)';
-  const ratio = Math.min(Math.abs(val) / maxVal, 1);
-  const hue   = Math.round(220 - ratio * 220); // 220 (blue) → 0 (red)
-  return `hsl(${hue}, 65%, 70%)`;
 }
 
 export class Arrays extends BaseView {
@@ -148,12 +136,7 @@ export class Arrays extends BaseView {
     const metaMap    = new Map();
 
     // ソース中で `identifier[varName` の形（配列添字位置）に登場する識別子を収集する。
-    // `\w\[` とすることで配列リテラル `[a, b]` の `a` を誤検出しない。
-    const SUBSCRIPT_RE = /\w\[([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
-    this.#subscriptVars = new Set();
-    for (const m of (this.#builder.source ?? '').matchAll(SUBSCRIPT_RE)) {
-      this.#subscriptVars.add(m[1]);
-    }
+    this.#subscriptVars = computeSubscriptVars(this.#builder.source ?? '');
 
     // 第1パス: 配列変数と最大絶対値・オブジェクト要素の最大表示文字数を収集
     for (const si of humanSteps) {
@@ -262,86 +245,22 @@ export class Arrays extends BaseView {
     for (const arrName of this.#selectedArrays) {
       const meta = this.#allArrayVars.find(m => m.name === arrName);
       const arr  = vars.get(arrName);
-
-      const minW = meta?.maxWidth      ? `min-width:${meta.maxWidth}px;`      : '';
-      const minH = meta?.maxGridHeight ? `min-height:${meta.maxGridHeight}px;` : '';
-
-      if (!Array.isArray(arr) || arr.length === 0) {
-        html += `<div class="cb-array-block">`;
-        html += `<div class="cb-array-name">${esc(arrName)}</div>`;
-        html += `<div class="cb-grid" style="${minW}${minH}"><p class="cb-empty">配列が空です</p></div>`;
-        html += `</div>`;
-        continue;
-      }
-
-      // ポインタ変数を収集：整数型で [0, arr.length) に収まる変数
-      // name → idx のマップ（配列変数自体は除外）
-      const ptrByName = new Map();
-      for (const [name, val] of vars) {
-        if (BUILTIN_NAMES.has(name)) continue;
-        if (arrayVarNames.has(name)) continue;
-        if (!this.#subscriptVars.has(name)) continue;
-        if (
-          typeof val === 'number'
-          && Number.isInteger(val)
-          && val >= 0
-          && val < arr.length
-        ) {
-          ptrByName.set(name, val);
-        }
-      }
-
-      const highlightedSet = new Set(ptrByName.values());
-      const maxVal = meta?.maxVal ?? 0;
-
+      const ptrByName = detectPointerVars(vars, arr, this.#subscriptVars, arrayVarNames);
       const hasObjects = (meta?.maxObjectTextLen ?? 0) > 0;
-      const CELL = this.#cellWidth(arr.length, meta?.maxObjectTextLen ?? 0);
-      // オブジェクト要素はセル幅が文字数で決まるため、幅比例のフォントサイズではなく固定サイズを使う
-      const FONT = hasObjects ? OBJ_FONT : Math.max(9, Math.round(CELL * 0.34));
-      const style = `width:${CELL}px;font-size:${FONT}px`;
+      const CELL = this.#cellWidth(Array.isArray(arr) ? arr.length : 0, meta?.maxObjectTextLen ?? 0);
 
-      html += `<div class="cb-array-block">`;
-      html += `<div class="cb-array-name">${esc(arrName)}</div>`;
-      html += `<div class="cb-grid" style="${minW}${minH}">`;
-
-      // インデックス行
-      html += '<div class="cb-row cb-idx-row">';
-      for (let i = 0; i < arr.length; i++) {
-        html += `<div class="cb-cell cb-cell--idx" style="${style};height:${Math.round(CELL * 0.55)}px">${i}</div>`;
-      }
-      html += '</div>';
-
-      // 値行
-      html += '<div class="cb-row cb-val-row">';
-      for (let i = 0; i < arr.length; i++) {
-        const v      = arr[i];
-        const isHl   = highlightedSet.has(i);
-        const bgColor = typeof v === 'number'
-          ? `background:${valueToBoxColor(v, maxVal)};`
-          : '';
-        const hlCls  = isHl ? ' cb-cell--hl' : '';
-        const isObj  = v !== null && typeof v === 'object';
-        const content = typeof v === 'number' ? esc(String(v))
-                      : typeof v === 'string' ? esc(v)
-                      : typeof v === 'boolean' ? esc(String(v))
-                      : isObj ? formatValue(v)
-                      : esc(String(v));
-        const objCls = isObj ? ' cb-cell--obj' : '';
-        html += `<div class="cb-cell${hlCls}${objCls}" style="${style};height:${CELL}px;${bgColor}">${content}</div>`;
-      }
-      html += '</div>';
-
-      // ポインタ行（変数ごとに1行）
-      for (const [ptrName, ptrIdx] of ptrByName) {
-        html += '<div class="cb-row cb-ptr-row">';
-        for (let i = 0; i < arr.length; i++) {
-          const label = i === ptrIdx ? ptrName : '';
-          html += `<div class="cb-cell cb-cell--ptr" style="${style};height:${Math.round(CELL * 0.65)}px">${esc(label)}</div>`;
-        }
-        html += '</div>';
-      }
-
-      html += '</div></div>';
+      html += renderArrayGrid({
+        arrName,
+        arr,
+        ptrByName,
+        cellPx: CELL,
+        // オブジェクト要素はセル幅が文字数で決まるため、幅比例のフォントサイズではなく固定サイズを使う
+        fontPx: hasObjects ? OBJ_FONT : undefined,
+        maxVal: meta?.maxVal ?? 0,
+        minWidthPx: meta?.maxWidth ?? 0,
+        minHeightPx: meta?.maxGridHeight ?? 0,
+        emptyText: '配列が空です',
+      });
     }
 
     this.#boxAreaEl.innerHTML = html || `<p class="cb-empty">${esc(t('colorbox-empty'))}</p>`;
