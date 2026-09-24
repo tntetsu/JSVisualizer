@@ -37,7 +37,7 @@ function isJSClass(v) {
  * ビルド構成に依存しない（値そのものはスナップショット経由で同一Symbol参照が渡る）。
  * @param {any} v
  */
-function isTDZ(v) {
+export function isTDZ(v) {
   return typeof v === 'symbol' && v.description === 'TDZ';
 }
 

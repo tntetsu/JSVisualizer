@@ -16,7 +16,7 @@
  */
 
 import { BaseView } from '../base-view.js';
-import { esc }      from '../../utils/format.js';
+import { esc, isTDZ } from '../../utils/format.js';
 import { t }        from '../../i18n.js';
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────────
@@ -30,6 +30,7 @@ function isFunctionVal(v) {
 }
 
 function fmtPlain(v, depth = 0) {
+  if (isTDZ(v))         return '';
   if (v === undefined) return 'undefined';
   if (v === null)      return 'null';
   if (typeof v === 'boolean' || typeof v === 'number') return String(v);
@@ -74,6 +75,19 @@ function getVarFromEnv(envFrames, name) {
     if (Object.prototype.hasOwnProperty.call(frame, name)) return frame[name];
   }
   return undefined;
+}
+
+/**
+ * env スナップショット配列にその変数が（値が undefined であっても）存在するかを判定する。
+ * getVarFromEnv() の戻り値だけでは「未スコープ」と「値が undefined」を区別できないため、
+ * 別途これで判定する。
+ */
+function hasVarInEnv(envFrames, name) {
+  if (!Array.isArray(envFrames)) return false;
+  for (const frame of envFrames) {
+    if (Object.prototype.hasOwnProperty.call(frame, name)) return true;
+  }
+  return false;
 }
 
 // ── テキスト置換 ──────────────────────────────────────────────────────────────
@@ -207,7 +221,10 @@ function extractVarNames(exprText, trace, enterIdx, exitIdx) {
 function buildEnvMap(varNames, envFrames) {
   const map = {};
   for (const name of varNames) {
-    map[name] = getVarFromEnv(envFrames, name);
+    // 見つかった場合のみプロパティを設定する（未スコープの変数はキー自体を作らない）。
+    // これにより呼び出し側は hasOwnProperty(map, name) で「未スコープ」と
+    // 「値が undefined」を区別できる
+    if (hasVarInEnv(envFrames, name)) map[name] = getVarFromEnv(envFrames, name);
   }
   return map;
 }
@@ -560,8 +577,9 @@ function buildExprHtml(text, ranges) {
   return result;
 }
 
-function fmtEnvVal(v) {
-  return v === undefined ? '—' : fmtPlain(v);
+/** has=false（未スコープ）なら空欄、それ以外は値を整形する（値が undefined でも "undefined" と表示） */
+function fmtEnvVal(v, has) {
+  return has ? fmtPlain(v) : '—';
 }
 
 // ── ExprTrace ─────────────────────────────────────────────────────────────────
@@ -616,9 +634,10 @@ export class ExprTrace extends BaseView {
         html += `<tr class="xev-row" data-si="${si}" data-ri="${ri}">`;
         html += `<td class="xev-td xev-col-expr">${exprHtml}</td>`;
         for (const name of varNames) {
+          const has = Object.prototype.hasOwnProperty.call(envMap, name);
           const v   = envMap[name];
-          const cls = v !== undefined ? ' xev-val--defined' : '';
-          html += `<td class="xev-td xev-col-var${cls}">${esc(fmtEnvVal(v))}</td>`;
+          const cls = has ? ' xev-val--defined' : '';
+          html += `<td class="xev-td xev-col-var${cls}">${esc(fmtEnvVal(v, has))}</td>`;
         }
         html += '</tr>';
       }
@@ -677,12 +696,16 @@ export class ExprTrace extends BaseView {
         const tds = rows[k].varTds;
         if (tds?.length) {
           for (let vi = 0; vi < varNames.length; vi++) {
+            const name = varNames[vi];
+            // 「未スコープ」と「値が undefined」を区別する（v !== undefined だけでは判定できない）
+            const has = k === activeRow
+              ? hasVarInEnv(cursorEnv, name)
+              : Object.prototype.hasOwnProperty.call(rows[k].envMap, name);
             const v = k === activeRow
-              ? getVarFromEnv(cursorEnv, varNames[vi])
-              : rows[k].envMap[varNames[vi]];
-            const isDefined = v !== undefined;
-            tds[vi].textContent = isDefined ? fmtPlain(v) : '—';
-            tds[vi].classList.toggle('xev-val--defined', isDefined);
+              ? getVarFromEnv(cursorEnv, name)
+              : rows[k].envMap[name];
+            tds[vi].textContent = has ? fmtPlain(v) : '—';
+            tds[vi].classList.toggle('xev-val--defined', has);
           }
         }
       }

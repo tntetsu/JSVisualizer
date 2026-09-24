@@ -351,7 +351,10 @@ export class Variable extends BaseView {
         const val     = vars?.get(name);
         const changed = isActive && changedVars.has(name);
         const prevVal = changed ? prevVarsAtCursor?.get(name) : undefined;
-        cellEl.innerHTML = val !== undefined
+        // vars?.has() で判定する（val !== undefined だと「未スコープ」と「値が undefined」を
+        // 区別できない。値が undefined の場合は formatValue()/formatValueDiff() 側で
+        // "undefined" と表示する）
+        cellEl.innerHTML = (vars?.has(name) ?? false)
           ? (changed ? formatValueDiff(val, prevVal) : formatValue(val))
           : '<span class="lt-empty">—</span>';
         cellEl.classList.remove('lt-flash');

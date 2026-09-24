@@ -37,3 +37,18 @@ JSInterpreter の `Environment`（`../JSInterpreter/src/interpreter/environment.
 
 - **`TDZ_SENTINEL`をJSInterpreterのバンドルから直接importし`===`比較する**: 不採用。`web/interpreter.bundle.js`のビルド元（`debugger.js`）が現状`TDZ_SENTINEL`をexportしておらず、JSInterpreter側の変更＋バンドル再生成が必要になる。`description`文字列での判定は単一ファイルの変更で完結し、ビルド手順への依存もない
 - **`undefined`と同じ表示（`<span class="v-undef">undefined</span>`）にする**: 不採用。「宣言されていない/存在しない」ことを示す既存の空欄表現（`lt-empty`）の方が、TDZという「宣言はされたがまだ初期化されていない」状態の実態（=中身が無い）に近く、`undefined`という値そのものと混同しない
+
+## 追記（2026-09-24、同日中の関連修正）
+
+上記の修正を確認する過程で、ユーザーから「宣言前の変数（TDZ）」と「宣言後だが値が未設定の変数（実際に値が`undefined`）」を区別したいという要望があった。調査の結果、Variable・ExecTrace・ExprTraceの3ビューに、この区別ができない別の不具合が見つかったため、あわせて修正した。
+
+**原因**: `exec-trace/index.js`・`line-trace/index.js`・`expr-trace/index.js`はいずれも、あるステップでその変数が「スコープに存在するか」を`v === undefined`（または`v !== undefined`）で判定していた。これは、`Map.get()`（`flattenEnv`が返すMap）やプレーンオブジェクトのプロパティアクセスが、キーが存在しない場合と、キーは存在するが値が実際に`undefined`の場合の両方で同じ`undefined`を返すため、「未スコープ」と「値がundefined」を区別できていなかった。JSInterpreter側（`Environment.define()`）は`let x;`実行後に正しくTDZセンチネルを実際の`undefined`で上書きしていることを、`JSDebugger`のトレースを直接確認して検証済み——バグは表示側のみにあった。
+
+**修正**:
+- `exec-trace/index.js`: `v === undefined` を `envMap.has(name)` による判定に変更
+- `line-trace/index.js`: `val !== undefined` を `vars?.has(name)` による判定に変更
+- `expr-trace/index.js`: `envMap`がプレーンオブジェクトのため、`buildEnvMap()`を「見つかった変数のみプロパティを設定する」方式に変更し、呼び出し側で`Object.prototype.hasOwnProperty.call(envMap, name)`によって判定できるようにした。あわせて`getVarFromEnv()`と対になる`hasVarInEnv()`を新設し、アクティブ行のリアルタイム表示（`update()`内、`cursorEnv`を直接参照する箇所）でも同様に判定する。独自の`fmtPlain()`にも`isTDZ()`（`format.js`からexportに変更）を適用し、TDZ値が`Symbol(TDZ)`と表示される経路を閉じた
+
+**結果**: `let x; console.log(x); x = 5;`のようなコードで、Variable・ExecTraceタブは「宣言前（空欄）→ 宣言後・未代入（`undefined`）→ 代入後（`5`）」の3状態を正しく区別して表示するようになった。ExprTraceでも同様に確認済み
+
+**安全性の担保**: `npm test`（101件）に変更なくリグレッションなし。Playwright（headless Chromium）で上記コード例をVariable・ExecTrace・ExprTraceそれぞれで実行し、3状態が正しく表示されること、`Symbol(TDZ)`が一切表示されないことを確認

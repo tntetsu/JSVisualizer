@@ -261,10 +261,12 @@ export class ExecTrace extends BaseView {
       }
 
       // 変数列（前ステップとの差分をボールドで強調）
+      // envMap.has() で判定する（v === undefined だと「未スコープ」と「値が undefined」を
+      // 区別できない。値が undefined の場合は formatValueDiff() 側で "undefined" と表示する）
       for (const name of varNames) {
         const v    = envMap.get(name);
         const prev = prevEnvMap.get(name);
-        html += `<td class="et-td et-col-var">${v === undefined ? '<span class="lt-empty">—</span>' : formatValueDiff(v, prev)}</td>`;
+        html += `<td class="et-td et-col-var">${envMap.has(name) ? formatValueDiff(v, prev) : '<span class="lt-empty">—</span>'}</td>`;
       }
 
       // 条件列（この step が該当条件を評価したときだけ値を表示）
