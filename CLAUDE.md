@@ -25,7 +25,8 @@ JSVisualizer/
 │   │   └── session-logger.js     # 操作ログ記録（評価実験用）JSON/CSV エクスポート
 │   ├── i18n.js                   # 日英表示切替（STRINGS/t/getLang/setLang・langchange イベント）
 │   ├── utils/
-│   │   └── format.js             # formatValueDiff・mergeScopesForDisplay 等の表示整形ヘルパー
+│   │   ├── format.js             # formatValueDiff・mergeScopesForDisplay 等の表示整形ヘルパー
+│   │   └── array-grid.js         # 配列＋ポインタのグリッド描画（Arrays・ExecTrace共通、ADR-037）
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
 │   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅
 │   │   ├── state-view/           # コールスタックビュー（CallStackView・Global疑似フレーム＋関数フレーム）✅ ← タブ「コールスタック」
@@ -58,10 +59,12 @@ JSVisualizer/
 │   ├── index.html                # FOUC防止スクリプト・設定パネル HTML を含む
 │   └── style.css                 # ライト/ダークテーマ（CSS カスタムプロパティ）
 ├── tests/
-│   └── core/
-│       ├── trace-builder.test.js # TraceBuilder 全7メソッドのユニットテスト
-│       ├── step-controller.test.js
-│       └── samples.test.js       # 21サンプルコード全エラーなし・trace ≥ 1 確認
+│   ├── core/
+│   │   ├── trace-builder.test.js # TraceBuilder 全7メソッドのユニットテスト
+│   │   ├── step-controller.test.js
+│   │   └── samples.test.js       # 21サンプルコード全エラーなし・trace ≥ 1 確認
+│   └── utils/
+│       └── array-grid.test.js    # 配列＋ポインタグリッド描画（computeSubscriptVars等）のユニットテスト
 ├── docs/
 │   ├── functional-spec.md        # 機能仕様書
 │   ├── functional-spec.en.md     # 機能仕様書（英語版）

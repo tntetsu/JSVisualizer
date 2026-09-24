@@ -1,9 +1,9 @@
 # 機能仕様書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 1.13  
+**バージョン**: 1.14  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-08-27  
+**最終更新**: 2026-09-24  
 **作成者**: Tetsuo Tanaka
 
 > [English version](functional-spec.en.md)
@@ -37,6 +37,7 @@
 | 1.11 | 2026-08-12 | **F-04: `exercise`レスポンスに任意の`title`を追加し、サンプル選択のプレースホルダに反映**: `code-editor.js`に`setPlaceholderLabel()`を追加し、演習タイトルが取得できた場合はサンプル選択の初期表示（既定「─ サンプル ─」）を演習タイトルに置き換える（i18nの言語切替で上書きされないよう対象optionの`data-i18n`属性を除去）（[ADR-032](adr/ADR-032-exercise-title-placeholder.md)）。あわせて、`exercise`のみ指定時の先頭コード自動読み込みでサンプル選択の値を変更しないよう修正（プレースホルダに演習タイトルを表示し続けるため） |
 | 1.12 | 2026-08-12 | **F-04: `exercise`/`code`指定時に組み込みサンプルをサンプル選択から取り除くよう変更**: 実機での動作確認で「─ Exercise ─」グループが組み込み8グループの後ろに埋もれ見つけにくいという指摘を受け、単純な並べ替えではなく組み込みサンプルを一時的に非表示にする方式へ変更。`code-editor.js`の`addRemoteGroup()`を廃止し`setRemoteCodes(items)`に置き換え（組み込みoptgroupを全削除してから渡されたコード一覧だけを追加）。`code`のみ指定時も同じ関数でコード1件だけの選択肢にする（[ADR-033](adr/ADR-033-hide-builtin-samples-when-remote.md)）。クエリなしのスタンドアロン起動は影響を受けない |
 | 1.13 | 2026-08-27 | **F-11: URLクエリ（`view`）による初期表示ビューの指定を追加**: BhvVisualizer連携のセッション内pre/post設問（「ツールに触れる前に予想→操作して確認→再回答」）で、`ViewSwitcher`が前回アクティブだったタブを`localStorage`から復元する既存挙動のままだと、学生ごとに無関係な過去セッションの続きから始まってしまい、「操作して確認」の内容が揃わない問題があった。`exercise-source.js`の`parseQuery()`に`view`を追加、`ViewSwitcher.setInitialView(id)`を新設し、そのページの**最初の実行（Run）1回だけ**`localStorage`の保存値より優先させる（`localStorage`自体は書き換えない）。`# BHV:`タグなしの通常機能（[ADR-036](adr/ADR-036-url-query-initial-view.md)） |
+| 1.14 | 2026-09-24 | **V-02b: ExecTraceにArraysポインタ・オーバーレイを統合**: 評価実験ログの深掘り分析（`docs/study/paper-research-notes.md`）で、選択ソートのoff-by-oneバグを見つけられなかった参加者が、アニメーション型のArraysビューに長時間費やしても「ポインタが毎回1つズレている」というイテレーション横断のパターンに気づけなかったことが判明。Arraysのポインタ検出・配列グリッド描画ロジックを`src/utils/array-grid.js`に共通化し、時間軸型のExecTraceの各行にも同じミニ図を統合。ポインタが検出されたステップのみ描画し、セル幅は変数名の長さから動的算出。表示枠の幅はドラッグで変更可能（`localStorage('jsv-exectrace-diagram-w')`に永続化）（[ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)） |
 
 ---
 
@@ -221,7 +222,8 @@
 - 行 = humanStep ごとの実行ステップ（実行順）
 - `init()` 時に全 humanStep を一括描画
 - `update()` は現在行のハイライト移動と scrollIntoView のみ（O(n)）
-- 列構成: # | 行 | コード（先頭 30 文字）| 変数値列（出現順）| 条件式列（出現順）
+- 列構成: # | 行 | コード（先頭 30 文字）| 配列列（配列が登場する場合のみ）| 変数値列（出現順）| 条件式列（出現順）
+  - **配列列**（[ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)）: そのステップでポインタ変数（`i`/`minIdx` 等）が検出された配列のみ、Arrays ビューと同じ「インデックス行・値行・ポインタラベル行」のミニ図を描画。検出・描画ロジックは `src/utils/array-grid.js` に共通化し Arrays（`color-box/index.js`）と共有。アニメーション型の Arrays では見えない「イテレーション横断のポインタ位置ズレ」を、縦スクロールするだけで比較できる。セル幅はポインタ候補の最長変数名から動的算出。表示枠の幅はヘッダーのハンドルをドラッグして変更でき、`localStorage('jsv-exectrace-diagram-w')` に永続化（100〜500px）
   - **変数値列**: 各 humanStep 時点の変数値を `flattenEnv` で取得して表示。`formatValueDiff()` で前ステップとの差分を橙太字で強調（`init()` 時に全行一括適用）
   - **条件式列**: `buildConditionExitSet` でループ条件式の exit を事前収集し、`buildCondInfo` で以下の 2 ケースを判定
     - Case 1（while/do-while/for の条件式 exit）: イベント自体が条件式評価結果。値を直接取得
