@@ -1,9 +1,9 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 2.0  
+**バージョン**: 2.11  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-07-23 (v2.0)  
+**最終更新**: 2026-09-24 (v2.11)  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -32,6 +32,17 @@
 | 1.8 | 2026-07-17 | (1) **タブ整理**: `trace-table`（全ステップ表）・`bar-chart`（棒グラフ）・`timeline`（時系列）をタブ非登録に変更。タブ登録数 16 → 13（詳細は §3.6 の各ビュー節に非アクティブ注記を追加）。(2) **ControlFlow 刷新**: 旧 `buildControlFlow()`（エッジベース SVG）を `buildCFG()`（AST ベース DOM フローチャート）に置換。§3.6 `control-flow/` 節を全面書き換え。詳細は ADR-018。(3) **execCount 修正**: `CfgBuilder` の行実行回数カウントを「行遷移時のみ」カウントに修正（同一行への複数 AST enter を 1 回として扱う）。(4) **SubstTrace・ExprTrace オブジェクト展開**: `fmtPlain(v, depth)` を追加し `depth < 3` では値のみ再帰展開、`depth >= 3` で `{…}` に省略。(5) **サンプル拡充**: Study Tasks 4 種追加（studyWarmup/studyTask1〜3）。サンプル総数 17 → 21、テスト総数 66 → 70 件 |
 | 1.9 | 2026-07-20 | **ヘッダーレイアウト刷新・ビュー説明バー**: (1) Edit モードは Edit/Run ボタン＋サンプルセレクト、Run モードは Edit/Run ボタン＋ステップ操作バーを `.app-header` 中央に表示するモード切替に変更（footer 廃止）。`.app-header.run-mode` クラスで CSS 表示切替。(2) `.step-controls-area` を `.ctrl-grid`（ボタン群）＋ `.slider-area`（スライダー＋カウンタ）に分割し、`flex-wrap` で `slider-area` が 180px 未満のとき 2 行目に折り返す。`body { min-width: 820px }` + `html { overflow-x: auto }` で最小幅未満は横スクロール。(3) **ビュー説明バー**: `ViewSwitcher` コンストラクタが `view-container` 直前に `.view-desc` 要素を自動生成。`register()` の第 4 引数 `description` をタブ切り替え時に表示（詳細は §4.2 の更新箇所）。(4) **ライトモード UI 改善**: アクティブタブを白背景＋青トップボーダー＋青文字＋太字（`:root:not([data-theme="dark"])`）。コンソール背景をライトモードのみ白に変更 |
 | 2.0 | 2026-07-20 | **言語切替（i18n）システムを新規追加**（ADR-025 参照）。`src/i18n.js`（`STRINGS`・`t()`/`getLang()`/`setLang()`・`langchange` イベント）を新設。§3.8 として詳細設計を追加。`ViewSwitcher.register()` の label/description が文字列 or `{ja,en}` オブジェクトを受け付けるよう拡張し `resolveStr()` ヘルパーを追加、`setLang()` メソッドで再描画（§4.2 更新）。`localStorage('jsv-lang')` を新設。§3.7 として `session-logger.js`（ADR-024・2026-07-16 導入）の詳細設計も本書に追記（従来 ADR のみに記載され本書に未反映だったため） |
+| 2.1 | 2026-08-05 | **Call Stack ビューの簡略化＋CallTree/RecursionTreeの統合**（[ADR-026](adr/ADR-026-callstack-view-simplification.md)・[ADR-027](adr/ADR-027-calltree-recursiontree-merge.md)）。`StateView`を`CallStackView`にリネームし、重複していたCurrent Step/Variablesカードを削除してCall Stackカード1枚構成に変更。`mergeScopesForDisplay()`が返す`label==='global'`のフレームを返却順序によらず常に先頭表示するよう変更し、callStackが空でもグローバル変数を可視化（§3.6 state-view節を刷新）。CallTree/RecursionTreeはノード表示形式・cost計算（`TraceBuilder#computeCost()`）を統合し、RecursionTreeのタブ登録をコメントアウトして非アクティブ化（タブ登録数13→12）。`.ct-retval`等の配色を`--sorted`カスタムプロパティに統一しコントラスト改善（§3.6 recursion-tree/call-tree節を刷新） |
+| 2.2 | 2026-08-11 | **外部埋め込み利用者向けリアルタイム操作ログ送信フック（`# BHV:`タグ）を追加**（[ADR-028](adr/ADR-028-bhv-visualizer-integration-hooks.md)）。BhvVisualizer（別リポジトリ）からの`<iframe>`埋め込み・`postMessage`の`init`ハンドシェイクを受理した場合のみ`sessionLogger`が自動起動しリアルタイム送信するBHV経路を、既存のSTUDY経路（手動起動・手動エクスポート）に追加。`logRun`をsuccess/error統合形に拡張、`logStep`に`loc`/`callDepth`を追加、`logVisibility`/`logLifecycle`を新設（§3.7を全面刷新）。ハンドシェイクなし・埋め込みなしでは一切の副作用がないことを`verify-bhv-hook.mjs`で確認。以降、外部埋め込み利用者からの要求によるJSVisualizerの変更は都度ADRを追加する運用ルールを制定 |
+| 2.3 | 2026-08-12 | **URLクエリ（`exerciseId`/`codeId`/`bhvApiBase`）によるコード読み込みを追加**（[ADR-029](adr/ADR-029-url-query-exercise-loading.md)）。`src/core/exercise-source.js`を新設し§3.9として詳細設計を追加。クエリなし時は既定のFibonacciサンプル表示を維持する加算的な設計。同日中にADR-031で「完全なURL」方式へ再設計されたため、本バージョンのパラメータ形式は後続のv2.5で置き換えられた |
+| 2.4 | 2026-08-12 | **`error-msg`の`hidden`属性がCSSカスケードで無効化される不具合を修正**（[ADR-030](adr/ADR-030-error-msg-hidden-attribute-cascade-fix.md)）。作者定義の`.error-msg{display:flex}`がブラウザ既定の`[hidden]{display:none}`を上書きしていたため、`.error-msg[hidden]{display:none}`を追加し属性セレクタで詳細度を上げて解決（§4.3更新）。あわせて、重要な設計判断を伴う変更はJSVisualizer単体の改良・外部埋め込み利用者からの要求のいずれでも都度ADRを追加する運用ルールに改定 |
+| 2.5 | 2026-08-12 | **URLクエリを「ID+ベースURL」方式から「完全なURL」方式へ再設計**（[ADR-031](adr/ADR-031-url-based-exercise-loading.md)）。`exerciseId`/`codeId`/`bhvApiBase`を廃止し`exercise`/`code`（呼び出し元がfetch可能な完全なURLを直接渡す）に変更。レスポンス形式を`title`/`code`のみに簡素化し、ID突き合わせロジックを廃止する代わりに`exercise`のみ指定時は先頭コードを自動読み込みする仕様を追加（§3.9を現行仕様に更新）。後方互換シムなし（本番投入前のため） |
+| 2.6 | 2026-08-12 | **`exercise`レスポンスの`title`をサンプル選択のプレースホルダに表示**（[ADR-032](adr/ADR-032-exercise-title-placeholder.md)）。`code-editor.js`に`setPlaceholderLabel(title)`を追加し、`data-i18n`属性を外して言語切替で上書きされないようにする（§3.9・§4.3更新） |
+| 2.7 | 2026-08-12 | **`exercise`/`code`指定時に組み込みサンプルをサンプル選択から取り除く**（[ADR-033](adr/ADR-033-hide-builtin-samples-when-remote.md)）。実機確認で「─ Exercise ─」グループが組み込み8グループの後ろに埋もれ見つけにくいという指摘を受け、`addRemoteGroup()`を`setRemoteCodes(items)`に置き換え、組み込み`<optgroup>`を全削除してから指定コードだけを選択肢にする方式に変更（§3.9更新） |
+| 2.8 | 2026-08-12 | **`code`単体指定時もプレースホルダをコードタイトルにし、サンプル選択を選択不可にする**（[ADR-034](adr/ADR-034-code-only-placeholder-and-disable.md)）。`disableSampleSelect()`を追加し`#sampleSelectLocked`フラグで`setRunningMode()`によるEdit/Run切替後も選択不可状態を維持する（§3.9・§4.3更新） |
+| 2.9 | 2026-08-12 | **エディタの折り返し表示を常時有効化**（[ADR-035](adr/ADR-035-editor-line-wrapping.md)）。`EditorView.lineWrapping`を常時オンにし、BhvVisualizer埋め込み時の問いコメント等、長い1行が横スクロールなしで折り返されるようにする（トグルは設けない、§4.3更新） |
+| 2.10 | 2026-08-27 | **URLクエリ（`view`）による初期表示ビューの指定を追加**（[ADR-036](adr/ADR-036-url-query-initial-view.md)）。BhvVisualizer連携のセッション内pre/post設問で、`ViewSwitcher`が前回アクティブだったタブを`localStorage`から復元する既定挙動のままだと学生ごとに体験が揃わない問題があったため、`ViewSwitcher.setInitialView(id)`を新設し最初の実行1回だけ`localStorage`の保存値より優先させる（`localStorage`自体は書き換えない）。§3.9・§4.2を更新 |
+| 2.11 | 2026-09-24 | **ExecTraceへのArraysポインタ・オーバーレイ統合**（[ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)）。評価実験ログの深掘り分析で、アニメーション型のArraysビューでは「ポインタが毎回1つズレている」というイテレーション横断のパターンに気づけなかった参加者がいたことが判明。ポインタ検出・配列グリッド描画ロジックを`src/utils/array-grid.js`に共通化し、時間軸型のExecTraceの各行にも同じミニ図を統合（ポインタ検出時のみ描画、セル幅は変数名長から動的算出、表示枠幅はドラッグ+`localStorage`で変更可）。§3.6 exec-trace節・§5ディレクトリ構造を更新。`tests/utils/array-grid.test.js`（新規10件）を含めテスト総数96件（§9.1更新） |
 
 ---
 
@@ -754,9 +765,23 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
 - `init()` で全 humanStep を実行順（humanStep インデックス順）に一括描画
 - `update()` は `et-row--active` クラスの付け替えと scrollIntoView のみ（O(n)）
 
-**列構成**: # | 行 | コード（先頭 30 文字）| 変数値列（出現順）| 条件式列（出現順）
+**列構成**: # | 行 | コード（先頭 30 文字）| 配列列（配列が登場する場合のみ）| 変数値列（出現順）| 条件式列（出現順）
 
 **差分強調**: `init()` 時に `let prevEnvMap = new Map()` で前行の env を追跡し、変数セルを `formatValueDiff(v, prevEnvMap.get(name))` で描画する。
+
+**配列列（配列＋ポインタのミニ図、[ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)）**:
+
+評価実験ログの深掘り分析（`docs/study/paper-research-notes.md`）で、Arrays（アニメーション型、現在の1ステップのみ描画）に長時間費やしても「ポインタが毎回1つズレている」というイテレーション横断のパターンに気づけなかった参加者がいたことが判明した。ExecTrace は既に「行＝humanStep のタイムライン」を持つため、Arrays と同じポインタ・オーバーレイ表現をここに統合すれば、縦スクロールするだけでそのパターンを比較できる。
+
+- ポインタ検出・配列グリッド描画ロジックは `src/utils/array-grid.js` に共通化し、Arrays（`color-box/index.js`）と共有する:
+  - `computeSubscriptVars(source)`: ソース中で `identifier[varName` の形に登場する識別子（配列添字候補）のホワイトリストを抽出する純関数
+  - `detectPointerVars(vars, arr, subscriptVars, arrayVarNames)`: 1スナップショットからポインタ変数（`BUILTIN_NAMES`除外・他の配列変数名除外・`subscriptVars`必須・整数かつ`[0, arr.length)`）を検出し `Map<name, idx>` を返す
+  - `renderArrayGrid({ arrName, arr, ptrByName, cellPx, fontPx, maxVal, idxHeightPx, valHeightPx, ptrHeightPx, ... })`: インデックス行・値行・ポインタラベル行の3行を持つグリッドHTMLを生成する。行高（`idxHeightPx`/`valHeightPx`/`ptrHeightPx`）はセル幅（`cellPx`）から独立して指定でき、ExecTrace 側はコンパクトな固定値を渡す（Arrays 側は従来通り `cellPx` に比例させる）
+  - `valueToBoxColor(val, maxVal)`: 値の大きさに応じた背景色（Arrays から移設）
+- `init()` の変数名収集ループで、値が `Array.isArray()` となる変数名も同時に `arrayVarNames: Set<string>` として収集する（追加のトレース走査なし）。配列が1つも登場しないプログラムでは配列列自体を出さない
+- 各行では、そのステップで**ポインタが1つ以上検出された配列のみ**ミニ図を描画する（ポインタが無い配列・ステップでは描画しない。数値自体は既存の変数列で見えているため、ミニ図は「ポインタ位置の比較」という狙いに絞る）
+- セル幅はポインタ候補の最長変数名（`minIdx` 等）の文字数から動的に算出し、ラベルが見切れないようにする
+- 表示枠の幅（`.et-col-diagram`/`.et-diag-scroll` の `max-width`）はCSS変数 `--et-diag-w` で管理し、列ヘッダーのハンドル（`.et-diag-resize-handle`）をドラッグして変更できる。`pane-resizer.js` と同じ「`mousedown`で開始→`document`の`mousemove`で追従→`mouseup`で終了」パターンで、100〜500pxにクランプし `localStorage('jsv-exectrace-diagram-w')` に永続化する。`ViewSwitcher.onReady()` によるタブ切替のたびの `destroy()`→再マウントに対応するため、`document` に追加した `mousemove`/`mouseup` リスナーは `destroy()` で確実に解除する
 
 **条件式列の実装**（Variable と共通ロジック）:
 
@@ -1241,25 +1266,41 @@ function layoutGraph(nodes, edges) {
 
 ---
 
-### 3.7 `src/core/session-logger.js`（評価実験用・STUDY: 削除可）✅
+### 3.7 `src/core/session-logger.js`（評価実験用 STUDY: 削除可＋外部埋め込み利用者向け BHV: 経路）✅
 
-**責務**: 操作ログの蓄積・JSON/CSV エクスポート。ADR-024 参照。
+**責務**: 操作ログの蓄積・JSON/CSV エクスポート（STUDY 経路、ADR-024）に加え、[ADR-028](adr/ADR-028-bhv-visualizer-integration-hooks.md) で外部埋め込み利用者（BhvVisualizer）へのリアルタイム送信（BHV 経路）を追加。2つの経路は同じ `#entries` 蓄積・同じイベント型を共有するが、起動トリガーと出力先が異なる（STUDY はユーザーがボタンで手動起動＋手動エクスポート、BHV は `postMessage` の `init` ハンドシェイクで自動起動＋逐次送信）。
 
 ```js
 class SessionLogger {
-  #entries = []            // { t, type, ... }[]
-  #sessionStart = null     // Date.now() またはセッション未開始なら null
-  #listeners = []          // (count: number) => void
+  #entries = []              // { t, type, ... }[]
+  #sessionStart = null       // Date.now() またはセッション未開始なら null
+  #listeners = []            // (count: number) => void
+  #remoteSessionId    = null // BHV: 親から受け取ったセッションID
+  #remoteTargetOrigin = null // BHV: postMessage 送信先オリジン（未設定なら送信しない）
 
   get isActive() { return this.#sessionStart !== null; }
   get count()    { return this.#entries.length; }
 
-  startSession()              { this.#entries = []; this.#sessionStart = Date.now(); this.#notify(); }
-  logRun(sampleName, traceLength)                { this.#log({ type: 'run', sampleName, traceLength }); }
-  logReset()                                     { this.#log({ type: 'reset' }); }
-  logStep(action, cursorBefore, cursorAfter)     { this.#log({ type: 'step', action, cursorBefore, cursorAfter }); }
-  logView(viewId)                                { this.#log({ type: 'view', viewId }); }
-  logMarker(label)                               { this.#log({ type: 'marker', label: label.trim() || '(無題)' }); }
+  startSession() { this.#entries = []; this.#sessionStart = Date.now(); this.#notify(); }
+
+  // run: success/error 両方を1メソッドに統合（ADR-028 で拡張。旧 logRun(sampleName, traceLength) から変更）
+  logRun({ sampleName, code, success, errorType = null, errorMessage = null, errorLoc = null, traceLength = null }) {
+    this.#log({ type: 'run', sampleName, code, success, errorType, errorMessage, errorLoc, traceLength });
+  }
+  logReset() { this.#log({ type: 'reset' }); }
+  // step: loc/callDepth を追加（ADR-028。行番号ベースの躓き分析に必要）
+  logStep(action, cursorBefore, cursorAfter, loc = null, callDepth = null) {
+    this.#log({ type: 'step', action, cursorBefore, cursorAfter, loc, callDepth });
+  }
+  logView(viewId)          { this.#log({ type: 'view', viewId }); }
+  logVisibility(state)     { this.#log({ type: 'visibility', state }); }   // BHV: 'hidden'|'visible'
+  logLifecycle(phase)      { this.#log({ type: 'lifecycle', phase }); }    // BHV: 'start'|'end'
+  logMarker(label)         { this.#log({ type: 'marker', label: label.trim() || '(無題)' }); }
+
+  // BHV: init ハンドシェイク受理時のみ呼ばれる。以後 #log() のたびに #postToParent() も実行される
+  enableRemoteLogging(sessionId, targetOrigin) {
+    this.#remoteSessionId = sessionId; this.#remoteTargetOrigin = targetOrigin;
+  }
 
   exportJSON() { /* Blob + <a> ダウンロード, ファイル名 jsv-log-YYYYMMDD-HHmmss.json */ }
   exportCSV()  { /* 同上 .csv、ヘッダ: t_ms,type,action,cursor_before,cursor_after,view_id,sample_name,trace_length,label */ }
@@ -1268,8 +1309,15 @@ class SessionLogger {
 
   #log(entry) {
     if (!this.#sessionStart) return;   // 非アクティブ時は完全 no-op
-    this.#entries.push({ t: Date.now() - this.#sessionStart, ...entry });
+    const full = { t: Date.now() - this.#sessionStart, ...entry };
+    this.#entries.push(full);
     this.#notify();
+    this.#postToParent(full);          // BHV: #remoteTargetOrigin 未設定なら何もしない
+  }
+
+  #postToParent(entry) {
+    if (!this.#remoteTargetOrigin || window.parent === window) return;
+    window.parent.postMessage({ source: 'jsvisualizer', sessionId: this.#remoteSessionId, ...entry }, this.#remoteTargetOrigin);
   }
 }
 
@@ -1280,16 +1328,18 @@ export const sessionLogger = new SessionLogger();  // モジュール単位シ�
 
 | モジュール | 呼び出し |
 |-----------|---------|
-| `step-controller.js` | 9 操作すべてで `logStep(action, before, after)` |
+| `step-controller.js` | 全ステップ操作で `logStep(action, before, after, loc, callDepth)`（`dbg.trace[dbg.cursor]?.loc`/`callDepth` を付与） |
 | `view-switcher.js` | `#activate()` 内で `logView(id)` |
-| `app.js` | `resetAll()` で `logReset()`、`'ready'` イベントで `logRun()` |
-| `study-panel.js` | `Start Session` / ワンクリックマーカー9個 / 自由入力マーカー / JSON・CSV エクスポートボタンの配線 |
+| `app.js` | `resetAll()` で `logReset()`。`adapter` の `'ready'`／`'error'` **両方**のリスナーから統合 `logRun()` を呼ぶ（旧: `'ready'` のみでエラー時は未記録だった）。`visibilitychange`/`pagehide` リスナーで `logVisibility()`/`logLifecycle('end')` |
+| `study-panel.js`（STUDY） | `Start Session` / ワンクリックマーカー9個 / 自由入力マーカー / JSON・CSV エクスポートボタンの配線 |
+
+**BHV 経路の起動条件（ADR-028）**: `app.js` が `window` の `message` イベントを購読し、`event.origin` が `BHV_ALLOWED_ORIGINS`（固定の許可オリジン一覧）に一致し、かつ `{ source: 'bhv', type: 'init', sessionId }` 形式のメッセージを受け取った場合のみ `sessionLogger.startSession()` と `enableRemoteLogging(sessionId, event.origin)` を呼ぶ。この `init` を受け取らない限り、`<iframe>` に埋め込まれていても記録・送信は一切発生しない（スタンドアロン起動・公開デモ・他の埋め込み利用者に影響しない）。
 
 **非アクティブ時 no-op の設計**: `#log()` の先頭で `#sessionStart` の有無を見て早期リターンする。
-これにより実験モードを使わない通常利用時（`sessionLogger.startSession()` を一度も呼ばない限り）は
-一切のオーバーヘッド・副作用が発生しない。実験終了後に `study-panel.js` と `index.html` の
-`<!-- STUDY MODE -->` ブロックを削除するだけで、`session-logger.js` 本体・各モジュールの
-`logStep`/`logView` 呼び出しは残置しても無害。
+これにより実験モード（STUDY）も外部埋め込み（BHV）も使わない通常利用時は一切のオーバーヘッド・
+副作用が発生しない。実験終了後に `study-panel.js` と `index.html` の `<!-- STUDY MODE -->`
+ブロックを削除するだけで STUDY 経路は無効化できる（`session-logger.js` 本体・BHV 経路・各モジュールの
+`logStep`/`logView` 呼び出しは残置しても無害）。
 
 ---
 
@@ -1344,6 +1394,44 @@ document.addEventListener('langchange', (e) => {
 呼び出し側がどちらの型で渡してきても区別せずに扱える。
 
 **対象外**: エラーメッセージ（JSInterpreter 由来で追跡困難）・サンプルプログラム名（固有名詞的）。
+
+---
+
+### 3.9 `src/core/exercise-source.js`（URLクエリによるコード読み込み）✅
+
+**責務**: URLクエリ（`exercise`/`code`/`view`）から外部（BhvVisualizer等）のコードを `fetch` してエディタへ反映する。BhvVisualizerの存在を前提としない汎用機能で `# BHV:` タグは付けない（[ADR-029](adr/ADR-029-url-query-exercise-loading.md)・[ADR-031](adr/ADR-031-url-based-exercise-loading.md)）。クエリが無ければ何もせず、既定のFibonacciサンプル表示・21種の組み込みサンプルは変更しない加算的な機能。
+
+**クエリパラメータ（現行、ADR-031で確定）**:
+
+```
+?exercise=<演習一覧を取得する完全なURL>   GET → { title?: string, codes: [{ title, code }] }
+?code=<コード1件を取得する完全なURL>      GET → { title: string, code: string }
+?view=<登録済みビューID>                  例: memory, exectrace, colorbox 等
+```
+
+`exerciseId`/`codeId`/`bhvApiBase`という「ID + ベースURL」方式（ADR-029の初期実装）は同日中にADR-031で「呼び出し元が完全なURLを直接渡す」方式へ再設計され、廃止済み（後方互換シムなし）。
+
+**`loadExerciseFromQuery(editor, opts)` の処理フロー**:
+
+1. `parseQuery()` で `exercise`/`code`/`view` を読む
+2. `exercise` が指定されていれば `fetch` し、`title` があれば `editor.setPlaceholderLabel(title)`（[ADR-032](adr/ADR-032-exercise-title-placeholder.md)）、`codes` 一覧で `editor.setRemoteCodes(codes)`（組み込み21サンプルの`<optgroup>`を全削除してから演習のコードだけを選択肢にする、[ADR-033](adr/ADR-033-hide-builtin-samples-when-remote.md)）し、**先頭（`codes[0]`）を自動でエディタに読み込む**
+3. `code` が指定されていれば独立に `fetch` し、`exercise` を伴わない場合のみ `editor.setPlaceholderLabel(code.title)` + `editor.setRemoteCodes([code])` + `editor.disableSampleSelect()`（選択肢が1件しかなく選ぶ意味がないため選択不可化、[ADR-034](adr/ADR-034-code-only-placeholder-and-disable.md)）。その後 `editor.setCode(code.code, code.title)` でエディタへ反映（`exercise`+`code`の場合は`code`側の読み込みが最後に評価されるため`code`が優先される）
+4. `view` が指定されていれば、コード読み込みとは独立に `switcher.setInitialView(viewId)` を呼ぶ（[ADR-036](adr/ADR-036-url-query-initial-view.md)）。次節参照
+
+**`exercise`/`code`ともに指定なしの場合**: 何もしない。既定のFibonacciサンプルが表示され、21種の組み込みサンプルが選択できる（回帰なし）。
+
+**404・ネットワークエラー**: `editor.showError('コードが見つからないか非公開です' 等)` を表示する。
+
+**`code-editor.js` 側の対応公開API**:
+
+| メソッド | 役割 |
+|---------|------|
+| `setCode(code, label, selectValue?)` | エディタ内容を反映（既存の `change` リスナーと共用する `#applyCode()` に一本化） |
+| `setRemoteCodes(items)` | 組み込みサンプルの `<optgroup>` を全削除し、`items` だけを選択肢にする（ADR-033、旧 `addRemoteGroup()` を置き換え） |
+| `setPlaceholderLabel(title)` | サンプル選択のプレースホルダ（`value=""`のoption）を`title`に置き換え、`data-i18n`属性を外す（言語切替で上書きされないようにするため） |
+| `disableSampleSelect()` | `#sampleSelectLocked`フラグを立ててサンプル選択を`disabled`にする。`setRunningMode()`のEdit/Run切替による`disabled`上書きと共存できるよう `disabled = running \|\| #sampleSelectLocked` で判定する |
+
+**編集可能ヒント**: ソースペインヘッダーに常時表示の `editor-hint`（i18n対応）を追加し、コードが自由に編集・実行できることを示す（ADR-029）。
 
 ---
 
@@ -1407,7 +1495,12 @@ onReady(state, builder)
 // アクティブビューを destroy → 再 init する
 // → ビューは常に最新の builder を持つことが保証される
 // → キーボードショートカットを登録（#registerKeyboard）
-// → 初回は localStorage から前回タブを復元、なければ先頭タブを選択
+// → 初回のアクティブビュー決定は「setInitialView 指定 → localStorage の前回タブ → 先頭タブ」の優先順位
+
+setInitialView(id)
+// ADR-036: URLクエリ(view)からの指定を localStorage より優先させる（#presetId に保持）。
+// そのページの最初の実行（Run）1回だけ有効で、使用後は #presetId を null 化して消費する。
+// localStorage の保存値自体は書き換えない（以後の通常利用の「前回タブ」復元には影響しない）
 
 update(state)
 // アクティブビューの update(state) を呼ぶ
@@ -1492,10 +1585,12 @@ obs.observe(document.documentElement, { attributes: true, attributeFilter: ['dat
 
 **主要 API**:
 - `getCode()` → `view.state.doc.toString()`
-- `setRunningMode(running)` → `container.hidden = running`（実行中は CM エディタを非表示）
+- `setRunningMode(running)` → `container.hidden = running`（実行中は CM エディタを非表示）。`disabled = running || #sampleSelectLocked` でサンプル選択の無効化状態を判定（ADR-034、§3.9参照）
 - `#programNameEl.textContent` → サンプル選択時にプログラム名を更新（直接入力時はクリア）
+- `EditorView.lineWrapping` を常時有効化（[ADR-035](adr/ADR-035-editor-line-wrapping.md)）。トグルは設けず常時オン。長い行（埋め込み時の問いコメント等）が横スクロールなしで折り返される
+- `setCode()`/`setRemoteCodes()`/`setPlaceholderLabel()`/`disableSampleSelect()` — URLクエリによるコード読み込み（§3.9）から呼ばれる公開API。詳細は §3.9 参照
 
-**サンプルコード（17 種類）**:
+**サンプルコード（21 種類）**:
 
 ```js
 // グループ構成
@@ -1506,12 +1601,15 @@ obs.observe(document.documentElement, { attributes: true, attributeFilter: ['dat
 { label: '─ 数学・アルゴリズム ─',     keys: ['euclidLoop', 'euclidRecursive', 'factorial', 'fibonacci', 'fibonacciDP'] },
 { label: '─ データ構造 ─',             keys: ['binaryTree', 'linkedList'] },
 { label: '─ スコープ・オブジェクト ─', keys: ['closure', 'classExample'] },
+{ label: '─ Study Tasks ─',           keys: ['studyWarmup', 'studyTask1', 'studyTask2', 'studyTask3'] },  // CELDA 2026評価実験用
 ```
 
-**エラー表示 API** (`showError(msg, errorType)`):
+**エラー表示 API** (`showError(msg, errorType, loc)`):
+
+`loc`（`{line, column}`）を第3引数に取るよう拡張済み（`err.loc` → `err.line/column` → メッセージ正規表現 `[Parser|Lexer|Runtime] N:M:` の順で抽出）。`loc` があれば `#moveCursorToError(loc)` でカーソルをエラー行へ移動し、`box-shadow: inset` によるブリンクアニメーションでハイライトする（CodeMirror テーマが `background: transparent !important` を上書きするため `background` ではなく `box-shadow` を使用）。エラーバッジクリックで再ジャンプ・再ブリンクする。詳細な実装（ダブル RAF パターン・フォーカス維持等）は `CLAUDE.md`「エラーハンドリング」節を参照。
 
 ```js
-showError(msg, errorType = null) {
+showError(msg, errorType = null, loc = null) {
   if (msg) {
     const typeLabel = errorType === 'parse'   ? '構文エラー'
                     : errorType === 'runtime' ? '実行エラー'
@@ -1521,12 +1619,15 @@ showError(msg, errorType = null) {
       : _esc(msg);
     this.#errorEl.dataset.errorType = errorType ?? '';
     this.#errorEl.hidden = false;
+    if (loc) this.#moveCursorToError(loc);   // カーソルジャンプ + ブリンク
   } else {
     this.#errorEl.innerHTML = '';
     this.#errorEl.hidden = true;
   }
 }
 ```
+
+`.error-msg[hidden] { display: none; }`（[ADR-030](adr/ADR-030-error-msg-hidden-attribute-cascade-fix.md)）: 作者定義の `.error-msg { display: flex; }` がブラウザ既定の `[hidden] { display: none }` を打ち消していたバグの修正。属性セレクタで詳細度を上げ、`hidden` 属性と実際の表示が一致するようにした。
 
 - `_esc(str)` — HTML エスケープヘルパー（`&`, `<`, `>`, `"` を実体参照に変換）
 - `data-error-type` 属性で CSS スタイルを切り替え（`"parse"` 時は赤、`"runtime"` 時は橙背景）
@@ -1581,22 +1682,25 @@ JSVisualizer/
 │   ├── app.js                         ← エントリポイント・全体協調
 │   ├── core/
 │   │   ├── debugger-adapter.js        ← JSDebugger ラッパー・差分検出
-│   │   ├── step-controller.js         ← 粒度別ステップ操作（10メソッド）
-│   │   └── trace-builder.js           ← humanStepList・buildHeatmap・buildRecursionTree・buildLifetime・buildControlFlow
+│   │   ├── step-controller.js         ← 粒度別ステップ操作
+│   │   ├── trace-builder.js           ← humanStepList・buildHeatmap・buildRecursionTree・buildCallTree・buildLifetime・buildCFG
+│   │   ├── session-logger.js          ← 操作ログ（STUDY: 手動エクスポート＋BHV: リアルタイム送信、§3.7）
+│   │   └── exercise-source.js         ← URLクエリ(exercise/code/view)によるコード読み込み（§3.9、ADR-029/031/036）
 │   ├── utils/
-│   │   └── format.js                  ← formatValue / formatValueDiff / flattenEnv / BUILTIN_NAMES / esc / formatFrameLabel / mergeScopesForDisplay
+│   │   ├── format.js                  ← formatValue / formatValueDiff / flattenEnv / BUILTIN_NAMES / esc / formatFrameLabel / mergeScopesForDisplay
+│   │   └── array-grid.js              ← 配列＋ポインタのグリッド描画（Arrays・ExecTrace共通、ADR-037）
 │   ├── views/
 │   │   ├── base-view.js               ← BaseView 基底クラス
 │   │   ├── code-view/
 │   │   │   └── index.js              ✅ 3層ハイライト・setTrace()
 │   │   ├── state-view/
-│   │   │   └── index.js              ✅ CallStackView・Global疑似フレーム＋関数フレーム
+│   │   │   └── index.js              ✅ CallStackView・Global疑似フレーム＋関数フレーム（ADR-026）
 │   │   ├── scope-view/
 │   │   │   └── index.js              ✅ スコープチェーン枠表示
 │   │   ├── line-trace/
 │   │   │   └── index.js              ✅ Variable・行×変数マトリクス表（動的列追加）
 │   │   ├── exec-trace/
-│   │   │   └── index.js              ✅ 実行順トレース表（humanStep 順・変数列+条件列）
+│   │   │   └── index.js              ✅ 実行順トレース表（humanStep 順・配列＋ポインタ列・変数列+条件列、ADR-037）
 │   │   ├── trace-table/
 │   │   │   └── index.js              ✅ 全ステップ静的テーブル
 │   │   ├── animated-trace/
@@ -1610,9 +1714,9 @@ JSVisualizer/
 │   │   ├── heatmap/
 │   │   │   └── index.js              ✅ 実行頻度ヒートマップ
 │   │   ├── recursion-tree/
-│   │   │   └── index.js              ✅ 再帰ツリー SVG（非アクティブ・ADR-027で call-tree に統合）
+│   │   │   └── index.js              ✅ 再帰ツリー SVG（タブ非登録・非アクティブ、ADR-027で call-tree に統合）
 │   │   ├── call-tree/
-│   │   │   └── index.js              ✅ 全関数呼び出しツリー SVG（引数展開・cost表示・NODE_W=160/H=80）
+│   │   │   └── index.js              ✅ 全関数呼び出しツリー SVG（RecursionTreeと表示形式統一・cost表示、ADR-027）
 │   │   ├── lifetime/
 │   │   │   └── index.js              ✅ 変数ライフタイム SVG Gantt
 │   │   ├── control-flow/
@@ -1622,30 +1726,37 @@ JSVisualizer/
 │   │   └── object-graph/
 │   │       └── index.js              ✅ 階層型レイアウト SVG グラフ（連結成分分離・ポートスプレッド）
 │   └── components/
-│       ├── code-editor.js             ← コードエディタ
-│       ├── step-controls.js           ← ステップ操作バー（10ボタン）
-│       ├── view-switcher.js           ← ビュー切り替えタブ（14ビュー登録 + keyboard/localStorage）
+│       ├── code-editor.js             ← コードエディタ（CodeMirror 6・URLクエリ読み込み対応API・lineWrapping）
+│       ├── step-controls.js           ← ステップ操作バー
+│       ├── view-switcher.js           ← ビュー切り替えタブ（12ビュー登録 + keyboard/localStorage/setInitialView）
 │       ├── pane-resizer.js             ← ペインリサイザー（editor/viz 幅変更・localStorage 永続化）
-│       └── settings-panel.js          ← テーマ切り替え設定パネル
+│       ├── settings-panel.js          ← テーマ切り替え設定パネル
+│       └── study-panel.js             ← 評価実験用UI（STUDY: タグ、削除可）
 ├── web/
 │   ├── index.html                     ← FOUC防止スクリプト含む
 │   ├── style.css                      ← ライト/ダークテーマ CSS（全ビュー含む）
 │   ├── app.bundle.js                  ← esbuild 生成（git 管理外）
 │   └── interpreter.bundle.js          ← esbuild 生成（git 管理外）
 ├── tests/
-│   └── core/
-│       ├── step-controller.test.js
-│       ├── trace-builder.test.js
-│       └── samples.test.js            ← 17サンプル全エラーなし・trace ≥ 1 を確認（66テスト中17件）
+│   ├── core/
+│   │   ├── step-controller.test.js
+│   │   ├── trace-builder.test.js
+│   │   ├── exercise-source.test.js    ← parseQuery()・loadExerciseFromQuery() のユニットテスト
+│   │   └── samples.test.js            ← 21サンプル全エラーなし・trace ≥ 1 を確認
+│   └── utils/
+│       └── array-grid.test.js         ← computeSubscriptVars/detectPointerVars/renderArrayGrid のユニットテスト
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml                 ← GitHub Pages 自動デプロイ（CI/CD）
 ├── docs/
 │   ├── functional-spec.md
+│   ├── functional-spec.en.md
 │   ├── design.md
-│   └── development-plan.md
+│   ├── development-plan.md
+│   └── adr/                           ← Architecture Decision Records（ADR-001〜、随時追加）
 ├── CLAUDE.md
 ├── README.md
+├── README.en.md
 └── package.json
 ```
 
@@ -1897,20 +2008,22 @@ b.v-diff .v-obj, b.v-diff .v-null, b.v-diff .v-undef {
 
 ## 9. テスト方針
 
-### 9.1 ユニットテスト（Jest / 66 件）
+### 9.1 ユニットテスト（Jest / 96 件）
 
 | 対象 | テストファイル | テスト数 | テスト内容 |
 |------|-------------|---------|-----------|
-| `trace-builder.js` | `tests/core/trace-builder.test.js` | 28 件 | `buildHeatmap`（4件）, `buildHumanIndices`（5件）, `getHumanStepList`（1件）, `buildRecursionTree`（4件）, `buildCallTree`（3件）, `buildLifetime`（5件）, `buildControlFlow`（7件）, その他 |
-| `step-controller.js` | `tests/core/step-controller.test.js` | 21 件 | 粒度別ステップ（expr/stmt/human/call）の cursor 移動 |
-| 17 サンプル | `tests/core/samples.test.js` | 17 件 | 全サンプルコードがエラーなく実行でき trace ≥ 1 を確認 |
+| `trace-builder.js` | `tests/core/trace-builder.test.js` | 40 件 | `buildHeatmap`・`buildHumanIndices`・`getHumanStepList`・`buildRecursionTree`・`buildCallTree`・`buildLifetime`・`buildCFG` 等 |
+| `step-controller.js` | `tests/core/step-controller.test.js` | 10 件 | 粒度別ステップ（expr/stmt/human/call）の cursor 移動 |
+| 21 サンプル | `tests/core/samples.test.js` | 21 件 | 全サンプルコードがエラーなく実行でき trace ≥ 1 を確認 |
+| `exercise-source.js` | `tests/core/exercise-source.test.js` | 15 件 | `parseQuery()`（`exercise`/`code`/`view`）・`loadExerciseFromQuery()` の各分岐（ADR-029/031/032/033/034/036） |
+| `array-grid.js` | `tests/utils/array-grid.test.js` | 10 件 | `computeSubscriptVars`・`detectPointerVars`・`renderArrayGrid`（ADR-037） |
 
-**合計: 66 テスト**（`npm test` で全実行）
+**合計: 96 テスト**（`npm test` で全実行）
 
 ### 9.2 テスト実行コマンド
 
 ```bash
-npm test               # 全テスト実行（66 件）
+npm test               # 全テスト実行（96 件）
 npm run test:watch     # ウォッチモード
 ```
 
