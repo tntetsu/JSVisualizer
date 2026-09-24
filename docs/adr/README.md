@@ -46,3 +46,4 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [035](ADR-035-editor-line-wrapping.md) | エディタの折り返し表示を常時有効にする | 2026-08-12 |
 | [036](ADR-036-url-query-initial-view.md) | URLクエリ（`view`）による初期表示ビューの指定 | 2026-08-27 |
 | [037](ADR-037-exectrace-array-pointer-overlay.md) | ExecTraceへのArraysポインタ・オーバーレイ統合 | 2026-09-24 |
+| [038](ADR-038-tdz-sentinel-display-fix.md) | TDZセンチネル値が`Symbol(TDZ)`として表示される不具合の修正 | 2026-09-24 |

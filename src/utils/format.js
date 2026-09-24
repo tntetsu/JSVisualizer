@@ -31,12 +31,24 @@ function isJSClass(v) {
 }
 
 /**
+ * JSInterpreter の TDZ センチネル（let/const 宣言前のアクセス検出用、
+ * `Environment` 内の `Symbol('TDZ')`）かを判定する。
+ * 参照を直接importせず description で判定することで、interpreter.bundle.js の
+ * ビルド構成に依存しない（値そのものはスナップショット経由で同一Symbol参照が渡る）。
+ * @param {any} v
+ */
+function isTDZ(v) {
+  return typeof v === 'symbol' && v.description === 'TDZ';
+}
+
+/**
  * 値を HTML 文字列に変換する（型ごとに色付け）
  * @param {any}    v
  * @param {number} [depth=0]  再帰深さ（配列・オブジェクトの省略判定）
  * @returns {string}
  */
 export function formatValue(v, depth = 0) {
+  if (isTDZ(v))                return '<span class="lt-empty">—</span>';
   if (v === undefined)         return '<span class="v-undef">undefined</span>';
   if (v === null)              return '<span class="v-null">null</span>';
   if (typeof v === 'boolean')  return `<span class="v-bool">${v}</span>`;
@@ -80,6 +92,7 @@ function valEqual(a, b) {
  * @returns {string}  HTML 文字列
  */
 export function formatValueDiff(val, prevVal) {
+  if (isTDZ(val))         return '<span class="lt-empty">—</span>';
   if (val === undefined) return '<span class="v-undef">undefined</span>';
   if (val === null)      return '<span class="v-null">null</span>';
   if (isJSFunction(val)) return `<span class="v-fn">ƒ ${esc(val.name || '(anonymous)')}</span>`;
