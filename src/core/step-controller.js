@@ -4,13 +4,24 @@
  * 粒度:
  *   expr  … stepIn  / stepBack         全 AST ノード（最細粒度）
  *   human … humanStep / humanStepBack  人間にわかりやすい変化点
- *   stmt  … stepOver / stepOverBack    文単位
+ *   stmt  … #stmtForwardOnce / #stmtBackwardOnce  文単位（1クリック=1文。
+ *           Program/BlockStatementを「複数の文の入れ物」として扱い、
+ *           dbg.stepOver()をそのまま使わず内部でラップしている）
  *   call  … callDepth 変化点           関数呼び出し/リターン境界（最粗粒度）
  */
 
 import { sessionLogger } from './session-logger.js';
 
 /** @typedef {'expr'|'stmt'|'call'|'human'} Granularity */
+
+/**
+ * 「複数の文の入れ物」ノード種別。文単位ステップがここに滞在している間は
+ * dbg.stepOver()（enter→対応するexitへジャンプ）を使わず、中へ入る（stepIn）。
+ * これを区別しないと、Program（cursor=0時点の現在ノード）や関数本体の
+ * BlockStatement に対して stepOver() を適用してしまい、複数の文をまとめて
+ * 1回でスキップしてしまう（実行直後に「文」を押すと最後まで進んでしまう不具合）。
+ */
+const STMT_CONTAINER_TYPES = new Set(['Program', 'BlockStatement']);
 
 export class StepController {
   /** @type {import('./debugger-adapter.js').DebuggerAdapter} */
@@ -66,23 +77,23 @@ export class StepController {
 
   // ── ステップ操作（文単位） ────────────────────────────────────────────────
 
-  /** 文単位で 1 ステップ前進（stepOver） */
+  /** 文単位で 1 ステップ前進（次の文の完了地点まで、1クリック=1文） */
   stepStmtForward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.isDone()) return;
     const before = dbg.cursor;
-    dbg.stepOver();
+    this.#stmtForwardOnce(dbg);
     this.#adapter.moveTo(dbg.cursor);
     const { loc, callDepth } = this.#locInfo(dbg);
     sessionLogger.logStep('stmtFwd', before, dbg.cursor, loc, callDepth);
   }
 
-  /** 文単位で 1 ステップ後退（stepOver の逆） */
+  /** 文単位で 1 ステップ後退（前の文の完了地点まで、1クリック=1文） */
   stepStmtBackward() {
     const dbg = this.#adapter.getDebugger();
     if (!dbg || dbg.cursor === 0) return;
     const before = dbg.cursor;
-    this.#stepOverBack(dbg);
+    this.#stmtBackwardOnce(dbg);
     this.#adapter.moveTo(dbg.cursor);
     const { loc, callDepth } = this.#locInfo(dbg);
     sessionLogger.logStep('stmtBack', before, dbg.cursor, loc, callDepth);
@@ -245,18 +256,40 @@ export class StepController {
   }
 
   /**
-   * stmt 粒度の後退:
-   * 現在が exit → 対応する enter へ戻る。
-   * 現在が enter → stepBack で 1 つ前へ。
+   * stmt 粒度の前進を1回分進める。
+   * - 実際の文の enter に到達するまで、入れ物ノード（STMT_CONTAINER_TYPES）の
+   *   enter・前の文の exit を stepIn() で1歩ずつ透過的に読み飛ばす
+   * - 実際の文の enter に着いたら stepOver() で対応する exit へ一気に飛ぶ
+   *   （これが「1文実行」の着地点）
    */
-  #stepOverBack(dbg) {
-    if (dbg.cursor === 0) return;
-    dbg.cursor--;
-    const ev = dbg.getCurrentEvent();
-    if (ev && ev.phase === 'exit') {
-      // matchIdx は対応する enter を指している
-      dbg.cursor = ev.matchIdx;
+  #stmtForwardOnce(dbg) {
+    if (dbg.isDone()) return;
+    while (!dbg.isDone()) {
+      const ev = dbg.getCurrentEvent();
+      if (ev.phase === 'enter' && !STMT_CONTAINER_TYPES.has(ev.nodeType)) break;
+      dbg.stepIn();
     }
+    if (!dbg.isDone()) dbg.stepOver();
+  }
+
+  /**
+   * stmt 粒度の後退を1回分進める。
+   * #stmtForwardOnce() を cursor=0 から再生し、目的の cursor の直前の着地点を採用する
+   * （前進アルゴリズムと厳密に対称になることをテストで確認済み。ネストしたブロック・
+   * ループ・関数呼び出しなど、matchIdx を逆算する素朴な実装では正しく扱えないケースが
+   * あったため、この「前進の再生」方式を採用した）。
+   */
+  #stmtBackwardOnce(dbg) {
+    if (dbg.cursor === 0) return;
+    const target = dbg.cursor;
+    dbg.cursor = 0;
+    let last = 0;
+    while (dbg.cursor < target && !dbg.isDone()) {
+      this.#stmtForwardOnce(dbg);
+      if (dbg.cursor >= target) break;
+      last = dbg.cursor;
+    }
+    dbg.cursor = last;
   }
 
   /**

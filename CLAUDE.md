@@ -204,7 +204,7 @@ Runモード時、ヘッダー内ステップ操作バーは **1列（ワイド�
 | 粒度名 | キー | API | 説明 |
 |--------|------|-----|------|
 | 式評価 | `b`/`←`、`n`/`→` | `cursor ± 1` | 全 AST ノードの enter/exit |
-| 文評価 | `V`/`v` | `stepOver()` → matchIdx | サブ式をスキップ、文単位 |
+| 文評価 | `V`/`v` | `#stmtForwardOnce`/`#stmtBackwardOnce`（`step-controller.js`、内部で`stepOver()`を使用） | サブ式をスキップ、文単位。`Program`/`BlockStatement`（複数の文の入れ物）は中へ入るだけで1文として扱わない（[ADR-039](docs/adr/ADR-039-stmt-step-container-fix.md)） |
 | 人にやさしい単位 | `H`/`h` | `humanStepBack()`/`humanStep()` | 代入・条件判定・while/for 条件式評価（イテレーションごと）・ループ更新・関数呼び出し等の意味ある変化点 |
 | 関数呼び出し単位 | `F`/`f` | callDepth 変化まで cursor 移動 | 関数呼び出し・リターンをひとまとまりに |
 
