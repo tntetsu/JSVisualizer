@@ -8,7 +8,7 @@
 
 Variable（`line-trace/`）・ExecTrace（`exec-trace/`）タブで、`let`/`const`で宣言される前の変数の値が文字列`Symbol(TDZ)`として表示されていた。
 
-JSInterpreter の `Environment`（`../JSInterpreter/src/interpreter/environment.js`）は、`let`/`const`宣言前のアクセスを検出するため、宣言前の変数値として`TDZ_SENTINEL = Symbol('TDZ')`を事前登録する（ADR未採番、既存のvar/let/constセマンティクス実装。`CLAUDE.md`「var/let/const セマンティクス修正」参照）。`deepClone()`はプリミティブ（Symbolを含む）を素通しするため、トレースイベントの`env`スナップショットにはこの`Symbol('TDZ')`がそのまま値として記録される。
+JSInterpreter の `Environment`（`../JSInterpreter/src/interpreter/environment.js`）は、`let`/`const`宣言前のアクセスを検出するため、宣言前の変数値として`TDZ_SENTINEL = Symbol('TDZ')`を事前登録する（[ADR-023](ADR-023-var-let-const-semantics.md)で導入。JSInterpreter側の記録は[JSInterpreter ADR-008](../../../JSInterpreter/docs/adr/ADR-008-es2022-semantics-and-weakmap-fix.md)）。`deepClone()`はプリミティブ（Symbolを含む）を素通しするため、トレースイベントの`env`スナップショットにはこの`Symbol('TDZ')`がそのまま値として記録される。
 
 `src/utils/format.js`の`formatValue()`/`formatValueDiff()`はこの値を特別扱いしておらず、最終的なフォールバック（`String(v)`をそのまま表示）に落ち、内部実装の詳細である`Symbol(TDZ)`という文字列がユーザーに見えてしまっていた。
 
@@ -52,3 +52,7 @@ JSInterpreter の `Environment`（`../JSInterpreter/src/interpreter/environment.
 **結果**: `let x; console.log(x); x = 5;`のようなコードで、Variable・ExecTraceタブは「宣言前（空欄）→ 宣言後・未代入（`undefined`）→ 代入後（`5`）」の3状態を正しく区別して表示するようになった。ExprTraceでも同様に確認済み
 
 **安全性の担保**: `npm test`（101件）に変更なくリグレッションなし。Playwright（headless Chromium）で上記コード例をVariable・ExecTrace・ExprTraceそれぞれで実行し、3状態が正しく表示されること、`Symbol(TDZ)`が一切表示されないことを確認
+
+## 訂正（2026-09-25）
+
+初版ではコンテキスト節で`TDZ_SENTINEL`を「ADR未採番」と記載していたが、誤りだった。`TDZ_SENTINEL`の導入はADR-023（2026-06-16）に記録されており、JSInterpreter側にもADR-008がある。本ADRの作成時にソースコード（`environment.js`）のみを確認し、`docs/adr/`を検索していなかったことが原因。コンテキスト節の該当箇所を修正し、`CLAUDE.md`の「var/let/const セマンティクス修正」の項にもADR-023へのリンクを追加した。
