@@ -105,8 +105,11 @@ async function run() {
       await page.goto(`http://localhost:${BHV_PORT}/parent.html`, { waitUntil: 'networkidle' });
       const frame = page.frameLocator('#jsv');
 
+      check('[C] init受理前は設定パネルに評価実験用UIがある', await frame.locator('#study-mode-section').count() === 1);
       await page.evaluate((sid) => window.sendInit(sid), 'test-session-1');
       await page.waitForTimeout(100);
+      check('[C] init受理後は設定パネルから評価実験用UIが取り除かれる', await frame.locator('#study-mode-section').count() === 0);
+      check('[C] init受理後もテーマ設定は残る', await frame.locator('#settings-panel input[name="theme"]').count() === 2);
 
       let received = await page.evaluate(() => window.__received);
       const lifecycleStart = received.find((m) => m.type === 'lifecycle' && m.phase === 'start');

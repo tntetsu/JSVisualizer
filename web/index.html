@@ -123,6 +123,8 @@
       </div>
 
       <!-- ── STUDY MODE: remove this block to disable experimental features ── -->
+      <!-- BHV: BhvVisualizerからinitを受け取ったら、このラッパーごと取り除く（ADR-040） -->
+      <div id="study-mode-section">
       <hr class="settings-divider">
 
       <div class="settings-section">
@@ -142,6 +144,7 @@
           <button id="btn-log-csv"  class="log-btn log-btn--export" disabled>CSV</button>
         </div>
       </div>
+      </div><!-- /#study-mode-section -->
       <!-- ── /STUDY MODE ── -->
     </div>
   </div>

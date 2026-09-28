@@ -363,6 +363,10 @@ window.addEventListener('message', (event) => {
   sessionLogger.enableRemoteLogging(data.sessionId, event.origin);
   sessionLogger.startSession();
   sessionLogger.logLifecycle('start');
+
+  // BHV: 設定パネルの評価実験用UI（Session Log・マーカー・JSON/CSV）を取り除く。学習者には不要で、
+  // 押すとBhvVisualizerの記録にmarkerイベントが紛れ込むため（ADR-040）
+  document.getElementById('study-mode-section')?.remove();
 });
 
 window.addEventListener('pagehide', () => {
