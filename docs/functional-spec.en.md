@@ -1,9 +1,9 @@
 # Functional Specification
 
 **Project**: JSVisualizer  
-**Version**: 1.14  
+**Version**: 1.15  
 **Created**: 2026-05-25  
-**Last updated**: 2026-09-24  
+**Last updated**: 2026-09-28  
 **Author**: Tetsuo Tanaka
 
 > [日本語版はこちら](functional-spec.md)
@@ -37,6 +37,7 @@
 | 1.11 | 2026-08-12 | **F-04: added optional `title` to the `exercise` response, reflected in the sample selector placeholder**: `code-editor.js` gained `setPlaceholderLabel()` — when an exercise title is available, it replaces the sample selector's default placeholder ("─ Sample ─") with the exercise title (removing the target option's `data-i18n` attribute so a later language switch doesn't overwrite it) ([ADR-032](adr/ADR-032-exercise-title-placeholder.md)). Also stopped changing the sample selector's value when auto-loading the first code for `exercise`-only requests, so the placeholder keeps showing the exercise title |
 | 1.12 | 2026-08-12 | **F-04: hide the built-in samples from the sample selector while `exercise`/`code` is present**: real-world testing showed the "─ Exercise ─" group was easy to miss, buried below the 8 built-in groups; rather than just reordering it, the built-in samples are now removed instead. `code-editor.js`'s `addRemoteGroup()` was replaced with `setRemoteCodes(items)` (removes all built-in optgroups, then adds only the given codes). `code`-only requests use the same function to leave a single-code selector. ([ADR-033](adr/ADR-033-hide-builtin-samples-when-remote.md)) Standalone loads without either query param are unaffected |
 | 1.13 | 2026-08-27 | **F-11: added URL query (`view`) for specifying the initial view**: for BhvVisualizer's session-level pre/post questions ("predict before touching the tool → operate to check → answer again"), leaving `ViewSwitcher`'s existing behavior (restoring the last-active tab from `localStorage`) as-is meant each student could resume from an unrelated past session's tab, so the "operate to check" step wasn't consistent across students. Added `view` to `exercise-source.js`'s `parseQuery()` and a new `ViewSwitcher.setInitialView(id)`, which takes priority over the `localStorage` value for **only the page's first run** (the stored value itself is left untouched). A `# BHV:`-tag-free general feature ([ADR-036](adr/ADR-036-url-query-initial-view.md)) |
+| 1.15 | 2026-09-28 | **3.2: added the two-axis classification of views** (visualization target × temporal representation, following Table 1 of paper IS-26-049; the array timeline is V-02b ExecTrace, implemented after the paper). Fixed the Lifetime tab's on-screen description (`src/app.js`) to describe the flame chart |
 | 1.14 | 2026-09-24 | **V-02b: integrated an Arrays pointer overlay into ExecTrace**: a deep dive into evaluation-study logs (`docs/study/paper-research-notes.md`) found that a participant who failed to spot an off-by-one bug in selection sort spent a long time in the animation-style Arrays view without ever noticing that the pointer was off by one on every iteration — a cross-iteration pattern the animation-only view can't show. Extracted Arrays' pointer-detection and array-grid rendering logic into `src/utils/array-grid.js`, shared by the time-axis ExecTrace view, which now renders the same mini diagram on each row. Only steps with a detected pointer are drawn; cell width is sized from the longest pointer variable name. The display frame's width is drag-resizable and persisted to `localStorage('jsv-exectrace-diagram-w')` ([ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)) |
 
 ---
@@ -178,6 +179,21 @@ Button colors: fine-grained (Expr/Human) = accent blue; coarse-grained (Stmt/Fun
 ---
 
 ### 3.2 Visualization Views
+
+The 12 registered views are organized along two axes: the **visualization target** (three categories — state / behavior / compound types — covering eight targets) and the **temporal representation** (animation = shows one moment and updates in place at each step; timeline = assigns one screen axis to time and shows many moments at once), following Table 1 of the paper "Proposal for Program Execution Environment that Visualizes Program Behavior Using Multiple Views" (IS-26-049).
+
+| Category | Target | Animation | Timeline |
+|----------|--------|-----------|----------|
+| State | Variable values | Variable (V-02) | Exec Trace (V-02b) |
+| | Call stack | Call Stack (V-01) | Lifetime (V-11) |
+| | Memory layout | Memory (V-13) | (not provided) |
+| Behavior | Expression evaluation | Expr (V-02d) | Subst (V-02c) |
+| | Statement execution | Control Flow (V-12) | Heatmap (V-09) |
+| | Function calls | Call Tree (V-10b) | (not provided) |
+| Compound types | Arrays | Arrays (V-07) | Exec Trace (V-02b) |
+| | Objects | Objects (V-14) | (not provided) |
+
+Exec Trace (V-02b) is the timeline view for both variable values and arrays (the array timeline was unimplemented when the paper was written and was later added as V-02b's array column; [ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)). Memory layout and objects are already graphs at each moment and read poorly when laid out over time, and adjacent function-call snapshots differ only in the highlighted node, so no timeline is provided for them. The sections below also include reference implementations not registered as tabs.
 
 #### V-01: Call Stack View (CallStackView) ✅
 

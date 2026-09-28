@@ -44,20 +44,47 @@ The code panel simultaneously displays three highlight layers:
 
 ### Visualization Views (12 tabs)
 
-| Category | Tab | Description |
-|----------|-----|-------------|
-| **Basic** | Call Stack | Global + per-call-frame variable panel. Innermost frame first, labels like `factorial(6)` |
-| **Trace** | Variable | Row-per-line variable matrix. Source snippet in line column. Changed values highlighted in orange-bold. Column show/hide & drag-to-reorder |
-| | Exec Trace | All humanStep events in execution order. Array + pointer mini diagram (only on steps where a pointer is detected; drag-resizable frame width) + variable columns + condition columns. while/for condition values shown per iteration |
-| | Subst | Recursive calls shown as substitution-model expansion. Each `return` expression replaced step by step, with expansion (orange) and pending (blue-bold) highlights |
-| | Expr | Sub-expression evaluation: one statement's expression is progressively substituted toward its final value. Two-color highlights. Variable values updated in real time |
-| **Graph** | Arrays | Multiple arrays displayed as color-coded indexed boxes. Pointer variables shown in individual rows. Blocks separated by border + background, wrap when too wide |
-| | Heatmap | Execution count per line shown as "N/M times" + background color, updated per step. Execution timeline dots with SVG connector lines between transitions |
-| **Structure** | Call Tree | All function calls (recursive and non-recursive) as SVG tree. Subtree cost (`cost:N`) shown per node |
-| | Lifetime | Variable lifetime as SVG Gantt chart. |
-| | Control Flow | AST-based flowchart: if/else shown as side-by-side true/false branches; loops as condition + body. Unexecuted nodes grayed out — untaken branches visible at a glance |
-| | Memory | Stack (scope frames) and heap (objects/arrays) in separate columns with SVG reference arrows |
-| | Objects | Object/array reference graph as SVG (hierarchical layout, connected components auto-separated, nodes color-coded by depth) |
+The 12 views are organized along two axes: the **visualization target** (what is shown) and the **temporal representation** (how execution time is mapped onto the screen).
+
+- **Visualization target**: eight targets grouped into three categories that correspond to common sources of learner difficulty
+  - **State** — values held at a given moment (variable values, the call stack, stack/heap memory layout)
+  - **Behavior** — how execution unfolds over time (expression evaluation order, statement execution order/count, function call order/cost). Expression, statement, and function call match three of the [step granularities](#step-granularity-8-direction-button-grid), so a learner who picks a granularity can find the matching view
+  - **Compound types** — structured data (arrays, objects)
+- **Temporal representation**
+  - **Animation** — shows a single moment and updates in place at each step
+  - **Timeline** — assigns one spatial axis to time and shows many moments at once
+
+| Category | Target | Animation | Timeline |
+|----------|--------|-----------|----------|
+| **State** | Variable values | Variable | Exec Trace |
+| | Call stack | Call Stack | Lifetime |
+| | Memory layout | Memory | (not provided) |
+| **Behavior** | Expression evaluation | Expr | Subst |
+| | Statement execution | Control Flow | Heatmap |
+| | Function calls | Call Tree | (not provided) |
+| **Compound types** | Arrays | Arrays | Exec Trace |
+| | Objects | Objects | (not provided) |
+
+Every target has an animation view. Exec Trace serves as the timeline view for both variable values and arrays (it stacks an array + pointer mini diagram per step; see [ADR-037](docs/adr/ADR-037-exectrace-array-pointer-overlay.md)). Timeline views are provided only where each step's state reduces to a low-dimensional quantity (a value, a stack depth, a line hit count, a small array) whose whole history reads well along one axis. Memory layout and objects are already graphs at each moment, and a sequence of graphs is hard to read; for function calls, adjacent call-tree snapshots differ only in which node is highlighted, so a timeline adds little.
+
+View details:
+
+| Category | Tab | Temporal | Description |
+|----------|-----|----------|-------------|
+| **State** | Variable | Animation | Row-per-line variable matrix showing each line's values at its last execution. Source snippet in line column. Changed values highlighted in orange-bold. Column show/hide & drag-to-reorder |
+| | Exec Trace | Timeline | Timeline view for both variable values and arrays. All humanStep events in execution order. Array + pointer mini diagram (only on steps where a pointer is detected; drag-resizable frame width) + variable columns + condition columns. while/for condition values shown per iteration |
+| | Call Stack | Animation | Global + per-call-frame variable panel. Innermost frame first, labels like `factorial(6)` |
+| | Lifetime | Timeline | Time on the horizontal axis and call-stack depth on the vertical axis; each frame (function call) is drawn as a band from when it starts to when it ends, labeled with the call and its arguments plus the frame's variables, showing how long local variables and arguments live |
+| | Memory | Animation | Stack (scope frames) and heap (objects/arrays) in separate columns with SVG reference arrows |
+| **Behavior** | Expr | Animation | Sub-expression evaluation: one statement's expression is progressively substituted toward its final value. Sub-expressions skipped by short-circuit evaluation stay unevaluated. Two-color highlights. Variable values updated in real time |
+| | Subst | Timeline | Recursive calls shown as substitution-model expansion. Each `return` expression replaced step by step, with expansion (orange) and pending (blue-bold) highlights |
+| | Control Flow | Animation | AST-based flowchart: if/else shown as side-by-side true/false branches; loops as condition + body. Unexecuted nodes grayed out — untaken branches visible at a glance |
+| | Heatmap | Timeline | Execution count per line shown as "N/M times" + background color, updated per step. Execution timeline dots with SVG connector lines between transitions |
+| | Call Tree | Animation | All function calls (recursive and non-recursive) as SVG tree. Subtree cost (`cost:N`) shown per node |
+| **Compound types** | Arrays | Animation | Multiple arrays displayed as color-coded indexed boxes. Pointer variables shown in individual rows. Blocks separated by border + background, wrap when too wide |
+| | Objects | Animation | Object/array reference graph as SVG (hierarchical layout, connected components auto-separated, nodes color-coded by depth) |
+
+The tab order differs from the table above (Call Stack, Variable, Exec Trace, Subst, Expr, Arrays, Heatmap, Call Tree, Lifetime, Control Flow, Memory, Objects; keys `1`–`9` select the first nine in this order). This classification follows Table 1 of Tanaka & Ueda, "Proposal for Program Execution Environment that Visualizes Program Behavior Using Multiple Views" (IS-26-049); the array timeline, unimplemented when the paper was written, has since been implemented as part of Exec Trace.
 
 `console.log` output always appears in the **always-visible panel** at the bottom of the right pane, regardless of which tab is selected.
 

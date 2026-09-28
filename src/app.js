@@ -188,8 +188,8 @@ switcher.register('calltree',
 switcher.register('lifetime',
   { ja: '変数寿命', en: 'Lifetime' },
   Lifetime,
-  { ja: '変数が「いつ生まれていつ消えるか」の生存区間をガントチャートで表示します。',
-    en: "Shows each variable's lifetime as a Gantt chart bar — when it's created and when it goes out of scope." });
+  { ja: '関数の呼び出しがいつ始まりいつ終わるかを、呼び出しの深さごとの帯で表示します。引数やローカル変数の生存期間がわかります。',
+    en: 'Shows when each function call starts and ends as bands stacked by call depth, revealing how long arguments and local variables live.' });
 switcher.register('controlflow',
   { ja: '制御フロー', en: 'Control Flow' },
   ControlFlow,
