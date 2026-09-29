@@ -40,7 +40,7 @@ JSVisualizer/
 │   │   ├── heatmap/              # 実行頻度ヒートマップ（連結線常時表示）            ✅
 │   │   ├── recursion-tree/       # 再帰呼び出しツリー（SVG・引数展開表示）                ✅  ← タブ登録なし（非アクティブ、CallTreeに統合。ADR-027）
 │   │   ├── call-tree/            # 全関数呼び出しツリー（SVG・再帰に限らない・cost表示）  ✅  ← タブ「呼び出しツリー」
-│   │   ├── lifetime/             # 変数ライフタイム Gantt チャート（SVG）                ✅
+│   │   ├── lifetime/             # 変数寿命（コールスタックのフレームグラフ、SVG）        ✅  ← タブ「変数寿命」
 │   │   ├── control-flow/         # 制御フロービュー（AST DOM フローチャート・未実行ノードグレー）✅
 │   │   ├── memory-view/          # メモリモデルビュー（スタック/ヒープ + SVG矢印）  ✅
 │   │   ├── object-graph/         # オブジェクト参照グラフ（SVG 階層型レイアウト・連結成分分離）✅
@@ -163,7 +163,7 @@ class TraceBuilder {
   // Phase 4
   buildRecursionTree()                // → TreeNode[]    再帰呼び出しのみのツリー（cost プロパティ付き・非アクティブ）
   buildCallTree()                     // → TreeNode[]    全関数呼び出しツリー（cost プロパティ付き）
-  buildLifetime()                     // → LifetimeEntry[]  変数ライフタイム区間（startHi/endHi は humanStep インデックス）
+  buildLifetime()                     // → LifetimeEntry[]  変数ライフタイム区間（旧Gantt版用。現在の Lifetime ビューは未使用、テストのみ）
   buildCFG()                          // → ScopeNode[]   AST ベース制御フロー（スコープ単位・未実行ノード含む）
   buildControlFlow()                  // → { nodes, edges, humanSteps }  旧実装（未使用・後方互換のため残置）
 
@@ -175,7 +175,7 @@ class TraceBuilder {
 
 `buildRecursionTree()` は `#buildFullCallTree()` の結果から `child.funcName === parent.funcName` の子のみを残し、`cost = 1 + Σ子のcost` を付与。再帰なしなら空配列。RecursionTree ビューは非アクティブ（ADR-027）。  
 `buildCallTree()` は `#buildFullCallTree()` の全ノードに `cost` を付与して返す（`#computeCost()` を buildRecursionTree() と共有）。CallTree ビューが使用。  
-`buildLifetime()` は humanStep ごとの env を走査し `callDepth:varName` をキーにして区間を記録。  
+`buildLifetime()` は humanStep ごとの env を走査し `callDepth:varName` をキーにして区間を記録（2026-06-16 に Lifetime ビューをフレームグラフへ改定して以降はビューから使われていない。現在のビューは `lifetime/index.js` 内の `buildFlameSegments()` で呼び出しの深さごとの区間を作る。design.md §3.6）。  
 `buildCFG()` は AST を走査してスコープ（グローバル／関数）ごとの `CfgItem[]` を構築。`CfgItem` は `type: stmt|return|jump|if|while|for|do-while|seq` を持ち、`execCount` で実行回数を記録（未実行は 0）。`buildControlFlow()` は旧実装（エッジ/ノードベース）で現在未使用。  
 すべてキャッシュ付きで、2回目以降の呼び出しは O(1)。
 
@@ -243,7 +243,7 @@ Runモード時、ヘッダー内ステップ操作バーは **1列（ワイド�
 |--------|--------------|--------------|
 | RecursionTree | 再帰的サブツリー幅計算（葉=NODE_W、内部=子の和＋gap） | ノードごとの className を cursor で更新 |
 | CallTree | 同上（RecursionTree と同じレイアウトアルゴリズム） | ノードごとの className を cursor で更新 |
-| Lifetime | 線形（X=humanStep, Y=変数行） | カーソル線の x1/x2 を移動 |
+| Lifetime | フレームグラフ（X=humanStep, Y=呼び出しの深さ。depth 0 = global が最下段） | カーソル線の x1/x2 を移動し、現在の humanStep を含むバーに `lf-bar--active` |
 | ControlFlow | AST ベース DOM フローチャート（if → true/false 列、while/for → 条件+body、未実行ノードは `cf-node--dead` でグレー） | activeNode の className を更新 |
 | MemoryView | 2カラム（stack \| heap）+ SVG オーバーレイ矢印 | DOM 再描画 → rAF で矢印を再計算 |
 | ObjectGraph | 階層型レイアウト（Kahn トポソート + 最長パス法で列割当、左→右）連結成分を BFS で分離し縦スタック | update() ごとに SVG 全体を再描画 |
