@@ -79,6 +79,12 @@ async function run() {
       await page.waitForTimeout(100);
 
       check('[A] スタンドアロン起動でJSエラーが発生しない', errors.length === 0);
+      check('[A] スタンドアロン起動では使い方ボタンが日本語マニュアルを指す',
+        await page.locator('#btn-help').getAttribute('href') === 'manual.html');
+      await page.click('#btn-lang');
+      check('[A] 英語表示に切り替えると使い方ボタンが英語マニュアルを指す',
+        await page.locator('#btn-help').getAttribute('href') === 'manual.en.html');
+      await page.click('#btn-lang');
       if (errors.length) console.log('  errors:', errors);
       await page.close();
     }
@@ -110,6 +116,7 @@ async function run() {
       await page.waitForTimeout(100);
       check('[C] init受理後は設定パネルから評価実験用UIが取り除かれる', await frame.locator('#study-mode-section').count() === 0);
       check('[C] init受理後もテーマ設定は残る', await frame.locator('#settings-panel input[name="theme"]').count() === 2);
+      check('[C] init受理後は使い方ボタンが取り除かれる', await frame.locator('#btn-help').count() === 0);
 
       let received = await page.evaluate(() => window.__received);
       const lifecycleStart = received.find((m) => m.type === 'lifecycle' && m.phase === 'start');

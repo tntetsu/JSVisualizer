@@ -57,7 +57,12 @@ JSVisualizer/
 │   └── app.js                    # エントリポイント・全体協調（Console 常時パネル更新を含む）
 ├── web/
 │   ├── index.html                # FOUC防止スクリプト・設定パネル HTML を含む
-│   └── style.css                 # ライト/ダークテーマ（CSS カスタムプロパティ）
+│   ├── style.css                 # ライト/ダークテーマ（CSS カスタムプロパティ）
+│   ├── manual.html               # 利用者向けマニュアル（日本語）。ヘッダーの「?」から開く（ADR-041）
+│   ├── manual.en.html            # 利用者向けマニュアル（英語）
+│   └── manual/{ja,en}/           # マニュアルのスクリーンショット（scripts/capture-manual-screenshots.mjs で生成）
+├── scripts/
+│   └── capture-manual-screenshots.mjs  # マニュアルのスクリーンショット撮り直し（npm run build の後に実行）
 ├── tests/
 │   ├── core/
 │   │   ├── trace-builder.test.js # TraceBuilder 全7メソッドのユニットテスト
@@ -100,7 +105,13 @@ npm test
 
 # テストをウォッチモードで実行
 npm run test:watch
+
+# 利用者向けマニュアル（web/manual.html・manual.en.html）のスクリーンショット撮り直し
+# 画面を変更したら npm run build の後に実行し、web/manual/{ja,en} の画像を更新してコミットする
+node scripts/capture-manual-screenshots.mjs
 ```
+
+> **マニュアルの更新**: 画面・操作を変更したら、`web/manual.html`・`web/manual.en.html` の説明とスクリーンショットも更新すること。BhvVisualizer の学生向けマニュアル（`../BhvVisualizer/web/manual.html`）にも同じ操作説明があるため、あわせて直す（ADR-041）。
 
 > **注意**: プロジェクトは ES modules (`"type": "module"`) を使用します。  
 > テストは必ず `npm test` 経由で実行してください。
@@ -400,7 +411,7 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 - **操作ログ（SessionLogger）**: `src/core/session-logger.js` にモジュールレベルシングルトン `sessionLogger` を実装。`startSession()` 呼び出し後のみエントリを蓄積し、非アクティブ時は全コール no-op。`step-controller.js`・`view-switcher.js`・`app.js` から `logStep` / `logView` / `logRun` / `logReset` を呼び出す。JSON・CSV エクスポート対応（`Blob` + `<a>` タグ）。詳細は ADR-024
 - **評価実験 UI の隔離（study-panel.js）**: 評価実験固有の UI（Session Log 配線・ワンクリックマーカーボタン 9 個）を `src/components/study-panel.js` に集約。実験後の削除手順: ①このファイルを削除、② `app.js` の `// STUDY:` import 行を削除、③ `index.html` の `<!-- STUDY MODE -->` ブロックを削除。`session-logger.js` 本体と各モジュールの `logStep`/`logView` 呼び出しは no-op のため残置可
 - **Study Tasks サンプル**: `code-editor.js` に `─ Study Tasks ─` グループ（studyWarmup / studyTask1 / studyTask2 / studyTask3）を追加（CELDA 2026 評価実験用）。実験後は SAMPLES の 4 エントリと `#buildSampleOptions()` の 1 行を削除
-- **BhvVisualizer 連携（`# BHV:` タグ）**: [BhvVisualizer](../BhvVisualizer) から `<iframe>` 埋め込みされた際、操作ログをリアルタイムに送信する配線を `# BHV:` タグで隔離している（`# STUDY:` タグと同様の隔離方式・別目的）。`session-logger.js` の `enableRemoteLogging()`/`#postToParent()`、`app.js` 末尾の `message`(initハンドシェイク)・`pagehide`・`visibilitychange` リスナーが該当。`init`受理時には設定パネルの評価実験用UI（`#study-mode-section`）も取り除く（[ADR-040](docs/adr/ADR-040-hide-study-ui-when-bhv-embedded.md)）。埋め込まれていない、または `init` ハンドシェイクを受け取らない場合は完全に no-op のため、スタンドアロン動作・公開デモには影響しない。プロトコル仕様は [BhvVisualizer/docs/logging-spec.md](../BhvVisualizer/docs/logging-spec.md) を正とする。動作検証は `verify-bhv-hook.mjs`（`node verify-bhv-hook.mjs`）。設計判断の背景は [ADR-028](docs/adr/ADR-028-bhv-visualizer-integration-hooks.md)
+- **BhvVisualizer 連携（`# BHV:` タグ）**: [BhvVisualizer](../BhvVisualizer) から `<iframe>` 埋め込みされた際、操作ログをリアルタイムに送信する配線を `# BHV:` タグで隔離している（`# STUDY:` タグと同様の隔離方式・別目的）。`session-logger.js` の `enableRemoteLogging()`/`#postToParent()`、`app.js` 末尾の `message`(initハンドシェイク)・`pagehide`・`visibilitychange` リスナーが該当。`init`受理時には設定パネルの評価実験用UI（`#study-mode-section`）とヘッダーの使い方ボタン（`#btn-help`）も取り除く（[ADR-040](docs/adr/ADR-040-hide-study-ui-when-bhv-embedded.md)・[ADR-041](docs/adr/ADR-041-user-manual-and-help-button.md)）。埋め込まれていない、または `init` ハンドシェイクを受け取らない場合は完全に no-op のため、スタンドアロン動作・公開デモには影響しない。プロトコル仕様は [BhvVisualizer/docs/logging-spec.md](../BhvVisualizer/docs/logging-spec.md) を正とする。動作検証は `verify-bhv-hook.mjs`（`node verify-bhv-hook.mjs`）。設計判断の背景は [ADR-028](docs/adr/ADR-028-bhv-visualizer-integration-hooks.md)
 - **URLクエリによるコード読み込み（`exercise`/`code`、完全なURLを渡す方式）**: BhvVisualizerの公開読み取り専用API（認証不要）に限らず、呼び出し元がfetch可能な任意のURLからコードを取得しエディタへ反映する、`# BHV:` タグなしの通常機能。`src/core/exercise-source.js`の`loadExerciseFromQuery()`が`app.js`から呼ばれる。クエリが無い場合は何もせず、既定のFibonacciサンプル表示・21種の組み込みサンプルは変更しない（加算的な機能）。動作検証は `verify-exercise-query.mjs`（`node verify-exercise-query.mjs`）。設計判断の背景は [ADR-029](docs/adr/ADR-029-url-query-exercise-loading.md)（初期実装、当時は`exerciseId`/`codeId`/`bhvApiBase`方式）・[ADR-031](docs/adr/ADR-031-url-based-exercise-loading.md)（現行の`exercise`/`code`完全URL方式への再設計）
 - **URLクエリによる初期表示ビューの指定（`view`）**: コード読み込みとは独立に、`ViewSwitcher.setInitialView(id)`でそのページの最初の実行1回だけ初期ビューを指定できる、`# BHV:` タグなしの通常機能。`localStorage`の「前回タブ」復元より優先するが、保存値自体は書き換えない。BhvVisualizerのセッション内pre/post設問で「操作して確認」の内容を学生間で揃える用途を想定。設計判断の背景は [ADR-036](docs/adr/ADR-036-url-query-initial-view.md)
 - **ADR運用ルール（2026-08-12改定、ADR-030）**: JSVisualizer単体の改良のための変更を対象とする。BhvVisualizerからの要求による変更（`# BHV:` タグの配線・単体機能改善として本体に取り込むものを含む）に限らず、重要な設計判断を伴う変更を加えたときは、**都度 `docs/adr/` に ADR を追加**し、`docs/adr/README.md` の一覧表も更新する。変更の背景（なぜ必要か）と代替案を残すことで、BhvVisualizer側の事情を知らない将来のJSVisualizer単体の contributor にも意図が伝わるようにする

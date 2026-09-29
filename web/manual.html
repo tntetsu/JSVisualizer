@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSVisualizer 使い方</title>
+  <!--
+    JSVisualizer単体の利用者向けマニュアル（日本語版）。英語版は manual.en.html。
+    画面のスクリーンショットは web/manual/ja（英語版は web/manual/en）にあり、画面を変更したら
+    `npm run build` の後に scripts/capture-manual-screenshots.mjs で撮り直す。
+    BhvVisualizer（別リポジトリ）の学生向けマニュアルと操作説明の内容は共通だが、別々に管理している
+    （画面を変えたら両方を直すこと）。
+  -->
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #59636e;
+      --accent: #0969da;
+      --notice-bg: #eef5ff;
+      --notice-border: #0969da;
+      --code-bg: #f3f4f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.8;
+    }
+    header.page-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+    }
+    header.page-header .inner, main { max-width: 880px; margin: 0 auto; }
+    header.page-header .inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    header.page-header h1 { margin: 0; font-size: 1.25rem; }
+    header.page-header .lang { font-size: 0.9rem; white-space: nowrap; }
+    main { padding: 1rem 1rem 4rem; }
+    h2 {
+      margin-top: 3rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 2px solid var(--border);
+      font-size: 1.35rem;
+    }
+    h3 { margin-top: 2rem; font-size: 1.1rem; }
+    a { color: var(--accent); }
+    code, kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+    }
+    code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+    kbd {
+      display: inline-block;
+      min-width: 1.6em;
+      padding: 0 0.4em;
+      border: 1px solid var(--border);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      background: var(--surface);
+      text-align: center;
+      line-height: 1.5;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      background: var(--surface);
+      font-size: 0.95rem;
+    }
+    th, td { border: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+    td { overflow-wrap: anywhere; } /* 表内の長いURLで表が画面幅を超えないようにする */
+    th { background: var(--code-bg); white-space: nowrap; }
+    table.nowrap-first td:first-child { white-space: nowrap; }
+    figure { margin: 1.25rem 0; }
+    figure img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+    figcaption { margin-top: 0.35rem; color: var(--muted); font-size: 0.9rem; }
+    .notice {
+      margin: 1.5rem 0;
+      padding: 0.75rem 1.25rem;
+      border: 1px solid var(--notice-border);
+      border-left-width: 6px;
+      border-radius: 6px;
+      background: var(--notice-bg);
+    }
+    .tip {
+      margin: 1rem 0;
+      padding: 0.6rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+    }
+    nav.toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem 1.25rem;
+    }
+    nav.toc ol { margin: 0.25rem 0; padding-left: 1.5rem; }
+    .view-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1rem; }
+    .view-grid figure { margin: 0; }
+    .hl { padding: 0 0.3em; border-radius: 3px; }
+    .hl-line { background: #dbe9fb; border-left: 3px solid #1e66f5; }
+    .hl-expr { background: #f5d9a8; }
+    .hl-call { border-bottom: 2px dashed #b36bd6; }
+    @media (max-width: 480px) {
+      .view-grid { grid-template-columns: 1fr; }
+      th { white-space: normal; }
+      table.nowrap-first td:first-child { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <div class="inner">
+      <h1>JSVisualizer 使い方</h1>
+      <a class="lang" href="manual.en.html" hreflang="en" lang="en">English</a>
+    </div>
+  </header>
+
+  <main>
+    <p>JSVisualizer は、JavaScript のプログラムが<strong>1ステップずつどう動くか</strong>を、さまざまな図で確かめながら学ぶための Web アプリです。</p>
+    <ul>
+      <li><a href="https://tntetsu.github.io/JSVisualizer/">https://tntetsu.github.io/JSVisualizer/</a> をパソコンの最新のブラウザ（Chrome・Edge・Firefox・Safari など）で開くだけで使えます。インストールやログインは要りません。</li>
+      <li>コードはすべてブラウザの中で実行されます。書いたコードや操作の内容がサーバーに送られることはありません。</li>
+    </ul>
+
+    <nav class="toc" aria-label="目次">
+      <strong>目次</strong>
+      <ol>
+        <li><a href="#screen">画面の構成</a></li>
+        <li><a href="#code">コードを用意する</a></li>
+        <li><a href="#mode">編集モードと実行モード</a></li>
+        <li><a href="#step">ステップ実行</a></li>
+        <li><a href="#highlight">コードのハイライト</a></li>
+        <li><a href="#views">可視化ビュー</a></li>
+        <li><a href="#other">その他の機能</a></li>
+        <li><a href="#trouble">困ったときは</a></li>
+      </ol>
+    </nav>
+
+    <!-- ─────────────────────────────── -->
+    <section id="screen">
+      <h2>1. 画面の構成</h2>
+      <figure>
+        <img src="manual/ja/screen-run.png" alt="実行モードの画面。上部にステップ実行のボタンとスライダー、左にハイライトされたコード、右に可視化ビューのタブとコンソール" width="1280" height="800" loading="lazy" />
+        <figcaption>実行モードの画面</figcaption>
+      </figure>
+      <table>
+        <thead><tr><th>場所</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>上部</td><td>「編集」「実行」ボタン、サンプル選択（編集モードのとき）、ステップ実行のボタンとスライダー（実行モードのとき）。右端に使い方（<strong>?</strong>）・表示言語（<strong>EN</strong> ／ <strong>日</strong>）・設定（<strong>⚙</strong>）のボタン</td></tr>
+          <tr><td>左側（ソース）</td><td>コード。編集モードでは書き換えられ、実行モードでは今どこを実行しているかがハイライトされます</td></tr>
+          <tr><td>右側</td><td>可視化ビュー。上のタブで表示を切り替えます。タブの下に、そのビューの説明が1行表示されます</td></tr>
+          <tr><td>右側の下（コンソール）</td><td><code>console.log()</code> で出力した内容が表示されます。どのビューを見ているときも表示されています</td></tr>
+        </tbody>
+      </table>
+      <p>左右の境目をドラッグすると、コードとビューの幅を変えられます。コンソールの上端をドラッグすると、コンソールの高さを変えられます。</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="code">
+      <h2>2. コードを用意する</h2>
+      <p>開いた直後は、サンプルのコード（フィボナッチ数列）が入っています。</p>
+
+      <h3>サンプルから選ぶ</h3>
+      <p>編集モードのとき、画面上部の<strong>サンプル選択</strong>（プルダウン）から、21種類のサンプルコードを選べます。</p>
+      <figure>
+        <img src="manual/ja/screen-edit.png" alt="編集モードの画面。上部に編集・実行ボタンとサンプル選択、左にバブルソートのコード" width="1280" height="800" loading="lazy" />
+        <figcaption>編集モード（サンプル「Bubble Sort」を選んだところ）</figcaption>
+      </figure>
+      <table>
+        <thead><tr><th>分類</th><th>サンプル</th></tr></thead>
+        <tbody>
+          <tr><td>探索</td><td>線形探索、二分探索</td></tr>
+          <tr><td>ソート（基本）</td><td>バブルソート、選択ソート</td></tr>
+          <tr><td>ソート（高度）</td><td>クイックソート、マージソート</td></tr>
+          <tr><td>ソート（オブジェクト）</td><td>数値キーでソート、文字列キーでソート</td></tr>
+          <tr><td>数学・アルゴリズム</td><td>ユークリッドの互除法（ループ／再帰）、階乗、フィボナッチ数列（再帰／動的計画法）</td></tr>
+          <tr><td>データ構造</td><td>二分木、連結リスト</td></tr>
+          <tr><td>スコープ・オブジェクト</td><td>クロージャ、クラスと継承</td></tr>
+          <tr><td>Study Tasks</td><td>評価実験用の課題（バグ探し・呼び出し回数・途中状態のトレースなど）</td></tr>
+        </tbody>
+      </table>
+
+      <h3>自分でコードを書く</h3>
+      <p>編集モードでは、左側のコードを自由に書き換えられます。ほかの場所で書いたコードを貼り付けても構いません。書き終えたら「▶ 実行」を押します。</p>
+      <ul>
+        <li>ES2015 以降の主な構文（<code>let</code>・<code>const</code>、アロー関数、クラス、分割代入、テンプレート文字列、<code>for...of</code> など）が使えます。</li>
+        <li>結果の確認には <code>console.log()</code> を使ってください。出力はコンソールに表示されます。画面（DOM）の操作やネットワーク通信などのブラウザの機能は使えません。</li>
+        <li>書き換えたコードは保存されません。ページを再読み込みすると元に戻るので、残したいコードは別の場所に控えておいてください。</li>
+      </ul>
+
+      <h3>共有されたリンクから開いたとき</h3>
+      <p>授業や教材で配られた、特定のコードを開くリンクから JSVisualizer を開くと、そのコードが読み込まれた状態で始まります。このときサンプル選択には、組み込みのサンプルの代わりに、リンク先のコードだけが並びます（コードが1つだけのときは選択できません）。</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="mode">
+      <h2>3. 編集モードと実行モード</h2>
+      <table>
+        <thead><tr><th>ボタン</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td><strong>✏ 編集</strong></td><td>編集モードにします。コードを自由に書き換えられます。サンプル選択でコードを切り替えられるのもこのモードです</td></tr>
+          <tr><td><strong>▶ 実行</strong></td><td>コードを実行して実行モードにします。プログラムは最後まで一気に実行され、その過程がすべて記録されます。そのうえで、ステップ実行のボタンで<strong>好きな時点に進んだり戻ったり</strong>して、その時点の様子を見ることができます</td></tr>
+        </tbody>
+      </table>
+      <p>コードを書き換えたら、もう一度「実行」を押すと、書き換えたコードで実行し直します。</p>
+
+      <h3>エラーが出たとき</h3>
+      <p>コードに誤りがあると、コードの下にエラーメッセージが表示されます。</p>
+      <table>
+        <thead><tr><th>表示</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Syntax Error</strong>（構文エラー）</td><td>カッコの閉じ忘れやつづりの誤りなど、書き方の誤りで実行できない。メッセージの <code>21:9</code> のような数字は、誤りのある行と列です</td></tr>
+          <tr><td><strong>Runtime Error</strong>（実行エラー）</td><td>書き方は正しいが、実行している途中で問題が起きた（定義していない変数を使った、など）。エラーが起きる直前までは、ステップ実行で様子をたどれます</td></tr>
+        </tbody>
+      </table>
+      <figure>
+        <img src="manual/ja/error.png" alt="コードの21行目に誤りがあり、コードの下に Syntax Error のバッジとメッセージが表示されている" loading="lazy" style="max-width: min(380px, 100%)" />
+        <figcaption>構文エラーの表示</figcaption>
+      </figure>
+      <p>実行が <strong>10,000 ステップ</strong>を超えると、ループが終わらないなどの可能性があるため、そこで実行を止めて実行エラーにします。止まった時点までは、ステップ実行で様子をたどれます。</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="step">
+      <h2>4. ステップ実行</h2>
+      <p>実行モードでは、画面上部のボタンでプログラムの実行を<strong>1ステップずつ進めたり戻したり</strong>できます。どれくらい細かく進むかが違う4種類のボタンがあり、それぞれに「戻る」と「進む」があります。</p>
+      <figure>
+        <img src="manual/ja/step-controls.png" alt="ステップ実行のボタン列。先頭・末尾、関数、人、文、式の各ボタンとスライダー、ステップ数の表示" loading="lazy" />
+        <figcaption>ステップ実行のボタン（左から 先頭へ・末尾へ・関数・人・文・式、スライダー、ステップ数）</figcaption>
+      </figure>
+
+      <h3>4種類の細かさ</h3>
+      <table class="nowrap-first">
+        <thead><tr><th>ボタン</th><th>細かさ</th><th>1回押すと</th></tr></thead>
+        <tbody>
+          <tr><td>◀ 式 ／ ▶ 式</td><td>いちばん細かい</td><td>式を1つ評価するごとに進みます。<code>a[j] &gt; a[j + 1]</code> なら、<code>a[j]</code> の値、<code>a[j + 1]</code> の値、比較の結果、というように部分ごとに止まります。式がどういう順番で計算されるかを確かめたいときに使います</td></tr>
+          <tr><td>◁ 人 ／ ▷ 人</td><td>ふつう（<strong>まずはこれがおすすめ</strong>）</td><td>変数への代入、if の条件判定、ループの条件判定や更新、関数の呼び出しなど、<strong>人が紙でトレースするときに書き留めるような「意味のある変化」</strong>ごとに進みます</td></tr>
+          <tr><td>◀◀ 文 ／ ▶▶ 文</td><td>粗い</td><td>文（1行の命令）ごとに進みます。文の中の細かい計算は飛ばします</td></tr>
+          <tr><td>⏪ 関数 ／ ⏩ 関数</td><td>いちばん粗い</td><td>関数に入る・関数から戻るところまで一気に進みます。再帰関数の呼び出しの流れを大まかに追いたいときに使います</td></tr>
+        </tbody>
+      </table>
+      <p class="tip">迷ったら「▷ 人」で進めてみてください。もっと細かく見たいところだけ「▶ 式」、ループや関数を早送りしたいときは「▶▶ 文」や「⏩ 関数」を使うと効率よく追えます。</p>
+
+      <h3>そのほかの操作</h3>
+      <table>
+        <thead><tr><th>操作</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td>⏮</td><td>先頭（実行開始の時点）に戻ります</td></tr>
+          <tr><td>⏭</td><td>末尾（実行が終わった時点）に進みます</td></tr>
+          <tr><td>スライダー</td><td>つまみをドラッグすると、好きな時点に一気に移動できます</td></tr>
+          <tr><td>ステップ数（例: <code>180 / 874</code>）</td><td>全体のうち今何番目のステップにいるか（いちばん細かい「式」の単位で数えた数）です</td></tr>
+        </tbody>
+      </table>
+
+      <h3>キーボードでの操作</h3>
+      <p>次のキーでも操作できます（大文字は <kbd>Shift</kbd> を押しながら）。</p>
+      <table>
+        <thead><tr><th>操作</th><th>戻る</th><th>進む</th></tr></thead>
+        <tbody>
+          <tr><td>式</td><td><kbd>←</kbd> または <kbd>b</kbd></td><td><kbd>→</kbd> または <kbd>n</kbd></td></tr>
+          <tr><td>人</td><td><kbd>H</kbd></td><td><kbd>h</kbd></td></tr>
+          <tr><td>文</td><td><kbd>V</kbd></td><td><kbd>v</kbd></td></tr>
+          <tr><td>関数</td><td><kbd>F</kbd></td><td><kbd>f</kbd></td></tr>
+          <tr><td>先頭へ／末尾へ</td><td><kbd>Home</kbd></td><td><kbd>End</kbd></td></tr>
+        </tbody>
+      </table>
+      <p><kbd>1</kbd>〜<kbd>9</kbd> のキーで、左から1〜9番目の可視化ビューのタブに切り替えることもできます。</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="highlight">
+      <h2>5. コードのハイライト</h2>
+      <p>実行モードでは、左側のコードに、今どこを実行しているかが3種類の印で表示されます。</p>
+      <table>
+        <thead><tr><th>印</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td><span class="hl hl-line">青い帯</span>（行の左に青い線）</td><td>今実行している<strong>行</strong></td></tr>
+          <tr><td><span class="hl hl-expr">オレンジの背景</span></td><td>今評価している<strong>式</strong>の範囲</td></tr>
+          <tr><td><span class="hl hl-call">紫の破線の下線</span></td><td>関数の中を実行しているとき、<strong>その関数を呼び出した式</strong>（呼び出し元）</td></tr>
+        </tbody>
+      </table>
+      <div class="view-grid">
+        <figure>
+          <img src="manual/ja/code-highlight-line.png" alt="5行目が青い帯でハイライトされ、14行目の関数呼び出しに紫の破線が付いたバブルソートのコード" loading="lazy" />
+          <figcaption>5行目を実行中。関数 <code>bubbleSort</code> は14行目から呼び出された（紫の破線）</figcaption>
+        </figure>
+        <figure>
+          <img src="manual/ja/code-highlight-call.png" alt="再帰関数fibのコード。条件式がオレンジ、呼び出し元の fib(n - 1) に紫の破線" loading="lazy" />
+          <figcaption>条件式を評価中（オレンジ）。この <code>fib</code> は <code>fib(n - 1)</code> から呼び出された（紫の破線）</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="views">
+      <h2>6. 可視化ビュー</h2>
+      <p>画面右側では、プログラムの動きをさまざまな形で見ることができます。上部のタブで12種類のビューを切り替えられます。目的によって分かりやすいビューは違うので、いろいろ試して自分に合った見方を探してみてください。</p>
+      <ul>
+        <li>コードの内容によっては使えないビューがあり、そのタブはグレーで表示されます（たとえば、関数を使っていないコードでは「代入展開」「呼び出しツリー」は使えません）。</li>
+        <li>最後に見ていたタブは、次に開いたときにも選ばれた状態になります。</li>
+      </ul>
+
+      <h3>ビューの分類</h3>
+      <p>12種類のビューは、<strong>何を見るか</strong>と<strong>時間をどう見せるか</strong>の2つの観点で整理できます。</p>
+      <p><strong>何を見るか</strong>は、次の3種類に分かれます。</p>
+      <ul>
+        <li><strong>状態</strong>：ある時点でプログラムが持っている値（変数の値、呼び出し中の関数、メモリの中身）</li>
+        <li><strong>振る舞い</strong>：プログラムが時間とともにどう進むか（式が計算される順番、文が実行される順番・回数、関数が呼び出される順番）。式・文・関数は、<a href="#step">ステップ実行</a>の「式」「文」「関数」の細かさに対応しています</li>
+        <li><strong>配列・オブジェクト</strong>：いくつもの値をまとめて持つデータ</li>
+      </ul>
+      <p><strong>時間をどう見せるか</strong>は、次の2種類です。</p>
+      <ul>
+        <li><strong>その時点を見るビュー</strong>（アニメーション型）：ステップ実行で今いる1時点の様子だけを表示し、ステップを進めるたびに表示が変わります</li>
+        <li><strong>経過をまとめて見るビュー</strong>（タイムライン型）：画面の縦または横を時間の流れにして、実行の経過をまとめて表示します。今いる時点は強調表示されます</li>
+      </ul>
+      <table>
+        <thead><tr><th colspan="2">何を見るか</th><th>その時点を見る</th><th>経過をまとめて見る</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="3"><strong>状態</strong></td><td>変数の値</td><td>変数</td><td>実行トレース</td></tr>
+          <tr><td>呼び出し中の関数</td><td>コールスタック</td><td>変数寿命</td></tr>
+          <tr><td>メモリの中身</td><td>メモリ</td><td>—</td></tr>
+          <tr><td rowspan="3"><strong>振る舞い</strong></td><td>式の計算</td><td>式評価</td><td>代入展開</td></tr>
+          <tr><td>文の実行</td><td>制御フロー</td><td>ヒートマップ</td></tr>
+          <tr><td>関数の呼び出し</td><td>呼び出しツリー</td><td>—</td></tr>
+          <tr><td rowspan="2"><strong>配列・オブジェクト</strong></td><td>配列</td><td>配列</td><td>実行トレース</td></tr>
+          <tr><td>オブジェクト</td><td>オブジェクト</td><td>—</td></tr>
+        </tbody>
+      </table>
+      <p class="tip">同じものを「その時点」と「経過」の両方で見比べると理解が深まります。たとえばループの中で変数の値がどう変わるかは、「変数」でその時点の値を確かめつつ、「実行トレース」で1回目・2回目…の値を並べて見ると分かりやすくなります。</p>
+
+      <h3>状態を見るビュー</h3>
+      <table>
+        <thead><tr><th>タブ</th><th>見せ方</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><strong>変数</strong></td><td>その時点</td><td>コードの各行（縦）× 変数（横）の表です。各行を最後に実行したときの変数の値が表示され、前のステップから変わった値はオレンジの太字になります。列の表示／非表示の切り替えや、ドラッグでの並べ替えもできます</td></tr>
+          <tr><td><strong>実行トレース</strong></td><td>経過</td><td>代入や条件判定などが起きたステップを、実行した順に上から一覧で表示します。各ステップの変数の値と、条件式が true / false のどちらだったかが分かります。配列を使うコードでは、各ステップの配列と、<code>i</code> や <code>j</code> が指している位置の小さな図も並ぶので、ループの回ごとの変化を比べられます</td></tr>
+          <tr><td><strong>コールスタック</strong></td><td>その時点</td><td>今の時点のすべての変数の値を、全体（Global）と、呼び出し中の関数ごとに分けて表示します。関数の中では、呼び出しごとに別の変数があることが分かります</td></tr>
+          <tr><td><strong>変数寿命</strong></td><td>経過</td><td>横を時間、縦を関数の呼び出しの深さとして、それぞれの関数の呼び出しがいつ始まっていつ終わったかを帯で表示します。帯には関数名と引数、その呼び出しの変数の値が書かれています。関数の引数やローカル変数がいつからいつまで存在するかが分かります。縦の破線が今の時点です</td></tr>
+          <tr><td><strong>メモリ</strong></td><td>その時点</td><td>変数（スタック）と、配列・オブジェクトの実体（ヒープ）を分けて図示し、変数がどの配列・オブジェクトを指しているかを矢印で示します</td></tr>
+        </tbody>
+      </table>
+      <div class="view-grid">
+        <figure><img src="manual/ja/view-trace.png" alt="変数ビュー。行番号とコードの冒頭が縦に、変数が横に並んだ表" loading="lazy" /><figcaption>変数</figcaption></figure>
+        <figure><img src="manual/ja/view-exectrace.png" alt="実行トレースビュー。ステップごとに行番号、コード、配列の図、変数の値、条件式の結果が並ぶ表" loading="lazy" /><figcaption>実行トレース</figcaption></figure>
+        <figure><img src="manual/ja/view-callstack.png" alt="コールスタックビュー。Globalと、fibの呼び出しごとのフレームに変数nの値が表示されている" loading="lazy" /><figcaption>コールスタック</figcaption></figure>
+        <figure><img src="manual/ja/view-lifetime.png" alt="変数寿命ビュー。横が時間、縦が呼び出しの深さで、fibの各呼び出しが帯として積み重なっている" loading="lazy" /><figcaption>変数寿命</figcaption></figure>
+        <figure><img src="manual/ja/view-memory.png" alt="メモリビュー。左にスタックの変数、右にヒープの配列、変数から配列への矢印" loading="lazy" /><figcaption>メモリ</figcaption></figure>
+      </div>
+
+      <h3>振る舞いを見るビュー</h3>
+      <table>
+        <thead><tr><th>タブ</th><th>見せ方</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><strong>式評価</strong></td><td>その時点</td><td>今計算している1行の式が、部分ごとに値に置き換わりながら最終的な値になるまでの過程を表示します。オレンジは直前に置き換わった部分、青の太字は次に計算される部分です。<code>||</code> や <code>&amp;&amp;</code> で計算が省略された部分は、元の式のまま残ります</td></tr>
+          <tr><td><strong>代入展開</strong></td><td>経過</td><td>再帰関数の呼び出しを、<code>fib(5)</code> → <code>fib(4) + fib(3)</code> → … のように、関数呼び出しをその結果の式に置き換えながら展開していく過程を、上から順に表示します</td></tr>
+          <tr><td><strong>制御フロー</strong></td><td>その時点</td><td>実行した行をつないだフローチャートを表示し、今実行している行を強調します。ループで戻る流れはオレンジの破線で示され、実行されなかった分岐はグレーになります</td></tr>
+          <tr><td><strong>ヒートマップ</strong></td><td>経過</td><td>各行が何回実行されたかを、色の濃さと「今までの回数 / 全体の回数」で表示します。右側の点の並びは各行がいつ実行されたかを表し、ループで何度も実行される行がひと目で分かります</td></tr>
+          <tr><td><strong>呼び出しツリー</strong></td><td>その時点</td><td>関数の呼び出しを木の形で表示します。各ノードに引数と戻り値が書かれ、灰色の破線は未呼び出し、青の太線は実行中、緑は完了した呼び出しです。左下の <code>cost</code> は、そのノードから下にある呼び出しの数（自分自身を含む）です。再帰関数が何回呼び出されるかを確かめるのに便利です</td></tr>
+        </tbody>
+      </table>
+      <div class="view-grid">
+        <figure><img src="manual/ja/view-exprtrace.png" alt="式評価ビュー。式の部分が値に置き換わっていく様子が行ごとに表示されている" loading="lazy" /><figcaption>式評価</figcaption></figure>
+        <figure><img src="manual/ja/view-subst.png" alt="代入展開ビュー。fib(5)がfib(4)+fib(3)、…と展開されていく" loading="lazy" /><figcaption>代入展開</figcaption></figure>
+        <figure><img src="manual/ja/view-controlflow.png" alt="制御フロービュー。実行された行がノードとして縦に並び、矢印でつながっている" loading="lazy" /><figcaption>制御フロー</figcaption></figure>
+        <figure><img src="manual/ja/view-heatmap.png" alt="ヒートマップビュー。各行の実行回数と色の濃さ、実行タイミングの点が表示されている" loading="lazy" /><figcaption>ヒートマップ</figcaption></figure>
+        <figure><img src="manual/ja/view-calltree.png" alt="呼び出しツリービュー。fib(5)を根として、fib(4)とfib(3)…と枝分かれした木" loading="lazy" /><figcaption>呼び出しツリー</figcaption></figure>
+      </div>
+
+      <h3>配列・オブジェクトを見るビュー</h3>
+      <table>
+        <thead><tr><th>タブ</th><th>見せ方</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><strong>配列</strong></td><td>その時点</td><td>配列の要素をマス目で表示します。値の大きさによってマスの色が変わります。<code>i</code> や <code>j</code> のように添字として使われている変数は、どの要素を指しているかがマスの下に表示されます。表示する配列は上のボタンで選べます。配列の経過をまとめて見るには「実行トレース」を使います</td></tr>
+          <tr><td><strong>オブジェクト</strong></td><td>その時点</td><td>配列・オブジェクトどうしの参照関係をグラフで表示します。連結リストや木構造の確認に向いています</td></tr>
+        </tbody>
+      </table>
+      <div class="view-grid">
+        <figure><img src="manual/ja/view-colorbox.png" alt="配列ビュー。配列の要素がマス目で表示され、添字の変数が指す要素が示されている" loading="lazy" /><figcaption>配列</figcaption></figure>
+        <figure><img src="manual/ja/view-objgraph.png" alt="オブジェクトビュー。連結リストの3つのノードがnextの矢印でつながり、配列resultも表示されている" loading="lazy" /><figcaption>オブジェクト（サンプル「Linked List」）</figcaption></figure>
+      </div>
+      <p>タブの並び順は上の分類とは異なります（左から コールスタック・変数・実行トレース・代入展開・式評価・配列・ヒートマップ・呼び出しツリー・変数寿命・制御フロー・メモリ・オブジェクト）。この分類の考え方は、論文「プログラムの動作を複数のビューで可視化するプログラム実行環境の提案」（田中・上田、IS-26-049）の表1に基づきます。</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="other">
+      <h2>7. その他の機能</h2>
+      <table>
+        <thead><tr><th>ボタン</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td>右上の <strong>?</strong></td><td>この使い方のページを開きます（表示言語に合わせて日本語版／英語版）</td></tr>
+          <tr><td>右上の <strong>EN</strong> ／ <strong>日</strong></td><td>ボタンやタブの表示を英語／日本語に切り替えます</td></tr>
+          <tr><td>右上の <strong>⚙</strong></td><td>ライトテーマ（明るい画面）とダークテーマ（暗い画面）を切り替えられます。設定パネルの下にある「Session Log」は評価実験用の機能で、ふだんは使いません（記録はブラウザの中だけで行われ、JSON／CSV ファイルとして保存できます）</td></tr>
+        </tbody>
+      </table>
+      <p>テーマ・言語・左右の幅・コンソールの高さ・最後に見ていたタブはブラウザに保存され、次に開いたときもそのままになります。</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="trouble">
+      <h2>8. 困ったときは</h2>
+      <table>
+        <thead><tr><th>こんなとき</th><th>どうする</th></tr></thead>
+        <tbody>
+          <tr><td>ステップ実行のボタンが表示されない</td><td>編集モードになっています。「▶ 実行」を押してください</td></tr>
+          <tr><td>サンプル選択が表示されない</td><td>実行モードになっています。「✏ 編集」を押してください</td></tr>
+          <tr><td>サンプル選択を押しても選べない</td><td>コードを1つだけ開くリンクから開いています。組み込みのサンプルを使うには、<a href="https://tntetsu.github.io/JSVisualizer/">https://tntetsu.github.io/JSVisualizer/</a> を開き直してください</td></tr>
+          <tr><td>「最大ステップ数 10,000 を超えたため停止しました」と表示される</td><td>ループが終わらない、再帰が止まらない、などの可能性があります。止まった時点までステップ実行で様子をたどり、終了条件を確認してください。処理の量が多いだけの場合は、扱うデータを小さくしてください</td></tr>
+          <tr><td>キーボードでステップ実行できない</td><td>コードの編集欄などの入力欄にカーソルがあると、キー入力はそちらに入ります。実行モードで画面のほかの場所を一度クリックしてから操作してください</td></tr>
+          <tr><td>タブがグレーで選べない</td><td>そのコードでは使えないビューです（関数を使っていないコードの「代入展開」「呼び出しツリー」など）</td></tr>
+          <tr><td>画面が正しく表示されない</td><td>パソコンの最新のブラウザを使ってください。ページを再読み込みすると直ることがあります（スマートフォンでの利用は想定していません）</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

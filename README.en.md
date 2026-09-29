@@ -4,6 +4,8 @@
 
 > [日本語版 README はこちら](README.md)
 
+> 📖 **[User manual](https://tntetsu.github.io/JSVisualizer/manual.en.html)** — also available from the “?” button at the top right of the app
+
 An interactive, educational web application that visualizes JavaScript program execution step by step.
 
 Step through your code at four levels of granularity and watch the program's behavior unfold across **12 visualization views**.

@@ -69,6 +69,13 @@ function applyI18n() {
   document.documentElement.lang = getLang();
   const btnLang = $('btn-lang');
   if (btnLang) btnLang.textContent = getLang() === 'ja' ? 'EN' : '日';
+  // 使い方ボタン: 表示言語に合わせたマニュアルを開く（BHV埋め込み時は取り除かれているので null）
+  const btnHelp = $('btn-help');
+  if (btnHelp) {
+    btnHelp.href = getLang() === 'ja' ? 'manual.html' : 'manual.en.html';
+    btnHelp.title = t('help-title');
+    btnHelp.setAttribute('aria-label', t('help-title'));
+  }
 }
 
 // 起動時に初期言語を適用
@@ -367,6 +374,9 @@ window.addEventListener('message', (event) => {
   // BHV: 設定パネルの評価実験用UI（Session Log・マーカー・JSON/CSV）を取り除く。学習者には不要で、
   // 押すとBhvVisualizerの記録にmarkerイベントが紛れ込むため（ADR-040）
   document.getElementById('study-mode-section')?.remove();
+  // BHV: 使い方ボタンも取り除く。JSVisualizerのマニュアルが開くと、学習者にJSVisualizerの存在を
+  // 意識させない方針（BhvVisualizerは独自の学生向けマニュアルを持つ）に反するため（ADR-041）
+  document.getElementById('btn-help')?.remove();
 });
 
 window.addEventListener('pagehide', () => {

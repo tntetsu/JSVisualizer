@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSVisualizer User Manual</title>
+  <!--
+    User manual for standalone JSVisualizer users (English). The Japanese version is manual.html.
+    Screenshots live in web/manual/en (web/manual/ja for Japanese); after changing the UI, run
+    `npm run build` and then scripts/capture-manual-screenshots.mjs to retake them.
+  -->
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #59636e;
+      --accent: #0969da;
+      --notice-bg: #eef5ff;
+      --notice-border: #0969da;
+      --code-bg: #f3f4f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.8;
+    }
+    header.page-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+    }
+    header.page-header .inner, main { max-width: 880px; margin: 0 auto; }
+    header.page-header .inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    header.page-header h1 { margin: 0; font-size: 1.25rem; }
+    header.page-header .lang { font-size: 0.9rem; white-space: nowrap; }
+    main { padding: 1rem 1rem 4rem; }
+    h2 {
+      margin-top: 3rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 2px solid var(--border);
+      font-size: 1.35rem;
+    }
+    h3 { margin-top: 2rem; font-size: 1.1rem; }
+    a { color: var(--accent); }
+    code, kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+    }
+    code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+    kbd {
+      display: inline-block;
+      min-width: 1.6em;
+      padding: 0 0.4em;
+      border: 1px solid var(--border);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      background: var(--surface);
+      text-align: center;
+      line-height: 1.5;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      background: var(--surface);
+      font-size: 0.95rem;
+    }
+    th, td { border: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+    td { overflow-wrap: anywhere; } /* 表内の長いURLで表が画面幅を超えないようにする */
+    th { background: var(--code-bg); white-space: nowrap; }
+    table.nowrap-first td:first-child { white-space: nowrap; }
+    figure { margin: 1.25rem 0; }
+    figure img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+    figcaption { margin-top: 0.35rem; color: var(--muted); font-size: 0.9rem; }
+    .notice {
+      margin: 1.5rem 0;
+      padding: 0.75rem 1.25rem;
+      border: 1px solid var(--notice-border);
+      border-left-width: 6px;
+      border-radius: 6px;
+      background: var(--notice-bg);
+    }
+    .tip {
+      margin: 1rem 0;
+      padding: 0.6rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+    }
+    nav.toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem 1.25rem;
+    }
+    nav.toc ol { margin: 0.25rem 0; padding-left: 1.5rem; }
+    .view-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1rem; }
+    .view-grid figure { margin: 0; }
+    .hl { padding: 0 0.3em; border-radius: 3px; }
+    .hl-line { background: #dbe9fb; border-left: 3px solid #1e66f5; }
+    .hl-expr { background: #f5d9a8; }
+    .hl-call { border-bottom: 2px dashed #b36bd6; }
+    @media (max-width: 480px) {
+      .view-grid { grid-template-columns: 1fr; }
+      th { white-space: normal; }
+      table.nowrap-first td:first-child { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <div class="inner">
+      <h1>JSVisualizer User Manual</h1>
+      <a class="lang" href="manual.html" hreflang="ja" lang="ja">日本語</a>
+    </div>
+  </header>
+
+  <main>
+    <p>JSVisualizer is a web app for learning how a JavaScript program runs <strong>step by step</strong>, by watching it through a variety of visualizations.</p>
+    <ul>
+      <li>Just open <a href="https://tntetsu.github.io/JSVisualizer/">https://tntetsu.github.io/JSVisualizer/</a> in an up-to-date desktop browser (Chrome, Edge, Firefox, Safari, etc.). No installation or sign-in is needed.</li>
+      <li>All code runs inside your browser. Your code and your operations are never sent to a server.</li>
+    </ul>
+
+    <nav class="toc" aria-label="Contents">
+      <strong>Contents</strong>
+      <ol>
+        <li><a href="#screen">Screen layout</a></li>
+        <li><a href="#code">Preparing code</a></li>
+        <li><a href="#mode">Edit mode and Run mode</a></li>
+        <li><a href="#step">Stepping</a></li>
+        <li><a href="#highlight">Code highlighting</a></li>
+        <li><a href="#views">Visualization views</a></li>
+        <li><a href="#other">Other features</a></li>
+        <li><a href="#trouble">Troubleshooting</a></li>
+      </ol>
+    </nav>
+
+    <!-- ─────────────────────────────── -->
+    <section id="screen">
+      <h2>1. Screen layout</h2>
+      <figure>
+        <img src="manual/en/screen-run.png" alt="The screen in Run mode: stepping buttons and a slider at the top, highlighted code on the left, view tabs and the console on the right" width="1280" height="800" loading="lazy" />
+        <figcaption>The screen in Run mode</figcaption>
+      </figure>
+      <table>
+        <thead><tr><th>Area</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><td>Top</td><td>The Edit and Run buttons, the sample selector (in Edit mode), and the stepping buttons and slider (in Run mode). At the right end: user manual (<strong>?</strong>), display language (<strong>EN</strong> / <strong>日</strong>), and settings (<strong>⚙</strong>)</td></tr>
+          <tr><td>Left (Source)</td><td>The code. You can edit it in Edit mode; in Run mode it highlights where execution currently is</td></tr>
+          <tr><td>Right</td><td>The visualization views. Switch between them with the tabs at the top; a one-line description of the current view appears below the tabs</td></tr>
+          <tr><td>Bottom right (Console)</td><td>Output from <code>console.log()</code>. It stays visible whichever view is selected</td></tr>
+        </tbody>
+      </table>
+      <p>Drag the border between the left and right panes to resize them. Drag the top edge of the console to change its height.</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="code">
+      <h2>2. Preparing code</h2>
+      <p>When you first open the app, it contains a sample program (the Fibonacci sequence).</p>
+
+      <h3>Choosing a sample</h3>
+      <p>In Edit mode, pick one of 21 sample programs from the <strong>sample selector</strong> (drop-down) at the top of the screen.</p>
+      <figure>
+        <img src="manual/en/screen-edit.png" alt="The screen in Edit mode: Edit and Run buttons and the sample selector at the top, bubble sort code on the left" width="1280" height="800" loading="lazy" />
+        <figcaption>Edit mode (with the “Bubble Sort” sample selected)</figcaption>
+      </figure>
+      <table>
+        <thead><tr><th>Category</th><th>Samples</th></tr></thead>
+        <tbody>
+          <tr><td>Search</td><td>Linear Search, Binary Search</td></tr>
+          <tr><td>Sort (basic)</td><td>Bubble Sort, Selection Sort</td></tr>
+          <tr><td>Sort (advanced)</td><td>Quick Sort, Merge Sort</td></tr>
+          <tr><td>Sort (objects)</td><td>Sort by numeric key, Sort by string key</td></tr>
+          <tr><td>Math / Algorithms</td><td>Euclid GCD (loop / recursive), Factorial, Fibonacci (recursive / DP)</td></tr>
+          <tr><td>Data Structures</td><td>Binary Tree, Linked List</td></tr>
+          <tr><td>Scope / Objects</td><td>Closure, Class &amp; Inheritance</td></tr>
+          <tr><td>Study Tasks</td><td>Tasks used in an evaluation study (finding a bug, counting calls, tracing intermediate state, etc.)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Writing your own code</h3>
+      <p>In Edit mode you can freely edit the code on the left, or paste in code written elsewhere. When you are done, press “▶ Run”.</p>
+      <ul>
+        <li>The main syntax of ES2015 and later is supported (<code>let</code>/<code>const</code>, arrow functions, classes, destructuring, template literals, <code>for...of</code>, etc.).</li>
+        <li>Use <code>console.log()</code> to check results; output appears in the console. Browser features such as manipulating the page (DOM) or network access are not available.</li>
+        <li>Edited code is not saved. Reloading the page resets it, so keep a copy of any code you want to keep.</li>
+      </ul>
+
+      <h3>Opening a shared link</h3>
+      <p>If you open JSVisualizer from a link that points to specific code (for example, one handed out in a class or in course materials), the app starts with that code loaded. The sample selector then lists only the linked code instead of the built-in samples (and cannot be changed when there is only one piece of code).</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="mode">
+      <h2>3. Edit mode and Run mode</h2>
+      <table>
+        <thead><tr><th>Button</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><strong>✏ Edit</strong></td><td>Switches to Edit mode, where you can edit the code freely. The sample selector is available only in this mode</td></tr>
+          <tr><td><strong>▶ Run</strong></td><td>Runs the code and switches to Run mode. The program runs to completion at once and every step is recorded. You can then use the stepping buttons to <strong>move forward and backward to any point</strong> and look at the state at that moment</td></tr>
+        </tbody>
+      </table>
+      <p>After editing the code, press “Run” again to re-run it with your changes.</p>
+
+      <h3>When an error occurs</h3>
+      <p>If the code has a mistake, an error message appears below the code. The labels are in English, but the messages themselves are currently shown in Japanese only.</p>
+      <table>
+        <thead><tr><th>Label</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Syntax Error</strong></td><td>The code cannot run because of how it is written (a missing bracket, a typo, etc.). Numbers such as <code>21:9</code> in the message are the line and column of the mistake</td></tr>
+          <tr><td><strong>Runtime Error</strong></td><td>The code is written correctly, but a problem occurred while it was running (using an undefined variable, etc.). You can still step through everything up to just before the error</td></tr>
+        </tbody>
+      </table>
+      <figure>
+        <img src="manual/en/error.png" alt="Line 21 of the code has a mistake; a Syntax Error badge and message appear below the code" loading="lazy" style="max-width: min(380px, 100%)" />
+        <figcaption>A syntax error</figcaption>
+      </figure>
+      <p>If execution exceeds <strong>10,000 steps</strong>, it is stopped and reported as a runtime error, since the program may be stuck (for example, in a loop that never ends). You can step through everything up to the point where it stopped.</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="step">
+      <h2>4. Stepping</h2>
+      <p>In Run mode, the buttons at the top let you <strong>move execution forward or backward one step at a time</strong>. There are four kinds of buttons, each moving by a different amount, and each has a “back” and a “forward” version.</p>
+      <figure>
+        <img src="manual/en/step-controls.png" alt="The row of stepping buttons: start, end, Func, Human, Stmt, and Expr buttons, the slider, and the step counter" loading="lazy" />
+        <figcaption>Stepping buttons (from the left: go to start, go to end, Func, Human, Stmt, Expr, the slider, and the step counter)</figcaption>
+      </figure>
+
+      <h3>Four granularities</h3>
+      <table class="nowrap-first">
+        <thead><tr><th>Buttons</th><th>Granularity</th><th>One press moves</th></tr></thead>
+        <tbody>
+          <tr><td>◀ Expr / ▶ Expr</td><td>Finest</td><td>One expression evaluation at a time. For <code>a[j] &gt; a[j + 1]</code> it stops at the value of <code>a[j]</code>, the value of <code>a[j + 1]</code>, and then the result of the comparison. Use it to see the order in which an expression is computed</td></tr>
+          <tr><td>◁ Human / ▷ Human</td><td>Medium (<strong>start here</strong>)</td><td>One <strong>meaningful change — the kind of thing a person would write down when tracing on paper</strong>: an assignment, an if condition, a loop condition or update, a function call, and so on</td></tr>
+          <tr><td>◀◀ Stmt / ▶▶ Stmt</td><td>Coarse</td><td>One statement at a time, skipping the detailed computation inside it</td></tr>
+          <tr><td>⏪ Func / ⏩ Func</td><td>Coarsest</td><td>Straight to the next point where a function is entered or returns. Use it to follow the overall flow of recursive calls</td></tr>
+        </tbody>
+      </table>
+      <p class="tip">If in doubt, step with “▷ Human”. Use “▶ Expr” only where you want more detail, and “▶▶ Stmt” or “⏩ Func” to fast-forward through loops and function calls.</p>
+
+      <h3>Other controls</h3>
+      <table>
+        <thead><tr><th>Control</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>⏮</td><td>Goes back to the start (the beginning of execution)</td></tr>
+          <tr><td>⏭</td><td>Goes to the end (where execution finished)</td></tr>
+          <tr><td>Slider</td><td>Drag the handle to jump to any point</td></tr>
+          <tr><td>Step counter (e.g. <code>180 / 874</code>)</td><td>The current step out of the total, counted in the finest (Expr) steps</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Keyboard shortcuts</h3>
+      <p>You can also use these keys (upper-case letters mean holding <kbd>Shift</kbd>).</p>
+      <table>
+        <thead><tr><th>Granularity</th><th>Back</th><th>Forward</th></tr></thead>
+        <tbody>
+          <tr><td>Expr</td><td><kbd>←</kbd> or <kbd>b</kbd></td><td><kbd>→</kbd> or <kbd>n</kbd></td></tr>
+          <tr><td>Human</td><td><kbd>H</kbd></td><td><kbd>h</kbd></td></tr>
+          <tr><td>Stmt</td><td><kbd>V</kbd></td><td><kbd>v</kbd></td></tr>
+          <tr><td>Func</td><td><kbd>F</kbd></td><td><kbd>f</kbd></td></tr>
+          <tr><td>Start / End</td><td><kbd>Home</kbd></td><td><kbd>End</kbd></td></tr>
+        </tbody>
+      </table>
+      <p>Keys <kbd>1</kbd>–<kbd>9</kbd> switch to the first to ninth view tab from the left.</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="highlight">
+      <h2>5. Code highlighting</h2>
+      <p>In Run mode, the code on the left shows where execution is with three kinds of marks.</p>
+      <table>
+        <thead><tr><th>Mark</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><span class="hl hl-line">Blue band</span> (blue bar at the left of the line)</td><td>The <strong>line</strong> being executed</td></tr>
+          <tr><td><span class="hl hl-expr">Orange background</span></td><td>The <strong>expression</strong> being evaluated</td></tr>
+          <tr><td><span class="hl hl-call">Purple dashed underline</span></td><td>While inside a function, <strong>the expression that called that function</strong> (the call site)</td></tr>
+        </tbody>
+      </table>
+      <div class="view-grid">
+        <figure>
+          <img src="manual/en/code-highlight-line.png" alt="Bubble sort code with line 5 highlighted by a blue band and the call on line 14 underlined with a purple dashed line" loading="lazy" />
+          <figcaption>Executing line 5. The function <code>bubbleSort</code> was called from line 14 (purple dashes)</figcaption>
+        </figure>
+        <figure>
+          <img src="manual/en/code-highlight-call.png" alt="Recursive fib code: the condition in orange, and the call site fib(n - 1) underlined with purple dashes" loading="lazy" />
+          <figcaption>Evaluating the condition (orange). This call of <code>fib</code> came from <code>fib(n - 1)</code> (purple dashes)</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="views">
+      <h2>6. Visualization views</h2>
+      <p>The right side of the screen shows the program’s behavior in many different forms. Use the tabs at the top to switch among 12 views. Which view is easiest to understand depends on what you want to know, so try several and find the ones that work for you.</p>
+      <ul>
+        <li>Some views cannot be used with some code; their tabs are grayed out (for example, “Subst” and “Call Tree” are unavailable for code without functions).</li>
+        <li>The tab you used last is selected again the next time you open the app.</li>
+      </ul>
+
+      <h3>How the views are organized</h3>
+      <p>The 12 views can be organized along two dimensions: <strong>what you look at</strong> and <strong>how time is shown</strong>.</p>
+      <p><strong>What you look at</strong> falls into three groups:</p>
+      <ul>
+        <li><strong>State</strong>: the values the program holds at a given moment (variable values, the functions being called, the contents of memory)</li>
+        <li><strong>Behavior</strong>: how the program proceeds over time (the order in which expressions are computed, the order and number of times statements run, the order of function calls). Expressions, statements, and functions correspond to the Expr, Stmt, and Func granularities of <a href="#step">stepping</a></li>
+        <li><strong>Arrays and objects</strong>: data that holds several values together</li>
+      </ul>
+      <p><strong>How time is shown</strong> comes in two kinds:</p>
+      <ul>
+        <li><strong>Views of one moment</strong> (animation): show only the current moment and change each time you step</li>
+        <li><strong>Views of the whole run</strong> (timeline): use one direction of the screen for the flow of time and show the course of execution all at once, with the current moment highlighted</li>
+      </ul>
+      <table>
+        <thead><tr><th colspan="2">What you look at</th><th>One moment</th><th>Whole run</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="3"><strong>State</strong></td><td>Variable values</td><td>Variable</td><td>Exec Trace</td></tr>
+          <tr><td>Functions being called</td><td>Call Stack</td><td>Lifetime</td></tr>
+          <tr><td>Contents of memory</td><td>Memory</td><td>—</td></tr>
+          <tr><td rowspan="3"><strong>Behavior</strong></td><td>Computing expressions</td><td>Expr</td><td>Subst</td></tr>
+          <tr><td>Running statements</td><td>Control Flow</td><td>Heatmap</td></tr>
+          <tr><td>Calling functions</td><td>Call Tree</td><td>—</td></tr>
+          <tr><td rowspan="2"><strong>Arrays and objects</strong></td><td>Arrays</td><td>Arrays</td><td>Exec Trace</td></tr>
+          <tr><td>Objects</td><td>Objects</td><td>—</td></tr>
+        </tbody>
+      </table>
+      <p class="tip">Comparing the same thing in a “one moment” view and a “whole run” view deepens understanding. For example, to see how a variable changes inside a loop, check its current value in “Variable” while lining up the values of each iteration in “Exec Trace”.</p>
+
+      <h3>Views of state</h3>
+      <table>
+        <thead><tr><th>Tab</th><th>Time</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Variable</strong></td><td>One moment</td><td>A table of code lines (rows) × variables (columns). Each row shows the variable values when that line last ran; values that changed since the previous step are in bold orange. You can show/hide columns and reorder them by dragging</td></tr>
+          <tr><td><strong>Exec Trace</strong></td><td>Whole run</td><td>Lists the steps where assignments, condition tests, and the like happened, in execution order from top to bottom, with the variable values at each step and whether each condition was true or false. For code that uses arrays, each step also shows a small diagram of the array and where variables such as <code>i</code> and <code>j</code> point, so you can compare iterations</td></tr>
+          <tr><td><strong>Call Stack</strong></td><td>One moment</td><td>Shows all current variable values, grouped into the global scope and each function call in progress. Inside functions you can see that every call has its own variables</td></tr>
+          <tr><td><strong>Lifetime</strong></td><td>Whole run</td><td>With time running horizontally and call depth vertically, shows each function call as a band from when it started to when it ended. Each band is labeled with the function name, its arguments, and that call’s variable values, showing how long arguments and local variables exist. The vertical dashed line marks the current moment</td></tr>
+          <tr><td><strong>Memory</strong></td><td>One moment</td><td>Draws variables (the stack) and the actual arrays and objects (the heap) separately, with arrows showing which array or object each variable refers to</td></tr>
+        </tbody>
+      </table>
+      <div class="view-grid">
+        <figure><img src="manual/en/view-trace.png" alt="Variable view: a table with line numbers and code snippets down the side and variables across the top" loading="lazy" /><figcaption>Variable</figcaption></figure>
+        <figure><img src="manual/en/view-exectrace.png" alt="Exec Trace view: a table with, for each step, the line number, code, an array diagram, variable values, and condition results" loading="lazy" /><figcaption>Exec Trace</figcaption></figure>
+        <figure><img src="manual/en/view-callstack.png" alt="Call Stack view: the global frame and a frame for each fib call showing the value of n" loading="lazy" /><figcaption>Call Stack</figcaption></figure>
+        <figure><img src="manual/en/view-lifetime.png" alt="Lifetime view: time runs horizontally and call depth vertically, with each fib call drawn as a stacked band" loading="lazy" /><figcaption>Lifetime</figcaption></figure>
+        <figure><img src="manual/en/view-memory.png" alt="Memory view: stack variables on the left, a heap array on the right, and an arrow from the variable to the array" loading="lazy" /><figcaption>Memory</figcaption></figure>
+      </div>
+
+      <h3>Views of behavior</h3>
+      <table>
+        <thead><tr><th>Tab</th><th>Time</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Expr</strong></td><td>One moment</td><td>Shows how the one-line expression being computed turns into its final value as its parts are replaced by values. Orange marks the part just replaced; bold blue marks the part computed next. Parts skipped by <code>||</code> or <code>&amp;&amp;</code> stay as they are</td></tr>
+          <tr><td><strong>Subst</strong></td><td>Whole run</td><td>Shows, from top to bottom, how recursive calls expand as each call is replaced by the expression it returns: <code>fib(5)</code> → <code>fib(4) + fib(3)</code> → …</td></tr>
+          <tr><td><strong>Control Flow</strong></td><td>One moment</td><td>A flowchart connecting the lines that ran, with the current line emphasized. Loop-back flows are dashed orange lines and branches that never ran are grayed out</td></tr>
+          <tr><td><strong>Heatmap</strong></td><td>Whole run</td><td>Shows how many times each line ran, as color intensity and “count so far / total”. The dots on the right show when each line ran, so lines repeated in loops stand out at a glance</td></tr>
+          <tr><td><strong>Call Tree</strong></td><td>One moment</td><td>Shows function calls as a tree. Each node shows arguments and the return value; dashed gray means not yet called, thick blue means running, and green means finished. The <code>cost</code> at the bottom left is the number of calls in that node’s subtree (including itself) — handy for checking how many times a recursive function is called</td></tr>
+        </tbody>
+      </table>
+      <div class="view-grid">
+        <figure><img src="manual/en/view-exprtrace.png" alt="Expr view: parts of an expression being replaced by values, one row per step" loading="lazy" /><figcaption>Expr</figcaption></figure>
+        <figure><img src="manual/en/view-subst.png" alt="Subst view: fib(5) expanding into fib(4) + fib(3) and so on" loading="lazy" /><figcaption>Subst</figcaption></figure>
+        <figure><img src="manual/en/view-controlflow.png" alt="Control Flow view: executed lines as nodes stacked vertically and connected by arrows" loading="lazy" /><figcaption>Control Flow</figcaption></figure>
+        <figure><img src="manual/en/view-heatmap.png" alt="Heatmap view: execution count and color intensity for each line, with dots showing when each line ran" loading="lazy" /><figcaption>Heatmap</figcaption></figure>
+        <figure><img src="manual/en/view-calltree.png" alt="Call Tree view: a tree rooted at fib(5) branching into fib(4) and fib(3) and so on" loading="lazy" /><figcaption>Call Tree</figcaption></figure>
+      </div>
+
+      <h3>Views of arrays and objects</h3>
+      <table>
+        <thead><tr><th>Tab</th><th>Time</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Arrays</strong></td><td>One moment</td><td>Shows array elements as cells colored by value. For variables used as indexes, such as <code>i</code> and <code>j</code>, the element they point to is marked below the cells. Choose which arrays to show with the buttons at the top. To see an array over the whole run, use “Exec Trace”</td></tr>
+          <tr><td><strong>Objects</strong></td><td>One moment</td><td>Shows references between arrays and objects as a graph — well suited to linked lists and trees</td></tr>
+        </tbody>
+      </table>
+      <div class="view-grid">
+        <figure><img src="manual/en/view-colorbox.png" alt="Arrays view: array elements shown as cells, with the element pointed to by an index variable marked" loading="lazy" /><figcaption>Arrays</figcaption></figure>
+        <figure><img src="manual/en/view-objgraph.png" alt="Objects view: three linked-list nodes connected by next arrows, plus the array result" loading="lazy" /><figcaption>Objects (the “Linked List” sample)</figcaption></figure>
+      </div>
+      <p>The tab order differs from the grouping above (from the left: Call Stack, Variable, Exec Trace, Subst, Expr, Arrays, Heatmap, Call Tree, Lifetime, Control Flow, Memory, Objects). This organization follows Table 1 of Tanaka &amp; Ueda, “Proposal for Program Execution Environment that Visualizes Program Behavior Using Multiple Views” (IS-26-049).</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="other">
+      <h2>7. Other features</h2>
+      <table>
+        <thead><tr><th>Button</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><strong>?</strong> at the top right</td><td>Opens this manual (in Japanese or English, matching the display language)</td></tr>
+          <tr><td><strong>EN</strong> / <strong>日</strong> at the top right</td><td>Switches buttons and tabs between English and Japanese</td></tr>
+          <tr><td><strong>⚙</strong> at the top right</td><td>Switches between the light and dark themes. “Session Log” at the bottom of the settings panel is a feature for evaluation studies and is not needed in normal use (it records only inside your browser and can save the log as a JSON or CSV file)</td></tr>
+        </tbody>
+      </table>
+      <p>The theme, language, pane widths, console height, and last-used tab are saved in your browser and restored the next time you open the app.</p>
+    </section>
+
+    <!-- ─────────────────────────────── -->
+    <section id="trouble">
+      <h2>8. Troubleshooting</h2>
+      <table>
+        <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
+        <tbody>
+          <tr><td>The stepping buttons are not shown</td><td>You are in Edit mode. Press “▶ Run”</td></tr>
+          <tr><td>The sample selector is not shown</td><td>You are in Run mode. Press “✏ Edit”</td></tr>
+          <tr><td>The sample selector cannot be changed</td><td>You opened a link to a single piece of code. To use the built-in samples, open <a href="https://tntetsu.github.io/JSVisualizer/">https://tntetsu.github.io/JSVisualizer/</a> again</td></tr>
+          <tr><td>A Runtime Error says execution was stopped because it exceeded the maximum number of steps (10,000; the message is in Japanese: 「実行が最大ステップ数 10,000 を超えたため停止しました」)</td><td>A loop or recursion may never end. Step through up to where it stopped and check the exit condition. If the program simply does a lot of work, use smaller data</td></tr>
+          <tr><td>Keyboard shortcuts do not work</td><td>If the cursor is in an input area such as the code editor, keys go there. In Run mode, click somewhere else on the screen first</td></tr>
+          <tr><td>A tab is grayed out</td><td>That view cannot be used with this code (e.g., “Subst” and “Call Tree” for code without functions)</td></tr>
+          <tr><td>The screen does not display correctly</td><td>Use an up-to-date desktop browser; reloading the page may help (smartphones are not supported)</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

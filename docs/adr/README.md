@@ -49,3 +49,4 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [038](ADR-038-tdz-sentinel-display-fix.md) | TDZセンチネル値が`Symbol(TDZ)`として表示される不具合の修正 | 2026-09-24 |
 | [039](ADR-039-stmt-step-container-fix.md) | 文単位ステップの不具合修正（初期位置での暴走・1文2クリック問題） | 2026-09-24 |
 | [040](ADR-040-hide-study-ui-when-bhv-embedded.md) | BhvVisualizer埋め込み時は設定パネルの評価実験用UIを取り除く（`# BHV:`） | 2026-09-28 |
+| [041](ADR-041-user-manual-and-help-button.md) | 利用者向けマニュアル（日英）とヘッダーの使い方ボタン | 2026-09-29 |

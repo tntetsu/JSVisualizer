@@ -57,6 +57,8 @@ const STRINGS = {
     'settings-theme-title':  'テーマ',
     'settings-light':        'ライト',
     'settings-dark':         'ダーク',
+    // ── 使い方ボタン ──────────────────────────────────────────
+    'help-title':            '使い方',
   },
   en: {
     'btn-edit':              '✏ Edit',
@@ -92,6 +94,7 @@ const STRINGS = {
     'settings-theme-title':  'Theme',
     'settings-light':        'Light',
     'settings-dark':         'Dark',
+    'help-title':            'User manual',
   },
 };
 

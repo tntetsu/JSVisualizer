@@ -1460,6 +1460,13 @@ body {
   border-color: var(--border);
 }
 
+/* 使い方ボタン（マニュアルへのリンク） */
+.btn-help {
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 /* 言語切替ボタン（EN / 日） */
 .btn-lang {
   font-size: 11px;
