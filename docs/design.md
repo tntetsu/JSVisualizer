@@ -1,9 +1,9 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 2.11  
+**バージョン**: 2.16  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-09-24 (v2.11)  
+**最終更新**: 2026-09-29 (v2.16)  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -43,6 +43,11 @@
 | 2.9 | 2026-08-12 | **エディタの折り返し表示を常時有効化**（[ADR-035](adr/ADR-035-editor-line-wrapping.md)）。`EditorView.lineWrapping`を常時オンにし、BhvVisualizer埋め込み時の問いコメント等、長い1行が横スクロールなしで折り返されるようにする（トグルは設けない、§4.3更新） |
 | 2.10 | 2026-08-27 | **URLクエリ（`view`）による初期表示ビューの指定を追加**（[ADR-036](adr/ADR-036-url-query-initial-view.md)）。BhvVisualizer連携のセッション内pre/post設問で、`ViewSwitcher`が前回アクティブだったタブを`localStorage`から復元する既定挙動のままだと学生ごとに体験が揃わない問題があったため、`ViewSwitcher.setInitialView(id)`を新設し最初の実行1回だけ`localStorage`の保存値より優先させる（`localStorage`自体は書き換えない）。§3.9・§4.2を更新 |
 | 2.11 | 2026-09-24 | **ExecTraceへのArraysポインタ・オーバーレイ統合**（[ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)）。評価実験ログの深掘り分析で、アニメーション型のArraysビューでは「ポインタが毎回1つズレている」というイテレーション横断のパターンに気づけなかった参加者がいたことが判明。ポインタ検出・配列グリッド描画ロジックを`src/utils/array-grid.js`に共通化し、時間軸型のExecTraceの各行にも同じミニ図を統合（ポインタ検出時のみ描画、セル幅は変数名長から動的算出、表示枠幅はドラッグ+`localStorage`で変更可）。§3.6 exec-trace節・§5ディレクトリ構造を更新。`tests/utils/array-grid.test.js`（新規10件）を含めテスト総数96件（§9.1更新） |
+| 2.12 | 2026-09-24 | **宣言前（TDZ）の変数が`Symbol(TDZ)`と表示される不具合を修正**（[ADR-038](adr/ADR-038-tdz-sentinel-display-fix.md)）。`format.js`に`isTDZ()`（`description === 'TDZ'`判定）を追加し、`formatValue()`/`formatValueDiff()`は宣言前を空欄（`lt-empty`）で返す。あわせて Variable・ExecTrace・ExprTrace の「スコープに存在するか」の判定を`v === undefined`から`has()`系に改め、宣言前（空欄）と宣言後・未代入（`undefined`）を区別。§1.3 に表示側の扱いを追記。`tests/utils/format.test.js`（新規5件） |
+| 2.13 | 2026-09-24 | **文単位ステップの不具合修正（初期位置での暴走・1文2クリック）**（[ADR-039](adr/ADR-039-stmt-step-container-fix.md)）。`step-controller.js`で`dbg.stepOver()`/`stepBack()`を直接呼ぶのをやめ、入れ物ノード（`Program`/`BlockStatement`）を読み飛ばす`#stmtForwardOnce()`と、それを先頭から再生して直前の着地点を求める`#stmtBackwardOnce()`に置き換え。JSInterpreter の`stepOver()`は変更しない。§3.2 を更新。`step-controller.test.js`に6件追加 |
+| 2.14 | 2026-09-28 | **BhvVisualizer埋め込み時は設定パネルの評価実験用UIを取り除く**（[ADR-040](adr/ADR-040-hide-study-ui-when-bhv-embedded.md)）。`index.html`の STUDY MODE ブロックに`#study-mode-section`を追加し、`app.js`の`init`受理処理（`# BHV:`）で取り除く。§3.7・§4.5 を更新 |
+| 2.15 | 2026-09-29 | **利用者向けマニュアル（日英）とヘッダーの使い方ボタン**（[ADR-041](adr/ADR-041-user-manual-and-help-button.md)）。`web/manual.html`・`web/manual.en.html`・スクリーンショット（`web/manual/{ja,en}`、`scripts/capture-manual-screenshots.mjs`で撮り直し）を追加。ヘッダーの`#btn-help`は`applyI18n()`で表示言語に合わせたリンク先に切り替え、`init`受理時（`# BHV:`）に取り除く。あわせて、英語固定だった各ビューのデータなし表示（「No variables」等）を`i18n.js`のキーに移した（コミット`8b23054`）。§3.7・§3.8・§5 を更新 |
+| 2.16 | 2026-09-29 | **Lifetime（変数寿命）ビューの記述を実装に合わせて訂正**。§3.6 `lifetime/` 節とディレクトリ構成の注記が、2026-06-16（v1.7 と同日、コミット`d22ec59`）にフレームグラフへ全面改定する前の「変数ライフタイム SVG Gantt」のままだった。データ取得（ビュー内 `buildFlameSegments()`）・軸・レイアウト定数・色・バー内容・`update()` を現行実装どおりに書き直し、`buildLifetime()` がビューから使われていないことを注記した。ADRを伴わない変更だったため、v2.1〜2.11 の追いつき（ADR基準）からも漏れていた |
 
 ---
 
@@ -192,6 +197,14 @@ get(name, loc) {
   ...
 }
 ```
+
+**JSVisualizer 側の表示（[ADR-038](adr/ADR-038-tdz-sentinel-display-fix.md)）**: `deepClone()` は Symbol を素通しするため、
+トレースの `env` スナップショットには `TDZ_SENTINEL` がそのまま値として入る。`src/utils/format.js` の
+`isTDZ(v)`（`typeof v === 'symbol' && v.description === 'TDZ'`。`TDZ_SENTINEL` はバンドルから export されていないため
+`description` で判定）で検出し、`formatValue()`/`formatValueDiff()` は空欄（`<span class="lt-empty">—</span>`）を返す。
+Variable・ExecTrace・ExprTrace は、変数が「そのステップのスコープに存在するか」を値の `undefined` 比較ではなく
+`Map.has()` / `hasOwnProperty`（ExprTrace は `hasVarInEnv()`）で判定する。これにより
+「宣言前（空欄）→ 宣言後・未代入（`undefined`）→ 代入後（値）」の3状態を区別して表示する。
 
 #### `Environment` の拡張（`environment.js`）
 
@@ -421,9 +434,9 @@ class StepController {
   stepExprForward()     { this.#adapter.moveTo(dbg.cursor + 1); }
   stepExprBackward()    { this.#adapter.moveTo(dbg.cursor - 1); }
 
-  // 文粒度（stepOver → matchIdx）
-  stepStmtForward()     { dbg.stepOver(); this.#adapter.moveTo(dbg.cursor); }
-  stepStmtBackward()    { dbg.stepBack(); this.#adapter.moveTo(dbg.cursor); }
+  // 文粒度（1クリック=1文、ADR-039）
+  stepStmtForward()     { this.#stmtForwardOnce(dbg);  this.#adapter.moveTo(dbg.cursor); }
+  stepStmtBackward()    { this.#stmtBackwardOnce(dbg); this.#adapter.moveTo(dbg.cursor); }
 
   // 人にやさしい粒度
   stepHumanForward()    { dbg.humanStep();     this.#adapter.moveTo(dbg.cursor); }
@@ -446,6 +459,16 @@ class StepController {
   }
 }
 ```
+
+**文粒度の実装（[ADR-039](adr/ADR-039-stmt-step-container-fix.md)）**: 以前は JSInterpreter の `dbg.stepOver()`/`stepBack()` を
+そのまま呼んでいたが、`enter Program` や関数本体の `enter BlockStatement` にも `stepOver()` が適用され、
+実行直後に「文」を押すと最後まで飛ぶ・1文に2クリックかかる、という不具合があった。現在は次の2つで実装する
+（JSInterpreter の `stepOver()` の意味は変えない）。
+
+- `#stmtForwardOnce(dbg)`: `STMT_CONTAINER_TYPES = new Set(['Program', 'BlockStatement'])` の `enter` と前の文の `exit` を
+  `stepIn()` で読み飛ばし、実際の文の `enter` に着いたら `stepOver()` でその `exit` へ進む（1文の着地点）
+- `#stmtBackwardOnce(dbg)`: `cursor=0` から `#stmtForwardOnce()` を再生し、目的の `cursor` の直前の着地点に戻る
+  （`matchIdx` の逆算ではネストしたブロックに入るべきかを判定できないため。前進と構造的に対称になる）
 
 ---
 
@@ -514,6 +537,7 @@ class TraceBuilder {
 
   /**
    * 変数ライフタイム情報を返す（humanStep 単位）。
+   * ※ 2026-06-16 に Lifetime ビューをフレームグラフへ改定して以降、ビューからは使われていない（テストのみ）。
    * エントリ: { varName, callDepth, startHi, endHi }
    * 同名変数が異なる callDepth で現れる場合は別エントリ。
    * @returns {Array<{varName:string, callDepth:number, startHi:number, endHi:number}>}
@@ -1092,29 +1116,44 @@ const NODE_W=160, NODE_H=80, COL_GAP=20, ROW_GAP=52, PAD_X=24, PAD_Y=24;
 
 ---
 
-#### `lifetime/` — 変数ライフタイム SVG Gantt ✅
+#### `lifetime/` — 変数寿命（コールスタック時系列のフレームグラフ）✅
 
-**データ取得**: `builder.buildLifetime()` → `{ varName, callDepth, startHi, endHi }[]`
+> 2026-06-16（コミット`d22ec59`）に、変数ごとの Gantt チャートからフレームグラフに全面改定。
+> 旧実装が使っていた `builder.buildLifetime()` は `trace-builder.js` に残っているが、ビューからは使われていない（テストのみ）。
+
+**データ取得**: `builder.getHumanStepList()` と `builder.trace` から、ビュー内の `buildFlameSegments(trace, humanSteps)` が
+深さごとの区間を作る → `{ segments: { depth, startHi, endHi, name }[], maxDepth }`。
+深さ 0 は `(global)`、深さ d≥1 は各 humanStep の `callStack[d - 1].name`。同じ深さで同じ関数が連続する区間を 1 セグメントにまとめる。
+
+**軸**:
+- X 軸 = humanStep インデックス
+- Y 軸 = 呼び出し深さ（depth 0 = グローバルが最下段、深いほど上）
 
 **レイアウト定数**:
 ```js
-const ROW_H=26, LABEL_W=90, CHART_W=560, PAD_T=36;
+const ROW_H=68, LABEL_W=32, MIN_CHART_W=580, CHAR_PX=5, BAR_PAD=14, PAD_T=36, PAD_B=8;
 ```
+チャート幅は、最も短いバーにもラベルが収まるようセグメントごとに必要幅を計算し、`MIN_CHART_W`〜`MIN_CHART_W*3` でクランプする（v1.7）。
 
-**深さごとの色パレット** (6色):
+**深さごとの色パレット** (6色、`depthColor(d)` で循環):
 ```js
 const DEPTH_COLORS = [
-  'rgba(76,155,232,0.65)', 'rgba(232,107,76,0.65)', 'rgba(76,232,132,0.65)',
-  'rgba(232,200,76,0.65)', 'rgba(200,76,232,0.65)', 'rgba(76,232,232,0.65)',
+  'rgba(76, 155, 232, 0.72)', 'rgba(232, 107, 76, 0.72)', 'rgba(76, 200, 132, 0.72)',
+  'rgba(200, 76, 232, 0.72)', 'rgba(232, 200, 76, 0.72)', 'rgba(76, 232, 232, 0.72)',
 ];
 ```
 
+**バーの内容**: `init()` 時に `foreignObject` + HTML で静的描画する（`buildBarHTML()`）。バー末尾の humanStep の
+`mergeScopesForDisplay(env, callStack, frameEnvs)` から該当深さのフレームを取り出し、実引数付き関数名と変数一覧を表示する。
+
 **X 座標変換**:
 ```js
-const hiToX = (hi) => LABEL_W + (hi / maxHi) * CHART_W;
+const hiToX = (hi) => LABEL_W + (hi / MAX_HI) * CHART_W;   // MAX_HI = max(1, humanSteps.length - 1)
 ```
 
-**カーソル線**: `<line class="lf-cursor">` の `x1`/`x2` のみ `update()` で更新
+**`update()`**: カーソル線 `<line class="lf-cursor">` の `x1`/`x2` を更新し、現在の humanStep を含むバーに `lf-bar--active` を付ける
+
+**データなし**: humanStep またはセグメントが無い場合は `t('view-no-data')` を表示
 
 ---
 
@@ -1335,6 +1374,10 @@ export const sessionLogger = new SessionLogger();  // モジュール単位シ�
 
 **BHV 経路の起動条件（ADR-028）**: `app.js` が `window` の `message` イベントを購読し、`event.origin` が `BHV_ALLOWED_ORIGINS`（固定の許可オリジン一覧）に一致し、かつ `{ source: 'bhv', type: 'init', sessionId }` 形式のメッセージを受け取った場合のみ `sessionLogger.startSession()` と `enableRemoteLogging(sessionId, event.origin)` を呼ぶ。この `init` を受け取らない限り、`<iframe>` に埋め込まれていても記録・送信は一切発生しない（スタンドアロン起動・公開デモ・他の埋め込み利用者に影響しない）。
 
+**`init` 受理時の UI 除去（`# BHV:`）**: 同じ `init` 受理処理の末尾で、学習者に不要な UI を DOM から取り除く（`hidden` ではなく `remove()`。再表示の経路がないため）。
+- `#study-mode-section`（設定パネルの Session Log・マーカー・JSON/CSV）: 学習者がマーカーを押すと BhvVisualizer の記録に `marker` イベントが紛れ込むため（[ADR-040](adr/ADR-040-hide-study-ui-when-bhv-embedded.md)）。`study-panel.js` は取り除かれた要素への参照を持ち続けるが、DOM 外の要素を更新するだけで副作用はない
+- `#btn-help`（ヘッダーの使い方ボタン）: BhvVisualizer は学習者に JSVisualizer を意識させない方針で、独自の学生向けマニュアルを持つため（[ADR-041](adr/ADR-041-user-manual-and-help-button.md)）
+
 **非アクティブ時 no-op の設計**: `#log()` の先頭で `#sessionStart` の有無を見て早期リターンする。
 これにより実験モード（STUDY）も外部埋め込み（BHV）も使わない通常利用時は一切のオーバーヘッド・
 副作用が発生しない。実験終了後に `study-panel.js` と `index.html` の `<!-- STUDY MODE -->`
@@ -1370,6 +1413,13 @@ function applyI18n() {
   document.documentElement.lang = getLang();
   const btnLang = $('btn-lang');
   if (btnLang) btnLang.textContent = getLang() === 'ja' ? 'EN' : '日';  // 次に切り替わる言語を表示
+  // 使い方ボタン: 表示言語に合わせたマニュアルを開く（BHV埋め込み時は取り除かれているので null、ADR-041）
+  const btnHelp = $('btn-help');
+  if (btnHelp) {
+    btnHelp.href = getLang() === 'ja' ? 'manual.html' : 'manual.en.html';
+    btnHelp.title = t('help-title');
+    btnHelp.setAttribute('aria-label', t('help-title'));
+  }
 }
 
 applyI18n();  // 起動時に初期言語を適用
@@ -1392,6 +1442,10 @@ document.addEventListener('langchange', (e) => {
 `resolveStr(v, lang)`（`view-switcher.js` 内のヘルパー）は `v` が文字列ならそのまま返し、
 `{ja, en}` オブジェクトなら `v[lang]` を返す。この関数のおかげで `ViewSwitcher.register()` は
 呼び出し側がどちらの型で渡してきても区別せずに扱える。
+
+**各ビューのデータなし表示**（v2.15、コミット`8b23054`）: 以前は各ビューに英語で直書きされていた「No variables」「No function calls」等を、
+`view-no-data`・`view-no-source`・`view-no-func-calls`・`subst-empty`・`recursiontree-empty`・`objgraph-no-vars`・`objgraph-no-objects`・
+`barchart-no-data` のキーで `t()` から取得する（オブジェクト・代入展開・制御フロー・呼び出しツリー・変数寿命・変数、および非アクティブの棒グラフ・再帰ツリー）。
 
 **対象外**: エラーメッセージ（JSInterpreter 由来で追跡困難）・サンプルプログラム名（固有名詞的）。
 
@@ -1661,6 +1715,9 @@ class PaneResizer {
 ダークテーマ:              <html data-theme="dark">
 ```
 
+**評価実験用 UI**: テーマ設定の下の STUDY MODE ブロック（Session Log 等、`study-panel.js`）は `<div id="study-mode-section">` で囲まれており、
+BhvVisualizer から `init` を受け取ったときは取り除かれる（§3.7、[ADR-040](adr/ADR-040-hide-study-ui-when-bhv-embedded.md)）。テーマ設定は残る。
+
 **FOUC 防止スクリプト** (`web/index.html` `<head>` 内):
 ```html
 <script>
@@ -1718,7 +1775,7 @@ JSVisualizer/
 │   │   ├── call-tree/
 │   │   │   └── index.js              ✅ 全関数呼び出しツリー SVG（RecursionTreeと表示形式統一・cost表示、ADR-027）
 │   │   ├── lifetime/
-│   │   │   └── index.js              ✅ 変数ライフタイム SVG Gantt
+│   │   │   └── index.js              ✅ 変数寿命（コールスタックのフレームグラフ）
 │   │   ├── control-flow/
 │   │   │   └── index.js              ✅ 制御フロー SVG フローチャート
 │   │   ├── memory-view/
@@ -1734,6 +1791,9 @@ JSVisualizer/
 │       └── study-panel.js             ← 評価実験用UI（STUDY: タグ、削除可）
 ├── web/
 │   ├── index.html                     ← FOUC防止スクリプト含む
+│   ├── manual.html                    ← 利用者向けマニュアル（日本語、ヘッダーの「?」から開く、ADR-041）
+│   ├── manual.en.html                 ← 利用者向けマニュアル（英語）
+│   ├── manual/{ja,en}/                ← マニュアルのスクリーンショット（scripts/capture-manual-screenshots.mjs で生成）
 │   ├── style.css                      ← ライト/ダークテーマ CSS（全ビュー含む）
 │   ├── app.bundle.js                  ← esbuild 生成（git 管理外）
 │   └── interpreter.bundle.js          ← esbuild 生成（git 管理外）
@@ -1744,7 +1804,10 @@ JSVisualizer/
 │   │   ├── exercise-source.test.js    ← parseQuery()・loadExerciseFromQuery() のユニットテスト
 │   │   └── samples.test.js            ← 21サンプル全エラーなし・trace ≥ 1 を確認
 │   └── utils/
-│       └── array-grid.test.js         ← computeSubscriptVars/detectPointerVars/renderArrayGrid のユニットテスト
+│       ├── array-grid.test.js         ← computeSubscriptVars/detectPointerVars/renderArrayGrid のユニットテスト
+│       └── format.test.js             ← formatValue/formatValueDiff の TDZ 値の扱い（ADR-038）
+├── scripts/
+│   └── capture-manual-screenshots.mjs ← マニュアルのスクリーンショット撮り直し（npm run build の後に実行、ADR-041）
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml                 ← GitHub Pages 自動デプロイ（CI/CD）
@@ -1836,7 +1899,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 | heatmap | `hm-` | `.hm-line`, `.hm-line--active` |
 | recursion-tree | `rt-` | `.rt-node--active`, `.rt-rect`（非アクティブ） |
 | call-tree | `ct-` | `.ct-node--active`, `.ct-rect`, `.ct-name`, `.ct-cost` |
-| lifetime | `lf-` | `.lf-bar`, `.lf-cursor` |
+| lifetime | `lf-` | `.lf-bar`, `.lf-bar--active`, `.lf-cursor` |
 | control-flow | `cf-` | `.cf-node--active`, `.cf-edge--back` |
 | memory-view | `mv-` | `.mv-frame`, `.mv-arrows` |
 | object-graph | `og-` | `.og-node`, `.og-edge` |
@@ -2008,22 +2071,23 @@ b.v-diff .v-obj, b.v-diff .v-null, b.v-diff .v-undef {
 
 ## 9. テスト方針
 
-### 9.1 ユニットテスト（Jest / 96 件）
+### 9.1 ユニットテスト（Jest / 107 件）
 
 | 対象 | テストファイル | テスト数 | テスト内容 |
 |------|-------------|---------|-----------|
 | `trace-builder.js` | `tests/core/trace-builder.test.js` | 40 件 | `buildHeatmap`・`buildHumanIndices`・`getHumanStepList`・`buildRecursionTree`・`buildCallTree`・`buildLifetime`・`buildCFG` 等 |
-| `step-controller.js` | `tests/core/step-controller.test.js` | 10 件 | 粒度別ステップ（expr/stmt/human/call）の cursor 移動 |
+| `step-controller.js` | `tests/core/step-controller.test.js` | 16 件 | 粒度別ステップ（expr/stmt/human/call）の cursor 移動。文粒度の入れ物ノード読み飛ばし・前進/後退の対称性（ADR-039） |
 | 21 サンプル | `tests/core/samples.test.js` | 21 件 | 全サンプルコードがエラーなく実行でき trace ≥ 1 を確認 |
 | `exercise-source.js` | `tests/core/exercise-source.test.js` | 15 件 | `parseQuery()`（`exercise`/`code`/`view`）・`loadExerciseFromQuery()` の各分岐（ADR-029/031/032/033/034/036） |
 | `array-grid.js` | `tests/utils/array-grid.test.js` | 10 件 | `computeSubscriptVars`・`detectPointerVars`・`renderArrayGrid`（ADR-037） |
+| `format.js` | `tests/utils/format.test.js` | 5 件 | `formatValue`/`formatValueDiff` が TDZ 値を空欄で返し `Symbol(TDZ)` を含まないこと（ADR-038） |
 
-**合計: 96 テスト**（`npm test` で全実行）
+**合計: 107 テスト**（`npm test` で全実行）
 
 ### 9.2 テスト実行コマンド
 
 ```bash
-npm test               # 全テスト実行（96 件）
+npm test               # 全テスト実行（107 件）
 npm run test:watch     # ウォッチモード
 ```
 
