@@ -16,6 +16,7 @@
 
 import { BaseView }              from '../base-view.js';
 import { BUILTIN_NAMES, esc }    from '../../utils/format.js';
+import { t }                     from '../../i18n.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -323,14 +324,14 @@ export class ObjectGraph extends BaseView {
 
     const { variables, scopes } = state;
     if (!variables || !scopes || scopes.length === 0) {
-      this.#showPlaceholder('No variables');
+      this.#showPlaceholder(t('objgraph-no-vars'));
       return;
     }
 
     const { nodes, edges, rootVars } = buildGraph(variables, scopes);
 
     if (nodes.length === 0 && !rootVars.some(rv => rv.type === 'prim')) {
-      this.#showPlaceholder('No objects');
+      this.#showPlaceholder(t('objgraph-no-objects'));
       return;
     }
 
@@ -365,7 +366,7 @@ export class ObjectGraph extends BaseView {
     this.#svgEl.innerHTML = '';
 
     if (nodes.length === 0) {
-      this.#showPlaceholder('No objects');
+      this.#showPlaceholder(t('objgraph-no-objects'));
       return;
     }
 

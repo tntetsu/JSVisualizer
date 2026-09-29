@@ -59,6 +59,15 @@ const STRINGS = {
     'settings-dark':         'ダーク',
     // ── 使い方ボタン ──────────────────────────────────────────
     'help-title':            '使い方',
+    // ── 各ビューのデータなし表示 ──────────────────────────────
+    'view-no-data':          '実行データがありません',
+    'view-no-source':        'ソースコードがありません',
+    'view-no-func-calls':    '関数呼び出しがありません',
+    'subst-empty':           '関数呼び出しが検出されませんでした',
+    'recursiontree-empty':   '再帰呼び出しがありません',
+    'objgraph-no-vars':      '変数がありません',
+    'objgraph-no-objects':   'オブジェクトがありません',
+    'barchart-no-data':      '数値の変数や配列が見つかりません',
   },
   en: {
     'btn-edit':              '✏ Edit',
@@ -95,6 +104,14 @@ const STRINGS = {
     'settings-light':        'Light',
     'settings-dark':         'Dark',
     'help-title':            'User manual',
+    'view-no-data':          'No execution data',
+    'view-no-source':        'Source code unavailable',
+    'view-no-func-calls':    'No function calls',
+    'subst-empty':           'No function calls detected',
+    'recursiontree-empty':   'No recursive calls',
+    'objgraph-no-vars':      'No variables',
+    'objgraph-no-objects':   'No objects',
+    'barchart-no-data':      'No numeric variables or arrays found',
   },
 };
 

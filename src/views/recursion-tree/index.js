@@ -151,7 +151,7 @@ export class RecursionTree extends BaseView {
     this.#nodeById.clear();
 
     if (this.#roots.length === 0) {
-      container.innerHTML = '<div class="rt-wrap"><p class="placeholder">No recursive calls</p></div>';
+      container.innerHTML = `<div class="rt-wrap"><p class="placeholder">${t('recursiontree-empty')}</p></div>`;
       this.#svgEl = null;
       return;
     }

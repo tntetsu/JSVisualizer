@@ -87,7 +87,7 @@ export class BarChart extends BaseView {
     this.#chartEl = container.querySelector('.bc-chart');
 
     if (this.#allVarMeta.length === 0) {
-      this.#chartEl.innerHTML = '<p class="bc-empty">No numeric variables or arrays found</p>';
+      this.#chartEl.innerHTML = `<p class="bc-empty">${t('barchart-no-data')}</p>`;
     } else {
       this.#renderChips();
     }

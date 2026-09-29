@@ -9,6 +9,7 @@
 
 import { BaseView } from '../base-view.js';
 import { esc, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
+import { t } from '../../i18n.js';
 
 const SVG_NS      = 'http://www.w3.org/2000/svg';
 const XHTML       = 'http://www.w3.org/1999/xhtml';
@@ -166,7 +167,7 @@ export class Lifetime extends BaseView {
     const N = this.#humanSteps.length;
 
     if (N === 0 || segments.length === 0) {
-      container.innerHTML = '<div class="lf-wrap"><p class="placeholder">No execution data</p></div>';
+      container.innerHTML = `<div class="lf-wrap"><p class="placeholder">${t('view-no-data')}</p></div>`;
       this.#svgEl = null;
       return;
     }

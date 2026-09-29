@@ -158,7 +158,7 @@ export class CallTree extends BaseView {
     this.#nodeById.clear();
 
     if (this.#roots.length === 0) {
-      container.innerHTML = '<div class="ct-wrap"><p class="placeholder">No function calls</p></div>';
+      container.innerHTML = `<div class="ct-wrap"><p class="placeholder">${t('view-no-func-calls')}</p></div>`;
       this.#svgEl = null;
       return;
     }

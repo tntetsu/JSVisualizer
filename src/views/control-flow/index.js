@@ -38,7 +38,7 @@ export class ControlFlow extends BaseView {
     const scopes = builder ? builder.buildCFG() : [];
 
     if (!scopes.length) {
-      container.innerHTML = '<div class="cf-wrap"><p class="placeholder">No execution data</p></div>';
+      container.innerHTML = `<div class="cf-wrap"><p class="placeholder">${t('view-no-data')}</p></div>`;
       return;
     }
 

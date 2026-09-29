@@ -26,6 +26,7 @@
 
 import { BaseView }         from '../base-view.js';
 import { formatFrameLabel } from '../../utils/format.js';
+import { t }                from '../../i18n.js';
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────────
 
@@ -309,7 +310,7 @@ export class SubstTrace extends BaseView {
     this.#lines = buildSubstitutionLines(builder.trace, sourceLines);
 
     if (this.#lines.length === 0) {
-      container.innerHTML = '<div class="stx-wrap"><p class="stx-empty">No function calls detected</p></div>';
+      container.innerHTML = `<div class="stx-wrap"><p class="stx-empty">${t('subst-empty')}</p></div>`;
       this.#lineEls = [];
       return;
     }

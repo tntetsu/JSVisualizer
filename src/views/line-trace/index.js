@@ -194,7 +194,7 @@ export class Variable extends BaseView {
 
     const source = builder?.source ?? '';
     if (!source) {
-      container.innerHTML = '<div class="lt-outer"><p class="placeholder">Source code unavailable</p></div>';
+      container.innerHTML = `<div class="lt-outer"><p class="placeholder">${t('view-no-source')}</p></div>`;
       return;
     }
 
