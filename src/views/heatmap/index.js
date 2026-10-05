@@ -21,12 +21,66 @@ const DOT_MAX = 200;
 /** この実行回数以上の行を「異常」として赤表示する */
 const ANOMALY_THRESHOLD = 1_000;
 
+/** 条件式・更新式の評価をイテレーションごとに数えるループ文（中の文と合算しない） */
+const LOOP_TYPES = new Set(['WhileStatement', 'DoWhileStatement', 'ForStatement']);
+
+/**
+ * 各 humanStep を「行の実行 1 回」に対応づける。
+ *
+ * `sum += count;` は ExpressionStatement enter と AssignmentExpression exit の
+ * 2 つの humanStep を持つため、humanStep 数をそのまま数えると実行回数が 2 倍になる。
+ * humanStep を囲む文のうち、同じ行・同じ callDepth にあるループ以外の最も外側の文を
+ * 「行の実行」の単位とし、同じ文の実行に属する humanStep は最初の 1 つに寄せる。
+ * ループ文の条件式・更新式はイテレーションごとに 1 回と数える。
+ * Program enter（先頭の humanStep）はどの行の実行にも数えない。
+ *
+ * @param {Object[]} trace       TraceEvent[]
+ * @param {number[]} humanSteps  ソート済み humanStep の trace インデックス
+ * @returns {number[]}  hi → 代表 hi（自身が行の実行なら hi 自身、数えない場合は -1）
+ */
+export function buildLineExecOwners(trace, humanSteps) {
+  const owners    = new Array(humanSteps.length);
+  const ownerOf   = new Map();  // 文 enter の trace インデックス → 代表 hi
+  const open      = [];         // 未終了の enter イベントの trace インデックス
+  let   hi        = 0;
+
+  for (let i = 0; i < trace.length && hi < humanSteps.length; i++) {
+    const ev = trace[i];
+    while (open.length > 0 && (trace[open[open.length - 1]].matchIdx ?? Infinity) < i) open.pop();
+    if (ev.phase === 'enter' && ev.matchIdx != null) open.push(i);
+    if (i !== humanSteps[hi]) continue;
+
+    if (ev.nodeType === 'Program') { owners[hi++] = -1; continue; }
+
+    const line      = ev.loc?.line ?? 0;
+    const callDepth = ev.callDepth ?? 0;
+    let   stmtIdx   = null;
+    for (let k = open.length - 1; k >= 0; k--) {
+      const o = trace[open[k]];
+      if ((o.loc?.line ?? 0) !== line || (o.callDepth ?? 0) !== callDepth) break;
+      if (o.nodeType === 'Program' || LOOP_TYPES.has(o.nodeType)) break;
+      if (/(Statement|Declaration)$/.test(o.nodeType)) stmtIdx = open[k];
+    }
+
+    if (stmtIdx === null) {
+      owners[hi] = hi;
+    } else {
+      if (!ownerOf.has(stmtIdx)) ownerOf.set(stmtIdx, hi);
+      owners[hi] = ownerOf.get(stmtIdx);
+    }
+    hi++;
+  }
+  for (; hi < humanSteps.length; hi++) owners[hi] = hi;
+  return owners;
+}
+
 export class Heatmap extends BaseView {
   #container      = null;
   #builder        = null;
   #lineEls        = null;
   #dotEls         = null;
   #lineTimeline   = null;  // Map<lineNo, number[]>
+  #owners         = null;  // number[] — hi → 行の実行としての代表 hi（buildLineExecOwners）
   #maxTotal       = 1;
   #crossLinePairs = null;  // [hiA, hiB][] — 異なる行に遷移する連続 humanStep ペア
   #dotMap         = null;  // Map<hi, HTMLElement>
@@ -40,7 +94,6 @@ export class Heatmap extends BaseView {
     this.#builder   = builder;
 
     const source     = builder.source;
-    const heatmap    = builder.buildHeatmap();
     const humanSteps = builder.getHumanStepList();
     const trace      = builder.trace;
 
@@ -51,11 +104,12 @@ export class Heatmap extends BaseView {
 
     const lines      = source.split('\n');
     const totalSteps = humanSteps.length;
-    const counts     = [...heatmap.values()];
-    this.#maxTotal   = counts.length > 0 ? Math.max(...counts) : 1;
+    const owners     = buildLineExecOwners(trace, humanSteps);
+    this.#owners     = owners;
 
-    // humanStep ごとの行番号列
-    const timeline = humanSteps.map(si => trace[si]?.loc?.line ?? 0);
+    // humanStep ごとの行番号列（行の実行として数えない humanStep は 0）
+    const timeline = humanSteps.map((si, t) =>
+      owners[t] === t ? (trace[si]?.loc?.line ?? 0) : 0);
 
     // lineNo → 実行された humanStep インデックスの配列
     const lineTimeline = new Map();
@@ -67,13 +121,16 @@ export class Heatmap extends BaseView {
       }
     }
     this.#lineTimeline = lineTimeline;
+    const counts       = [...lineTimeline.values()].map(a => a.length);
+    this.#maxTotal     = counts.length > 0 ? Math.max(...counts) : 1;
 
-    // 異なる行に遷移する連続 humanStep ペアを事前計算
+    // 異なる行に遷移する連続した行の実行ペアを事前計算
+    const execs = [];
+    for (let t = 0; t < timeline.length; t++) if (timeline[t] > 0) execs.push(t);
     this.#crossLinePairs = [];
-    for (let t = 0; t + 1 < timeline.length; t++) {
-      if (timeline[t] !== timeline[t + 1] && timeline[t] > 0 && timeline[t + 1] > 0) {
-        this.#crossLinePairs.push([t, t + 1]);
-      }
+    for (let k = 0; k + 1 < execs.length; k++) {
+      const [a, b] = [execs[k], execs[k + 1]];
+      if (timeline[a] !== timeline[b]) this.#crossLinePairs.push([a, b]);
     }
 
     // ── HTML 構築 ─────────────────────────────────────────────────────────
@@ -130,6 +187,9 @@ export class Heatmap extends BaseView {
       if (humanSteps[i] <= cursor) hi = i;
       else break;
     }
+    // 文の途中の humanStep は、その文の実行（代表 hi）として扱う
+    const owner = this.#owners?.[hi];
+    if (owner != null && owner >= 0) hi = owner;
 
     // ドットのクラスを更新（past / current / future）
     for (const el of this.#dotEls) {
@@ -209,6 +269,7 @@ export class Heatmap extends BaseView {
     this.#lineEls        = null;
     this.#dotEls         = null;
     this.#lineTimeline   = null;
+    this.#owners         = null;
     this.#crossLinePairs = null;
     this.#dotMap         = null;
     this.#overlaySvg     = null;

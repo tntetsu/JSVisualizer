@@ -986,6 +986,8 @@ const yOf = (val) => PAD.top  + (1 - (val - dynMin) / (dynMax - dynMin)) * (svgH
 **初期化**: ドット配置のみ静的に生成。背景色は `update()` で動的更新。
 `lineTimeline`: `Map<lineNo, number[]>` — 各行が実行された humanStep インデックスの配列を事前計算。
 
+**行の実行の数え方**（`buildLineExecOwners(trace, humanSteps)`、export 関数）: 1 つの文が複数の humanStep を持つことがある（`sum += count;` は ExpressionStatement enter と AssignmentExpression exit、`return n * f(n - 1);` は CallExpression exit と ReturnStatement exit）。humanStep をそのまま数えると実行回数が 2 倍になるため、humanStep を囲む文のうち「同じ行・同じ callDepth にあるループ以外の最も外側の文」を単位とし、同じ文の実行に属する humanStep は最初の 1 つ（代表 hi）に寄せる。while/do-while/for の条件式・更新式はイテレーションごとに 1 回と数える。Program enter（hi=0）は数えない（-1）。ドット・連結線・回数はすべて代表 hi だけで構成し、`update()` では現在の hi を代表 hi に置き換えてから past/current を判定する。背景色の上限 `maxTotal` も `lineTimeline` の長さから求める（`buildHeatmap()` は使わない）。
+
 **動的背景色** (`update()` で毎ステップ更新):
 ```js
 // バイナリサーチで現在ステップまでの実行回数を算出

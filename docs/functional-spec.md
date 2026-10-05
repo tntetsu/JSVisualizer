@@ -422,12 +422,12 @@
 
 - `init()` でソース行を描画。ドット列（lineTimeline）を事前計算
 - **背景色**: 現在ステップまでの実行回数に応じて橙の透明度を `update()` で動的に更新（静的ではない）
-- **実行回数表示**: 各行の右端に「N回 / M回」形式で表示（N=現在ステップまでの回数、M=全ステップでの総回数）。ステップごとに更新
+- **実行回数表示**: 各行の右端に「N回 / M回」形式で表示（N=現在ステップまでの回数、M=全ステップでの総回数）。ステップごとに更新。回数は文の実行単位で数え、`sum += count;` のように 1 つの文が複数の humanStep を持っても 1 回と数える。ループの条件式はイテレーションごとに数える（例: 6 回まわる while の条件行は 7 回）
 - **時系列ドット**: 各行の実行タイミングを右端の幅固定トラック（360px）内に点で配置。水平位置 = humanStep インデックスの相対位置。実行済みドット（`.hm-dot--past`、アクセントカラー）と未実行ドット（グレー）で色分け。現在位置ドット（`.hm-dot--current`）は強調表示
 - **連結線（常時表示）**: 異なる行に遷移する連続 humanStep のドット間を、`.hm-lines` 内のオーバーレイ SVG（`.hm-overlay-svg`、`position: absolute`）上の `<line class="hm-vline">` で常時表示。`init()` 時に `requestAnimationFrame` で `#drawConnectLines()` を呼び出して描画。座標は `getBoundingClientRect()` ＋ `scrollTop` で算出。トグルボタン（`.hm-btn-lines`）は廃止
 - `update()` で背景色・カウントテキスト・ドットの状態クラスを全行更新
 
-**入力**: `builder.source`, `builder.buildHeatmap()`, `builder.getHumanStepList()`, `builder.trace`, `state.event`, `state.cursor`
+**入力**: `builder.source`, `builder.getHumanStepList()`, `builder.trace`, `state.event`, `state.cursor`
 
 ---
 

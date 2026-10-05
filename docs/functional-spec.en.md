@@ -358,12 +358,12 @@ Exec Trace (V-02b) is the timeline view for both variable values and arrays (the
 
 **Tab label**: Heatmap
 
-- Source lines shown with execution count as `"N / M times"` format + orange background intensity, updated per step
+- Source lines shown with execution count as `"N / M times"` format + orange background intensity, updated per step. Counts are per statement execution: a statement with several humanSteps (e.g. `sum += count;`) counts once; loop conditions count once per iteration
 - **Timeline dots**: each line's execution moments shown as dots in a fixed-width track (360px); past dots highlighted in accent color, future dots in gray
 - **Connector lines**: SVG lines between consecutive-humanStep dots that transition to different lines — always visible (no toggle)
 - `update()` updates background color, count text, and dot states for all lines
 
-**Input**: `builder.source`, `builder.buildHeatmap()`, `builder.getHumanStepList()`, `builder.trace`, `state.event`, `state.cursor`
+**Input**: `builder.source`, `builder.getHumanStepList()`, `builder.trace`, `state.event`, `state.cursor`
 
 ---
 
