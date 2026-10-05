@@ -50,3 +50,4 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [039](ADR-039-stmt-step-container-fix.md) | 文単位ステップの不具合修正（初期位置での暴走・1文2クリック問題） | 2026-09-24 |
 | [040](ADR-040-hide-study-ui-when-bhv-embedded.md) | BhvVisualizer埋め込み時は設定パネルの評価実験用UIを取り除く（`# BHV:`） | 2026-09-28 |
 | [041](ADR-041-user-manual-and-help-button.md) | 利用者向けマニュアル（日英）とヘッダーの使い方ボタン | 2026-09-29 |
+| [042](ADR-042-statement-execution-unit-in-views.md) | ヒートマップ・実行トレースで1つの文の実行を1回・1行として扱う | 2026-10-05 |

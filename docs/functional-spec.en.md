@@ -233,8 +233,8 @@ Exec Trace (V-02b) is the timeline view for both variable values and arrays (the
 
 **Tab label**: Exec Trace
 
-- Rows = one per humanStep, in execution order
-- All humanStep rows rendered at `init()` time
+- Rows = one per statement execution, in execution order. A statement with several consecutive humanSteps (e.g. `console.log(x);`, `i++;`) is one row showing the state after the statement (a statement that calls into a function gets two rows: before the call and after it returns)
+- All rows rendered at `init()` time
 - `update()` only moves the highlight row and calls `scrollIntoView()` — O(n)
 - Columns: # | Line | Code (first 30 chars) | Array column (only when an array appears) | Variable columns (in appearance order) | Condition columns (in appearance order)
   - **Array column** ([ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)): for each step where a pointer variable (e.g. `i`/`minIdx`) is detected on an array, renders the same "index row / value row / pointer-label row" mini diagram as the Arrays view. Detection and rendering are shared with Arrays (`color-box/index.js`) via `src/utils/array-grid.js`. Lets a reader spot a cross-iteration pointer offset (invisible in the animation-only Arrays view) just by scrolling down. Cell width is sized from the longest pointer variable name; the display frame's width is drag-resizable via the column-header handle and persisted to `localStorage('jsv-exectrace-diagram-w')` (100–500px)

@@ -236,12 +236,12 @@
 
 タブ名: **実行トレース**（タブ登録順: 変数の次、全ステップの前）
 
-- 行 = humanStep ごとの実行ステップ（実行順）
-- `init()` 時に全 humanStep を一括描画
+- 行 = 文の実行ごとの実行ステップ（実行順）。`console.log(x);` や `i++;` のように 1 つの文が複数の humanStep を持っても 1 行にまとめ、値は文の実行後の時点を表示する（関数呼び出しの中に入る文は、呼び出し前と戻った後の 2 行）
+- `init()` 時に全行を一括描画
 - `update()` は現在行のハイライト移動と scrollIntoView のみ（O(n)）
 - 列構成: # | 行 | コード（先頭 30 文字）| 配列列（配列が登場する場合のみ）| 変数値列（出現順）| 条件式列（出現順）
   - **配列列**（[ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)）: そのステップでポインタ変数（`i`/`minIdx` 等）が検出された配列のみ、Arrays ビューと同じ「インデックス行・値行・ポインタラベル行」のミニ図を描画。検出・描画ロジックは `src/utils/array-grid.js` に共通化し Arrays（`color-box/index.js`）と共有。アニメーション型の Arrays では見えない「イテレーション横断のポインタ位置ズレ」を、縦スクロールするだけで比較できる。セル幅はポインタ候補の最長変数名から動的算出。表示枠の幅はヘッダーのハンドルをドラッグして変更でき、`localStorage('jsv-exectrace-diagram-w')` に永続化（100〜500px）
-  - **変数値列**: 各 humanStep 時点の変数値を `flattenEnv` で取得して表示。`formatValueDiff()` で前ステップとの差分を橙太字で強調（`init()` 時に全行一括適用）
+  - **変数値列**: 各行の最後の humanStep 時点の変数値を `flattenEnv` で取得して表示。`formatValueDiff()` で前ステップとの差分を橙太字で強調（`init()` 時に全行一括適用）
   - **条件式列**: `buildConditionExitSet` でループ条件式の exit を事前収集し、`buildCondInfo` で以下の 2 ケースを判定
     - Case 1（while/do-while/for の条件式 exit）: イベント自体が条件式評価結果。値を直接取得
     - Case 2（IfStatement/ConditionalExpression の enter）: 直後の boolean exit を探して値を取得

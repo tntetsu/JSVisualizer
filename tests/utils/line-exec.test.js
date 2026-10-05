@@ -1,10 +1,10 @@
 /**
- * heatmap.test.js — Heatmap の行実行回数（buildLineExecOwners）のユニットテスト
+ * line-exec.test.js — humanStep を行の実行単位にまとめる処理（buildLineExecOwners / buildExecRows）のユニットテスト
  */
 
 import { JSDebugger } from '../../../JSInterpreter/src/interpreter/debugger.js';
 import { TraceBuilder } from '../../src/core/trace-builder.js';
-import { buildLineExecOwners } from '../../src/views/heatmap/index.js';
+import { buildLineExecOwners, buildExecRows } from '../../src/utils/line-exec.js';
 
 /** ソースを実行し、ヒートマップが表示する行ごとの総実行回数を返す */
 function lineCounts(src) {
@@ -48,5 +48,43 @@ console.log(f(4));`);
     const trace      = new JSDebugger(src).trace;
     const humanSteps = new TraceBuilder(trace, src).getHumanStepList();
     expect(buildLineExecOwners(trace, humanSteps)[0]).toBe(-1);
+  });
+});
+
+describe('buildExecRows()', () => {
+  /** ソースを実行し、ExecTrace の各行の行番号を返す */
+  function rowLines(src) {
+    const trace      = new JSDebugger(src, { maxSteps: 100_000 }).trace;
+    const humanSteps = new TraceBuilder(trace, src).getHumanStepList();
+    const { rows }   = buildExecRows(trace, humanSteps);
+    return rows.map((his) => trace[humanSteps[his[0]]].loc.line);
+  }
+
+  test('console.log の文・インクリメントの文を 1 行にまとめる（2 回ずつ表示しない）', () => {
+    expect(rowLines(`let i = 1;
+while (i <= 3) {
+  console.log('A', i);
+  if (i % 2 === 0) {
+    console.log('B', i);
+  }
+  console.log('C', i);
+  i++;
+}`)).toEqual([1, 2, 3, 4, 7, 8, 2, 3, 4, 5, 7, 8, 2, 3, 4, 7, 8, 2]);
+  });
+
+  test('関数呼び出しの中に入る文は、呼び出し前と戻った後の 2 行に分かれる', () => {
+    expect(rowLines(`function sq(x) {
+  return x * x;
+}
+console.log(sq(3));`)).toEqual([4, 2, 4]);
+  });
+
+  test('hiToRow は Program enter を -1、同じ行にまとめた hi を同じ行番号に対応づける', () => {
+    const src        = 'let a = 1;\na++;';
+    const trace      = new JSDebugger(src).trace;
+    const humanSteps = new TraceBuilder(trace, src).getHumanStepList();
+    const { rows, hiToRow } = buildExecRows(trace, humanSteps);
+    expect(rows).toEqual([[1], [2, 3]]);
+    expect(hiToRow).toEqual([-1, 0, 1, 1]);
   });
 });

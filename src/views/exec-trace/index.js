@@ -1,20 +1,23 @@
 /**
  * exec-trace/index.js — 実行順トレース表
  *
- * 行   = humanStep ごとの実行ステップ（実行順）
+ * 行   = 文の実行ごとの実行ステップ（実行順）。同じ文の実行に属する連続した humanStep
+ *        （`console.log(x);` の ExpressionStatement enter と CallExpression exit など）は
+ *        1 行にまとめ、値はその最後の humanStep 時点（文の実行後）を表示する（buildExecRows）
  * 列   = # | 行 | コード | 変数値（出現順）| 条件式（出現順）
  *
  * LineTrace と同じ列構成を実行順で表示する。
  * init() で全行・全列を一括生成し、update() は現在行の
  * ハイライト移動と scrollIntoView のみ（O(n)）。
  *
- * 変数列: 各 humanStep 時点の変数値（flattenEnv で Map を取得）
- * 条件列: 条件文 enter の humanStep でのみ値を表示、それ以外は空
+ * 変数列: 各行の最後の humanStep 時点の変数値（flattenEnv で Map を取得）
+ * 条件列: 行が条件文 enter / ループ条件式の humanStep を含むときだけ値を表示、それ以外は空
  */
 
 import { BaseView } from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES, formatValue, formatValueDiff, esc } from '../../utils/format.js';
 import { computeSubscriptVars, detectPointerVars, renderArrayGrid } from '../../utils/array-grid.js';
+import { buildExecRows } from '../../utils/line-exec.js';
 import { t } from '../../i18n.js';
 
 /** ExecTrace内のミニ配列図のポインタラベル用フォントサイズ（px、固定） */
@@ -125,9 +128,10 @@ function buildCondInfo(trace, si, lines, conditionExitSet) {
 
 export class ExecTrace extends BaseView {
   #container  = null;
-  #rowEls     = null;   // HTMLElement[]  hi → <tr>
+  #rowEls     = null;   // HTMLElement[]  行 → <tr>
   #humanSteps = null;   // number[]       trace インデックス列
-  #activeHi   = -1;
+  #hiToRow    = null;   // number[]       hi → 行（どの行にも含めない場合は -1）
+  #activeRow  = -1;
 
   // ── 「配列」列リサイズ用（destroy() で必ず解除する） ────────────────────────
   #diagResizeHandle   = null;
@@ -141,16 +145,18 @@ export class ExecTrace extends BaseView {
 
   init(container, builder) {
     this.#container  = container;
-    this.#activeHi   = -1;
+    this.#activeRow  = -1;
 
     const humanSteps = builder.getHumanStepList();
     const trace      = builder.trace;
     const source     = builder.source ?? '';
     const lines      = source.split('\n');
+    const { rows, hiToRow } = buildExecRows(trace, humanSteps);
 
     this.#humanSteps = humanSteps;
+    this.#hiToRow    = hiToRow;
 
-    if (humanSteps.length === 0) {
+    if (rows.length === 0) {
       container.innerHTML = `<div class="et-wrap"><p class="et-empty">${esc(t('exectrace-empty'))}</p></div>`;
       this.#rowEls = [];
       return;
@@ -190,18 +196,19 @@ export class ExecTrace extends BaseView {
     // ── 条件式を出現順に収集 ──────────────────────────────────────────────
     const condSet   = new Set();
     const condNames = [];
-    const hiCondMap = new Map();  // hi → {text, value}
+    const rowCondMap = new Map();  // 行 → {text, value}
 
     const conditionExitSet = buildConditionExitSet(trace);
-    for (let hi = 0; hi < humanSteps.length; hi++) {
-      const si   = humanSteps[hi];
-      const info = buildCondInfo(trace, si, lines, conditionExitSet);
-      if (info) {
-        hiCondMap.set(hi, info);
+    for (let r = 0; r < rows.length; r++) {
+      for (const hi of rows[r]) {
+        const info = buildCondInfo(trace, humanSteps[hi], lines, conditionExitSet);
+        if (!info) continue;
+        rowCondMap.set(r, info);
         if (!condSet.has(info.text)) {
           condSet.add(info.text);
           condNames.push(info.text);
         }
+        break;
       }
     }
 
@@ -224,19 +231,18 @@ export class ExecTrace extends BaseView {
 
     let prevEnvMap = new Map();
 
-    for (let hi = 0; hi < humanSteps.length; hi++) {
-      const si    = humanSteps[hi];
-      const ev    = trace[si];
+    for (let r = 0; r < rows.length; r++) {
+      const ev    = trace[humanSteps[rows[r][rows[r].length - 1]]];
       if (!ev) continue;
 
-      const lineNo  = ev.loc?.line ?? 0;
+      const lineNo  = trace[humanSteps[rows[r][0]]]?.loc?.line ?? 0;
       const rawLine = lineNo > 0 ? (lines[lineNo - 1] ?? '') : '';
       const snippet = rawLine.trim().slice(0, 30);
       const envMap  = flattenEnv(ev.env);           // Map<string, any>
-      const condInfo = hiCondMap.get(hi);
+      const condInfo = rowCondMap.get(r);
 
-      html += `<tr class="et-row" data-hi="${hi}">`;
-      html += `<td class="et-td et-col-num">${hi + 1}</td>`;
+      html += `<tr class="et-row" data-row="${r}">`;
+      html += `<td class="et-td et-col-num">${r + 1}</td>`;
       html += `<td class="et-td et-col-line">${lineNo}</td>`;
       html += `<td class="et-td et-col-code">${esc(snippet)}</td>`;
 
@@ -340,7 +346,7 @@ export class ExecTrace extends BaseView {
   }
 
   update(state) {
-    if (!this.#rowEls || !this.#humanSteps) return;
+    if (!this.#rowEls || !this.#humanSteps || !this.#hiToRow) return;
 
     const cursor     = state.cursor;
     const humanSteps = this.#humanSteps;
@@ -352,26 +358,27 @@ export class ExecTrace extends BaseView {
       else break;
     }
 
-    if (newHi === this.#activeHi) return;
+    const newRow = this.#hiToRow[newHi] ?? -1;
+    if (newRow === this.#activeRow) return;
 
     // 旧ハイライトを解除
-    if (this.#activeHi >= 0) {
-      this.#rowEls[this.#activeHi]?.classList.remove('et-row--active');
+    if (this.#activeRow >= 0) {
+      this.#rowEls[this.#activeRow]?.classList.remove('et-row--active');
     }
-    // 新ハイライトを設定してスクロール追従
-    const el = this.#rowEls[newHi];
+    // 新ハイライトを設定してスクロール追従（Program enter など行を持たない hi では何も強調しない）
+    const el = newRow >= 0 ? this.#rowEls[newRow] : null;
     if (el) {
       el.classList.add('et-row--active');
       el.scrollIntoView({ block: 'nearest' });
     }
-    this.#activeHi = newHi;
+    this.#activeRow = newRow;
   }
 
   reset() {
-    if (this.#activeHi >= 0) {
-      this.#rowEls?.[this.#activeHi]?.classList.remove('et-row--active');
+    if (this.#activeRow >= 0) {
+      this.#rowEls?.[this.#activeRow]?.classList.remove('et-row--active');
     }
-    this.#activeHi = -1;
+    this.#activeRow = -1;
   }
 
   destroy() {
@@ -386,5 +393,6 @@ export class ExecTrace extends BaseView {
     this.#container  = null;
     this.#rowEls     = null;
     this.#humanSteps = null;
+    this.#hiToRow    = null;
   }
 }

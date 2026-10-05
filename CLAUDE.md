@@ -26,7 +26,8 @@ JSVisualizer/
 │   ├── i18n.js                   # 日英表示切替（STRINGS/t/getLang/setLang・langchange イベント）
 │   ├── utils/
 │   │   ├── format.js             # formatValueDiff・mergeScopesForDisplay 等の表示整形ヘルパー
-│   │   └── array-grid.js         # 配列＋ポインタのグリッド描画（Arrays・ExecTrace共通、ADR-037）
+│   │   ├── array-grid.js         # 配列＋ポインタのグリッド描画（Arrays・ExecTrace共通、ADR-037）
+│   │   └── line-exec.js          # humanStep を文の実行単位にまとめる（Heatmap・ExecTrace共通）
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
 │   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅
 │   │   ├── state-view/           # コールスタックビュー（CallStackView・Global疑似フレーム＋関数フレーム）✅ ← タブ「コールスタック」
@@ -68,10 +69,9 @@ JSVisualizer/
 │   │   ├── trace-builder.test.js # TraceBuilder 全7メソッドのユニットテスト
 │   │   ├── step-controller.test.js
 │   │   └── samples.test.js       # 21サンプルコード全エラーなし・trace ≥ 1 確認
-│   ├── views/
-│   │   └── heatmap.test.js       # ヒートマップの行実行回数（buildLineExecOwners）のユニットテスト
 │   └── utils/
-│       └── array-grid.test.js    # 配列＋ポインタグリッド描画（computeSubscriptVars等）のユニットテスト
+│       ├── array-grid.test.js    # 配列＋ポインタグリッド描画（computeSubscriptVars等）のユニットテスト
+│       └── line-exec.test.js     # humanStep を文の実行単位にまとめる処理（buildLineExecOwners / buildExecRows）のユニットテスト
 ├── docs/
 │   ├── functional-spec.md        # 機能仕様書
 │   ├── functional-spec.en.md     # 機能仕様書（英語版）
@@ -390,9 +390,9 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 - **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[callStack.length-1].name(args)` 形式、ReturnStatement は `'return'` を表示
 - **CallTree ビュー**: `buildCallTree()` が返すノード配列（再帰・非再帰を問わず全関数呼び出し、cost付き）を SVG ツリーとして描画。表示形式・レイアウトアルゴリズムとも `RecursionTree` と共通（ADR-027 で統合、RecursionTree は非アクティブ化）。CSS クラスは `.ct-*`（`RecursionTree` の `.rt-*` に対応）
 - **スコープ統合表示**: `format.js` の `mergeScopesForDisplay(scopes, callStack)` でフレームごとに表示変数を決定。最内側フレームは scopes[0]〜scopes[M-2] を全マージ（ブロックスコープ含む）。外側フレームは env チェーンに含まれないため callStack[i].args + JSFunction.params から引数値を再構築（`reconstructFrameVars`）。ラベルは `factorial(6)` 形式（`formatFrameLabel(frame)`）。`scope-view`・`state-view`・`memory-view` で共通使用。表示順は innermost-first
-- **Heatmap の改善**: 行の実行回数は humanStep 数ではなく文の実行単位で数える（`heatmap/index.js` の `buildLineExecOwners()`。`sum += count;` のように 1 文が複数の humanStep を持っても 1 回）。背景色を `update()` ごとに現在ステップまでの実行回数で動的更新（`lineTimeline` + バイナリサーチ）。カウントを「N回 / M回」形式で表示。ドット幅 360px（3倍）。実行済みドット（`.hm-dot--past`）と未実行ドット（デフォルトグレー）を色分け。異なる行に遷移する連続 humanStep のドット間を `.hm-overlay-svg` 上の `<line class="hm-vline">` で常時表示（`init()` 時に `requestAnimationFrame` で描画）。`.hm-lines` は `position: relative`、オーバーレイ SVG は `position: absolute`。トグルボタンは廃止
+- **Heatmap の改善**: 行の実行回数は humanStep 数ではなく文の実行単位で数える（`src/utils/line-exec.js` の `buildLineExecOwners()`。`sum += count;` のように 1 文が複数の humanStep を持っても 1 回）。背景色を `update()` ごとに現在ステップまでの実行回数で動的更新（`lineTimeline` + バイナリサーチ）。カウントを「N回 / M回」形式で表示。ドット幅 360px（3倍）。実行済みドット（`.hm-dot--past`）と未実行ドット（デフォルトグレー）を色分け。異なる行に遷移する連続 humanStep のドット間を `.hm-overlay-svg` 上の `<line class="hm-vline">` で常時表示（`init()` 時に `requestAnimationFrame` で描画）。`.hm-lines` は `position: relative`、オーバーレイ SVG は `position: absolute`。トグルボタンは廃止
 - **Arrays（配列ビュー、旧クラス名ColorBox）**: タブ名「配列」。複数配列を同時選択して表示（折り返しあり）。各配列ブロックを枠線（`border: 1px solid var(--border)`）＋背景色（`var(--surface2)`）で区切り表示。`#scanTrace()` の 2 パス走査で配列ごとの `maxWidth`（最大グリッド幅）と `maxGridHeight`（最大グリッド高）を事前計算。`#render()` で `.cb-grid` に `min-width`/`min-height` を設定し、配列長やポインタ行数が変化しても各ブロックの占有領域が動かないよう固定。空配列時も `.cb-grid` を描画して占有領域を確保。ポインタ変数は変数ごとに個別の行として表示。文字列値は切り詰めなしで表示。オブジェクト・配列要素は `'?'` ではなく `formatValue()` でキー:値ペアをそのまま表示し、セル幅は `#cellWidth()` が内容の文字数から算出（数値セルの幅比例フォントではなく固定 `OBJ_FONT=10px` を使用）
-- **ExecTrace（実行トレース）**: `init()` で humanStep 順の行をすべて一括描画。列 = # | 行 | コード | 配列（配列が登場する場合のみ）| 変数値（出現順）| 条件式（出現順）。`update()` は現在行ハイライト移動と scrollIntoView のみ（O(n)）。条件式列は `buildConditionExitSet` + `buildCondInfo` で while/for の各イテレーション条件値を正確に表示。**配列＋ポインタのミニ図**（`et-col-diagram`列）: そのステップでポインタ変数（`i`/`minIdx`等）が検出された配列のみ、Arrays ビューと同じ「インデックス行・値行・ポインタラベル行」のグリッドを描画。ポインタ検出・グリッド生成ロジックは `src/utils/array-grid.js`（`computeSubscriptVars`/`detectPointerVars`/`renderArrayGrid`/`valueToBoxColor`）に共通化し、Arrays（`color-box/index.js`）と共有。アニメーション型の Arrays では見えない「イテレーション横断のポインタ位置ズレ」を、時間軸型の ExecTrace で縦スクロールするだけで比較できるようにする統合（詳細は ADR-037）
+- **ExecTrace（実行トレース）**: `init()` で実行順の行をすべて一括描画。行は humanStep ごとではなく文の実行ごと（`src/utils/line-exec.js` の `buildExecRows()`、[ADR-042](docs/adr/ADR-042-statement-execution-unit-in-views.md)）で、`console.log(x);` や `i++;` のように 1 文が複数の humanStep を持っても連続していれば 1 行にまとめ、値はその最後の humanStep 時点（文の実行後）を表示する。Program enter は行にしない。列 = # | 行 | コード | 配列（配列が登場する場合のみ）| 変数値（出現順）| 条件式（出現順）。`update()` は現在行ハイライト移動と scrollIntoView のみ（O(n)）。条件式列は `buildConditionExitSet` + `buildCondInfo` で while/for の各イテレーション条件値を正確に表示。**配列＋ポインタのミニ図**（`et-col-diagram`列）: そのステップでポインタ変数（`i`/`minIdx`等）が検出された配列のみ、Arrays ビューと同じ「インデックス行・値行・ポインタラベル行」のグリッドを描画。ポインタ検出・グリッド生成ロジックは `src/utils/array-grid.js`（`computeSubscriptVars`/`detectPointerVars`/`renderArrayGrid`/`valueToBoxColor`）に共通化し、Arrays（`color-box/index.js`）と共有。アニメーション型の Arrays では見えない「イテレーション横断のポインタ位置ズレ」を、時間軸型の ExecTrace で縦スクロールするだけで比較できるようにする統合（詳細は ADR-037）
 - **SubstTrace（代入展開）**: 再帰関数呼び出しを「置換モデル」で逐次展開。最初のユーザー定義関数呼び出しをトラッキングし、ReturnStatement enter ごとに `computeReturnExpr()` で return 式の識別子・サブ呼び出しを評価済みテキストへ置換。CSS クラスは `.stx-*`。ハイライト: 展開された部分（`stx-hl-expanded`）と次に置換される項（`stx-hl-pending`）
 - **ExprTrace（式評価）**: 1行の式が部分式の逐次置換で最終値に収束する過程をトレース表形式で表示。対象ステートメント: `ExpressionStatement`・`VariableDeclaration` init・`IfStatement` test・`WhileStatement` test（イテレーションごと）・`ReturnStatement` 引数・`ForStatement` init/test/update（イテレーションごと）。列 = 式テキスト（変化するたびに行追加）+ 変数値列（式テキストに登場する識別子のみ・関数値除外）。ソース座標 → 表示座標変換に `srcPosToDispPos()` / `srcRangeToDispRange()`。展開ハイライト（橙 `xev-hl-expanded`）・評価待ちハイライト（青太字 `xev-hl-pending`）・未評価部分のグレーアウト（`xev-hl-unevaluated`、2026-08-05追加）の3種を表示。未評価部分は各行の累積 `subs`（適用済み置換）に覆われていないソース範囲を `computeUnevaluatedGaps()` で算出し、`buildExprHtml(text, ranges)` が文字単位の優先度配列（低: unevaluated → 中: expanded → 高: pending）で重なりを解決してレンダリングする。CSS クラスは `.xev-*`。`ev.callDepth !== outerCallDepth` で関数内部除外。**変数値の時系列表示**: Row 0 = enterIdx env（評価前）、中間行 = その exit イベント時点の env、最終行（2行以上のセクション）= exitIdx env（束縛・代入完了後）。`update()` でアクティブ行の TD を `trace[cursor].env` からリアルタイム書き換え（`#trace` フィールドに builder.trace を保持）。`VariableDeclaration` の位置取得はソース正規表現ベース（interpreter が VariableDeclarator イベントを emit しないため `trace[i+1]` に直接 init 式が来る）
 - **console.log 配列内文字列クォート**: JSInterpreter `formatLogArg(v, depth=0)` に `depth` 引数を追加。`depth > 0`（配列・オブジェクトの要素）の文字列は `'str'` 形式（シングルクォート付き）で表示し、Node.js の挙動と一致させる。トップレベル文字列（depth=0）はクォートなし

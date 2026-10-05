@@ -786,7 +786,7 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
 
 タブ名: **実行トレース**
 
-- `init()` で全 humanStep を実行順（humanStep インデックス順）に一括描画
+- `init()` で全行を実行順（humanStep インデックス順）に一括描画。行は文の実行ごと（`src/utils/line-exec.js` の `buildExecRows(trace, humanSteps)`）: `buildLineExecOwners()`（Heatmap と共通）で同じ文の実行に属する連続した humanStep を 1 行にまとめる（`console.log(x);` の ExpressionStatement enter と CallExpression exit、`i++;` の ExpressionStatement enter と UpdateExpression exit など）。変数値はその行の最後の humanStep 時点（文の実行後）、行番号は最初の humanStep のものを使う。途中で関数呼び出しの中に入る文は連続しないため、呼び出し前と戻った後の 2 行に分かれる。Program enter は行にしない（`update()` でカーソルが Program enter にあるときはどの行も強調しない）
 - `update()` は `et-row--active` クラスの付け替えと scrollIntoView のみ（O(n)）
 
 **列構成**: # | 行 | コード（先頭 30 文字）| 配列列（配列が登場する場合のみ）| 変数値列（出現順）| 条件式列（出現順）
@@ -986,7 +986,7 @@ const yOf = (val) => PAD.top  + (1 - (val - dynMin) / (dynMax - dynMin)) * (svgH
 **初期化**: ドット配置のみ静的に生成。背景色は `update()` で動的更新。
 `lineTimeline`: `Map<lineNo, number[]>` — 各行が実行された humanStep インデックスの配列を事前計算。
 
-**行の実行の数え方**（`buildLineExecOwners(trace, humanSteps)`、export 関数）: 1 つの文が複数の humanStep を持つことがある（`sum += count;` は ExpressionStatement enter と AssignmentExpression exit、`return n * f(n - 1);` は CallExpression exit と ReturnStatement exit）。humanStep をそのまま数えると実行回数が 2 倍になるため、humanStep を囲む文のうち「同じ行・同じ callDepth にあるループ以外の最も外側の文」を単位とし、同じ文の実行に属する humanStep は最初の 1 つ（代表 hi）に寄せる。while/do-while/for の条件式・更新式はイテレーションごとに 1 回と数える。Program enter（hi=0）は数えない（-1）。ドット・連結線・回数はすべて代表 hi だけで構成し、`update()` では現在の hi を代表 hi に置き換えてから past/current を判定する。背景色の上限 `maxTotal` も `lineTimeline` の長さから求める（`buildHeatmap()` は使わない）。
+**行の実行の数え方**（`src/utils/line-exec.js` の `buildLineExecOwners(trace, humanSteps)`、ExecTrace と共通）: 1 つの文が複数の humanStep を持つことがある（`sum += count;` は ExpressionStatement enter と AssignmentExpression exit、`return n * f(n - 1);` は CallExpression exit と ReturnStatement exit）。humanStep をそのまま数えると実行回数が 2 倍になるため、humanStep を囲む文のうち「同じ行・同じ callDepth にあるループ以外の最も外側の文」を単位とし、同じ文の実行に属する humanStep は最初の 1 つ（代表 hi）に寄せる。while/do-while/for の条件式・更新式はイテレーションごとに 1 回と数える。Program enter（hi=0）は数えない（-1）。ドット・連結線・回数はすべて代表 hi だけで構成し、`update()` では現在の hi を代表 hi に置き換えてから past/current を判定する。背景色の上限 `maxTotal` も `lineTimeline` の長さから求める（`buildHeatmap()` は使わない）。
 
 **動的背景色** (`update()` で毎ステップ更新):
 ```js
@@ -1747,7 +1747,8 @@ JSVisualizer/
 │   │   └── exercise-source.js         ← URLクエリ(exercise/code/view)によるコード読み込み（§3.9、ADR-029/031/036）
 │   ├── utils/
 │   │   ├── format.js                  ← formatValue / formatValueDiff / flattenEnv / BUILTIN_NAMES / esc / formatFrameLabel / mergeScopesForDisplay
-│   │   └── array-grid.js              ← 配列＋ポインタのグリッド描画（Arrays・ExecTrace共通、ADR-037）
+│   │   ├── array-grid.js              ← 配列＋ポインタのグリッド描画（Arrays・ExecTrace共通、ADR-037）
+│   │   └── line-exec.js               ← humanStep を文の実行単位にまとめる（buildLineExecOwners / buildExecRows、Heatmap・ExecTrace共通）
 │   ├── views/
 │   │   ├── base-view.js               ← BaseView 基底クラス
 │   │   ├── code-view/
