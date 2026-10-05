@@ -338,7 +338,7 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 
 | 種別 | 判定条件 | 表示バッジ |
 |------|---------|----------|
-| 構文エラー | `SyntaxError` クラス / `[Parser]` プレフィックス | 「構文エラー」（赤バッジ） |
+| 構文エラー | `SyntaxError` クラス / `[Parser]`・`[Lexer]` プレフィックス | 「構文エラー」（赤バッジ） |
 | 実行エラー | それ以外 | 「実行エラー」（オレンジバッジ） |
 
 `CodeEditor.showError(msg, errorType, loc)` が `<span class="error-badge">` を挿入します。
@@ -403,7 +403,8 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 - **var/let/const セマンティクス修正（JSInterpreter）**: `var` は関数スコープ・巻き上げ（`hoistVars` で `undefined` 事前定義）。`let`/`const` は TDZ（`TDZ_SENTINEL = Symbol('TDZ')` で事前登録、宣言前アクセスは RuntimeError）・同一スコープ再宣言禁止（`checkNoRedecl`）。`const` は再代入禁止（`Environment.immutables` Set + `set()` 内チェック）。`for (let …)` はイテレーション独立バインディング（`iterEnv` + `updateEnv` の分離）。詳細は [JSInterpreter#environment.js](../JSInterpreter/src/interpreter/environment.js)・[ADR-023](docs/adr/ADR-023-var-let-const-semantics.md)。**表示**: `TDZ_SENTINEL` はトレースの `env` スナップショットにそのまま記録されるため、`format.js` の `formatValue`/`formatValueDiff` が `isTDZ(v)`（`description === 'TDZ'` 判定）で検出し、宣言前は `Symbol(TDZ)` ではなく空欄（`lt-empty`）を表示する（[ADR-038](docs/adr/ADR-038-tdz-sentinel-display-fix.md)）
 - **再帰ツリー引数表示改善**: `fmtArgsLines(args)` で最大 2 行に分割表示。配列値は要素展開 `[1,2,3]` 形式で表示。NODE_W=160/NODE_H=80 に拡大。cost プロパティ（subtree サイズ）を左下角に `cost:N` 形式で表示。再帰呼び出しがない場合は「再帰呼び出しがありません」を表示
 - **分割代入**: JSInterpreter の `assignTo()` が `ArrayExpression` / `ObjectExpression` を処理するよう拡張（`[a,b]=[b,a]` 等）。詳細は [JSInterpreter#interpreter.js](../JSInterpreter/src/interpreter/interpreter.js)
-- **エラー種別判定**: JSInterpreter は `[Parser]` プレフィックスのメッセージでパースエラーを示すため、正規表現で判定する
+- **エラー種別判定**: JSInterpreter は `[Parser]`・`[Lexer]` プレフィックスのメッセージで構文エラーを示すため、正規表現で判定する
+- **strict モード非対応（JSInterpreter の制約）**: `"use strict";` は無視され、strict/非 strict の区別はない。ただし 0 始まりの数値リテラル（`010`・`08`）と 8 進数エスケープ（`"\01"`）は、教育目的で strict モードと同じく構文エラーにする（[JSInterpreter ADR-012](../JSInterpreter/docs/adr/ADR-012-strict-mode-numeric-literals.md)）
 - **タブ折り返し表示**: `.view-tabs` に `flex-wrap: wrap` を適用。ウィンドウが狭いとき全タブを 2 行以上に折り返して表示（全タブが常に見える状態を維持）
 - **Lifetime 動的幅計算**: 固定 `PX_PER_STEP` を廃止し、セグメントごとにラベル幅（`approxChars * CHAR_PX + BAR_PAD`）から必要チャート幅（`neededW = approxLabelPx * MAX_HI / span`）を計算。`MIN_CHART_W`（580px）〜`MIN_CHART_W * 3`（1740px）でクランプ。定数は `CHAR_PX=5`（モノスペース 11px の約 0.7×）、`BAR_PAD=14`
 - **BarChart hasContent Map 修正**: `flattenEnv()` が `Map` を返すため `for (const [k, v] of Object.entries(vars))` は空を返す。正しくは `for (const [k, v] of vars)` で Map を直接イテレート

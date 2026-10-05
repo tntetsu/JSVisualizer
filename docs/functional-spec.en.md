@@ -536,6 +536,7 @@ A fixed panel at the bottom of the right pane, always visible regardless of whic
 
 - Chrome / Firefox / Safari (latest versions)
 - Mobile browsers not in scope (responsive layout to be considered in a later phase)
+- **JavaScript strict mode is not supported** (a JSInterpreter limitation); `"use strict";` is ignored. However, numeric literals with a leading zero (`010`, `08`) and octal escape sequences in strings (`"\01"`) are reported as syntax errors, as in strict mode, because their sloppy-mode meaning is confusing for learners
 
 ### 4.3 Accessibility
 

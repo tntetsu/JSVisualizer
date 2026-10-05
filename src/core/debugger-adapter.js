@@ -124,11 +124,11 @@ export class DebuggerAdapter extends EventTarget {
         }));
         return;
       }
-      // SyntaxError またはパーサーエラーはパースエラー、それ以外は実行時エラーとして区別する
+      // SyntaxError・パーサー/レキサーエラーはパースエラー、それ以外は実行時エラーとして区別する
       const msg = err?.message ?? '';
       const isParseError = err instanceof SyntaxError
         || err?.name === 'SyntaxError'
-        || /^\[Parser\]/i.test(msg)
+        || /^\[(Parser|Lexer)\]/i.test(msg)
         || /^(Unexpected token|Unexpected end of|SyntaxError|Invalid or unexpected)/i.test(msg);
       // エラー位置情報を抽出
       // 優先順: RuntimeError.loc → ParseError/LexError .line/.column → メッセージ解析フォールバック
