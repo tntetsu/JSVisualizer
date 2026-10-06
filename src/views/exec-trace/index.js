@@ -179,8 +179,8 @@ export class ExecTrace extends BaseView {
     }
 
     // 配列が1つでもあれば、ポインタ・オーバーレイ用の列を追加する
-    // （Arraysビューと同じ「配列セル＋ポインタラベル」表現、docs/study/paper-research-notes.md
-    //  2026-09-24の分析を踏まえた統合。src/utils/array-grid.js に実装を共通化している）
+    // （Arraysビューと同じ「配列セル＋ポインタラベル」表現を統合したもの。ADR-037。
+    //  src/utils/array-grid.js に実装を共通化している）
     const showDiagram  = arrayVarNames.size > 0;
     const subscriptVars = showDiagram ? computeSubscriptVars(source) : null;
     // ポインタ候補（配列添字として使われ、配列変数自体ではない識別子）のうち
