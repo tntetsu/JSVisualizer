@@ -330,7 +330,7 @@
         <thead><tr><th colspan="2">何を見るか</th><th>その時点を見る</th><th>経過をまとめて見る</th></tr></thead>
         <tbody>
           <tr><td rowspan="3"><strong>状態</strong></td><td>変数の値</td><td>変数</td><td>実行トレース</td></tr>
-          <tr><td>呼び出し中の関数</td><td>コールスタック</td><td>変数寿命</td></tr>
+          <tr><td>呼び出し中の関数</td><td>コールスタック</td><td>ライフタイム</td></tr>
           <tr><td>メモリの中身</td><td>メモリ</td><td>—</td></tr>
           <tr><td rowspan="3"><strong>振る舞い</strong></td><td>式の計算</td><td>式評価</td><td>代入展開</td></tr>
           <tr><td>文の実行</td><td>制御フロー</td><td>ヒートマップ</td></tr>
@@ -348,7 +348,7 @@
           <tr><td><strong>変数</strong></td><td>その時点</td><td>コードの各行（縦）× 変数（横）の表です。各行を最後に実行したときの変数の値が表示され、前のステップから変わった値はオレンジの太字になります。列の表示／非表示の切り替えや、ドラッグでの並べ替えもできます</td></tr>
           <tr><td><strong>実行トレース</strong></td><td>経過</td><td>代入や条件判定などが起きたステップを、実行した順に上から一覧で表示します。各ステップの変数の値と、条件式が true / false のどちらだったかが分かります。配列を使うコードでは、各ステップの配列と、<code>i</code> や <code>j</code> が指している位置の小さな図も並ぶので、ループの回ごとの変化を比べられます</td></tr>
           <tr><td><strong>コールスタック</strong></td><td>その時点</td><td>今の時点のすべての変数の値を、全体（Global）と、呼び出し中の関数ごとに分けて表示します。関数の中では、呼び出しごとに別の変数があることが分かります</td></tr>
-          <tr><td><strong>変数寿命</strong></td><td>経過</td><td>横を時間、縦を関数の呼び出しの深さとして、それぞれの関数の呼び出しがいつ始まっていつ終わったかを帯で表示します。帯には関数名と引数、その呼び出しの変数の値が書かれています。関数の引数やローカル変数がいつからいつまで存在するかが分かります。縦の破線が今の時点です</td></tr>
+          <tr><td><strong>ライフタイム</strong></td><td>経過</td><td>横を時間、縦を関数の呼び出しの深さとして、それぞれの関数の呼び出しがいつ始まっていつ終わったかを帯で表示します。帯には関数名と引数、その呼び出しの変数の値が書かれています。関数の実行や、その引数・ローカル変数がいつからいつまで続くかが分かります。縦の破線が今の時点です</td></tr>
           <tr><td><strong>メモリ</strong></td><td>その時点</td><td>変数（スタック）と、配列・オブジェクトの実体（ヒープ）を分けて図示し、変数がどの配列・オブジェクトを指しているかを矢印で示します</td></tr>
         </tbody>
       </table>
@@ -356,7 +356,7 @@
         <figure><img src="manual/ja/view-trace.png" alt="変数ビュー。行番号とコードの冒頭が縦に、変数が横に並んだ表" loading="lazy" /><figcaption>変数</figcaption></figure>
         <figure><img src="manual/ja/view-exectrace.png" alt="実行トレースビュー。ステップごとに行番号、コード、配列の図、変数の値、条件式の結果が並ぶ表" loading="lazy" /><figcaption>実行トレース</figcaption></figure>
         <figure><img src="manual/ja/view-callstack.png" alt="コールスタックビュー。Globalと、fibの呼び出しごとのフレームに変数nの値が表示されている" loading="lazy" /><figcaption>コールスタック</figcaption></figure>
-        <figure><img src="manual/ja/view-lifetime.png" alt="変数寿命ビュー。横が時間、縦が呼び出しの深さで、fibの各呼び出しが帯として積み重なっている" loading="lazy" /><figcaption>変数寿命</figcaption></figure>
+        <figure><img src="manual/ja/view-lifetime.png" alt="ライフタイムビュー。横が時間、縦が呼び出しの深さで、fibの各呼び出しが帯として積み重なっている" loading="lazy" /><figcaption>ライフタイム</figcaption></figure>
         <figure><img src="manual/ja/view-memory.png" alt="メモリビュー。左にスタックの変数、右にヒープの配列、変数から配列への矢印" loading="lazy" /><figcaption>メモリ</figcaption></figure>
       </div>
 
@@ -391,7 +391,7 @@
         <figure><img src="manual/ja/view-colorbox.png" alt="配列ビュー。配列の要素がマス目で表示され、添字の変数が指す要素が示されている" loading="lazy" /><figcaption>配列</figcaption></figure>
         <figure><img src="manual/ja/view-objgraph.png" alt="オブジェクトビュー。連結リストの3つのノードがnextの矢印でつながり、配列resultも表示されている" loading="lazy" /><figcaption>オブジェクト（サンプル「Linked List」）</figcaption></figure>
       </div>
-      <p>タブの並び順は上の分類とは異なります（左から コールスタック・変数・実行トレース・代入展開・式評価・配列・ヒートマップ・呼び出しツリー・変数寿命・制御フロー・メモリ・オブジェクト）。この分類の考え方は、論文「プログラムの動作を複数のビューで可視化するプログラム実行環境の提案」（田中・上田、IS-26-049）の表1に基づきます。</p>
+      <p>タブの並び順は上の分類とは異なります（左から コールスタック・変数・実行トレース・代入展開・式評価・配列・ヒートマップ・呼び出しツリー・ライフタイム・制御フロー・メモリ・オブジェクト）。この分類の考え方は、論文「プログラムの動作を複数のビューで可視化するプログラム実行環境の提案」（田中・上田、IS-26-049）の表1に基づきます。</p>
     </section>
 
     <!-- ─────────────────────────────── -->

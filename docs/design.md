@@ -1118,7 +1118,7 @@ const NODE_W=160, NODE_H=80, COL_GAP=20, ROW_GAP=52, PAD_X=24, PAD_Y=24;
 
 ---
 
-#### `lifetime/` — 変数寿命（コールスタック時系列のフレームグラフ）✅
+#### `lifetime/` — ライフタイム（コールスタック時系列のフレームグラフ）✅
 
 > 2026-06-16（コミット`d22ec59`）に、変数ごとの Gantt チャートからフレームグラフに全面改定。
 > 旧実装が使っていた `builder.buildLifetime()` は `trace-builder.js` に残っているが、ビューからは使われていない（テストのみ）。
@@ -1447,7 +1447,7 @@ document.addEventListener('langchange', (e) => {
 
 **各ビューのデータなし表示**（v2.15、コミット`8b23054`）: 以前は各ビューに英語で直書きされていた「No variables」「No function calls」等を、
 `view-no-data`・`view-no-source`・`view-no-func-calls`・`subst-empty`・`recursiontree-empty`・`objgraph-no-vars`・`objgraph-no-objects`・
-`barchart-no-data` のキーで `t()` から取得する（オブジェクト・代入展開・制御フロー・呼び出しツリー・変数寿命・変数、および非アクティブの棒グラフ・再帰ツリー）。
+`barchart-no-data` のキーで `t()` から取得する（オブジェクト・代入展開・制御フロー・呼び出しツリー・ライフタイム・変数、および非アクティブの棒グラフ・再帰ツリー）。
 
 **対象外**: エラーメッセージ（JSInterpreter 由来で追跡困難）・サンプルプログラム名（固有名詞的）。
 
@@ -1778,7 +1778,7 @@ JSVisualizer/
 │   │   ├── call-tree/
 │   │   │   └── index.js              ✅ 全関数呼び出しツリー SVG（RecursionTreeと表示形式統一・cost表示、ADR-027）
 │   │   ├── lifetime/
-│   │   │   └── index.js              ✅ 変数寿命（コールスタックのフレームグラフ）
+│   │   │   └── index.js              ✅ ライフタイム（コールスタックのフレームグラフ）
 │   │   ├── control-flow/
 │   │   │   └── index.js              ✅ 制御フロー SVG フローチャート
 │   │   ├── memory-view/

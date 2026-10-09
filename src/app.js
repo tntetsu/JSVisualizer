@@ -193,9 +193,9 @@ switcher.register('calltree',
   { ja: 'すべての関数呼び出し（再帰・非再帰）を呼び出し順の木構造で可視化します。各ノードのサブツリーコストも確認できます。',
     en: 'Visualizes all function calls (recursive and non-recursive) as an ordered call tree. Each node shows its subtree cost.' });
 switcher.register('lifetime',
-  { ja: '変数寿命', en: 'Lifetime' },
+  { ja: 'ライフタイム', en: 'Lifetime' },
   Lifetime,
-  { ja: '関数の呼び出しがいつ始まりいつ終わるかを、呼び出しの深さごとの帯で表示します。引数やローカル変数の生存期間がわかります。',
+  { ja: '関数の呼び出しがいつ始まりいつ終わるかを、呼び出しの深さごとの帯で表示します。帯には引数やローカル変数の値も表示されます。',
     en: 'Shows when each function call starts and ends as bands stacked by call depth, revealing how long arguments and local variables live.' });
 switcher.register('controlflow',
   { ja: '制御フロー', en: 'Control Flow' },
