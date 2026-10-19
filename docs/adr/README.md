@@ -51,3 +51,5 @@ git 履歴（2026-05-25〜2026-06-08）と設計ドキュメントをもとに 2
 | [040](ADR-040-hide-study-ui-when-bhv-embedded.md) | BhvVisualizer埋め込み時は設定パネルの評価実験用UIを取り除く（`# BHV:`） | 2026-09-28 |
 | [041](ADR-041-user-manual-and-help-button.md) | 利用者向けマニュアル（日英）とヘッダーの使い方ボタン | 2026-09-29 |
 | [042](ADR-042-statement-execution-unit-in-views.md) | ヒートマップ・実行トレースで1つの文の実行を1回・1行として扱う | 2026-10-05 |
+| [043](ADR-043-rename-lifetime-tab.md) | 「変数寿命」タブの名前を「ライフタイム」に変える | 2026-10-09 |
+| [044](ADR-044-rename-subst-tab.md) | 「代入展開」タブの名前を「置換」に変える | 2026-10-19 |

@@ -1447,7 +1447,7 @@ document.addEventListener('langchange', (e) => {
 
 **各ビューのデータなし表示**（v2.15、コミット`8b23054`）: 以前は各ビューに英語で直書きされていた「No variables」「No function calls」等を、
 `view-no-data`・`view-no-source`・`view-no-func-calls`・`subst-empty`・`recursiontree-empty`・`objgraph-no-vars`・`objgraph-no-objects`・
-`barchart-no-data` のキーで `t()` から取得する（オブジェクト・代入展開・制御フロー・呼び出しツリー・ライフタイム・変数、および非アクティブの棒グラフ・再帰ツリー）。
+`barchart-no-data` のキーで `t()` から取得する（オブジェクト・置換・制御フロー・呼び出しツリー・ライフタイム・変数、および非アクティブの棒グラフ・再帰ツリー）。
 
 **対象外**: エラーメッセージ（JSInterpreter 由来で追跡困難）・サンプルプログラム名（固有名詞的）。
 

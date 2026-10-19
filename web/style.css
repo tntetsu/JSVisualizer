@@ -1051,7 +1051,7 @@ body {
 .tt-col-target { width: 140px; color: var(--accent); font-family: 'Cascadia Code', Consolas, monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
 .tt-col-val    { }
 
-/* ── SubstTrace（代入展開ビュー） ─────────────────────────────── */
+/* ── SubstTrace（置換ビュー） ─────────────────────────────── */
 .stx-wrap {
   flex: 1;
   overflow-y: auto;

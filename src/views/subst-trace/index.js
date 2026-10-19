@@ -1,5 +1,5 @@
 /**
- * subst-trace/index.js — 代入展開トレースビュー
+ * subst-trace/index.js — 置換トレースビュー
  *
  * 再帰関数呼び出しを「置換モデル」で逐次展開して表示する。
  *
@@ -167,7 +167,7 @@ function computeReturnExpr(trace, returnEnterIdx, sourceLines) {
 }
 
 /**
- * trace を走査して代入展開トレースの行リストを構築する。
+ * trace を走査して置換トレースの行リストを構築する。
  * @returns {{ traceIdx: number, lineNo: number|null, text: string,
  *             expandedText: string|null, expandedStart: number,
  *             callStrToReplace: string|null }[]}

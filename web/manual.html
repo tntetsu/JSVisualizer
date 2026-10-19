@@ -309,7 +309,7 @@
       <h2>6. 可視化ビュー</h2>
       <p>画面右側では、プログラムの動きをさまざまな形で見ることができます。上部のタブで12種類のビューを切り替えられます。目的によって分かりやすいビューは違うので、いろいろ試して自分に合った見方を探してみてください。</p>
       <ul>
-        <li>コードの内容によっては使えないビューがあり、そのタブはグレーで表示されます（たとえば、関数を使っていないコードでは「代入展開」「呼び出しツリー」は使えません）。</li>
+        <li>コードの内容によっては使えないビューがあり、そのタブはグレーで表示されます（たとえば、関数を使っていないコードでは「置換」「呼び出しツリー」は使えません）。</li>
         <li>最後に見ていたタブは、次に開いたときにも選ばれた状態になります。</li>
       </ul>
 
@@ -332,7 +332,7 @@
           <tr><td rowspan="3"><strong>状態</strong></td><td>変数の値</td><td>変数</td><td>実行トレース</td></tr>
           <tr><td>呼び出し中の関数</td><td>コールスタック</td><td>ライフタイム</td></tr>
           <tr><td>メモリの中身</td><td>メモリ</td><td>—</td></tr>
-          <tr><td rowspan="3"><strong>振る舞い</strong></td><td>式の計算</td><td>式評価</td><td>代入展開</td></tr>
+          <tr><td rowspan="3"><strong>振る舞い</strong></td><td>式の計算</td><td>式評価</td><td>置換</td></tr>
           <tr><td>文の実行</td><td>制御フロー</td><td>ヒートマップ</td></tr>
           <tr><td>関数の呼び出し</td><td>呼び出しツリー</td><td>—</td></tr>
           <tr><td rowspan="2"><strong>配列・オブジェクト</strong></td><td>配列</td><td>配列</td><td>実行トレース</td></tr>
@@ -365,7 +365,7 @@
         <thead><tr><th>タブ</th><th>見せ方</th><th>内容</th></tr></thead>
         <tbody>
           <tr><td><strong>式評価</strong></td><td>その時点</td><td>今計算している1行の式が、部分ごとに値に置き換わりながら最終的な値になるまでの過程を表示します。オレンジは直前に置き換わった部分、青の太字は次に計算される部分です。<code>||</code> や <code>&amp;&amp;</code> で計算が省略された部分は、元の式のまま残ります</td></tr>
-          <tr><td><strong>代入展開</strong></td><td>経過</td><td>再帰関数の呼び出しを、<code>fib(5)</code> → <code>fib(4) + fib(3)</code> → … のように、関数呼び出しをその結果の式に置き換えながら展開していく過程を、上から順に表示します</td></tr>
+          <tr><td><strong>置換</strong></td><td>経過</td><td>再帰関数の呼び出しを、<code>fib(5)</code> → <code>fib(4) + fib(3)</code> → … のように、関数呼び出しをその結果の式に置き換えながら展開していく過程を、上から順に表示します</td></tr>
           <tr><td><strong>制御フロー</strong></td><td>その時点</td><td>実行した行をつないだフローチャートを表示し、今実行している行を強調します。ループで戻る流れはオレンジの破線で示され、実行されなかった分岐はグレーになります</td></tr>
           <tr><td><strong>ヒートマップ</strong></td><td>経過</td><td>各行が何回実行されたかを、色の濃さと「今までの回数 / 全体の回数」で表示します。右側の点の並びは各行がいつ実行されたかを表し、ループで何度も実行される行がひと目で分かります</td></tr>
           <tr><td><strong>呼び出しツリー</strong></td><td>その時点</td><td>関数の呼び出しを木の形で表示します。各ノードに引数と戻り値が書かれ、灰色の破線は未呼び出し、青の太線は実行中、緑は完了した呼び出しです。左下の <code>cost</code> は、そのノードから下にある呼び出しの数（自分自身を含む）です。再帰関数が何回呼び出されるかを確かめるのに便利です</td></tr>
@@ -373,7 +373,7 @@
       </table>
       <div class="view-grid">
         <figure><img src="manual/ja/view-exprtrace.png" alt="式評価ビュー。式の部分が値に置き換わっていく様子が行ごとに表示されている" loading="lazy" /><figcaption>式評価</figcaption></figure>
-        <figure><img src="manual/ja/view-subst.png" alt="代入展開ビュー。fib(5)がfib(4)+fib(3)、…と展開されていく" loading="lazy" /><figcaption>代入展開</figcaption></figure>
+        <figure><img src="manual/ja/view-subst.png" alt="置換ビュー。fib(5)がfib(4)+fib(3)、…と展開されていく" loading="lazy" /><figcaption>置換</figcaption></figure>
         <figure><img src="manual/ja/view-controlflow.png" alt="制御フロービュー。実行された行がノードとして縦に並び、矢印でつながっている" loading="lazy" /><figcaption>制御フロー</figcaption></figure>
         <figure><img src="manual/ja/view-heatmap.png" alt="ヒートマップビュー。各行の実行回数と色の濃さ、実行タイミングの点が表示されている" loading="lazy" /><figcaption>ヒートマップ</figcaption></figure>
         <figure><img src="manual/ja/view-calltree.png" alt="呼び出しツリービュー。fib(5)を根として、fib(4)とfib(3)…と枝分かれした木" loading="lazy" /><figcaption>呼び出しツリー</figcaption></figure>
@@ -391,7 +391,7 @@
         <figure><img src="manual/ja/view-colorbox.png" alt="配列ビュー。配列の要素がマス目で表示され、添字の変数が指す要素が示されている" loading="lazy" /><figcaption>配列</figcaption></figure>
         <figure><img src="manual/ja/view-objgraph.png" alt="オブジェクトビュー。連結リストの3つのノードがnextの矢印でつながり、配列resultも表示されている" loading="lazy" /><figcaption>オブジェクト（サンプル「Linked List」）</figcaption></figure>
       </div>
-      <p>タブの並び順は上の分類とは異なります（左から コールスタック・変数・実行トレース・代入展開・式評価・配列・ヒートマップ・呼び出しツリー・ライフタイム・制御フロー・メモリ・オブジェクト）。この分類の考え方は、論文「プログラムの動作を複数のビューで可視化するプログラム実行環境の提案」（田中・上田、IS-26-049）の表1に基づきます。</p>
+      <p>タブの並び順は上の分類とは異なります（左から コールスタック・変数・実行トレース・置換・式評価・配列・ヒートマップ・呼び出しツリー・ライフタイム・制御フロー・メモリ・オブジェクト）。この分類の考え方は、論文「プログラムの動作を複数のビューで可視化するプログラム実行環境の提案」（田中・上田、IS-26-049）の表1に基づきます。</p>
     </section>
 
     <!-- ─────────────────────────────── -->
@@ -419,7 +419,7 @@
           <tr><td>サンプル選択を押しても選べない</td><td>コードを1つだけ開くリンクから開いています。組み込みのサンプルを使うには、<a href="https://tntetsu.github.io/JSVisualizer/">https://tntetsu.github.io/JSVisualizer/</a> を開き直してください</td></tr>
           <tr><td>「最大ステップ数 10,000 を超えたため停止しました」と表示される</td><td>ループが終わらない、再帰が止まらない、などの可能性があります。止まった時点までステップ実行で様子をたどり、終了条件を確認してください。処理の量が多いだけの場合は、扱うデータを小さくしてください</td></tr>
           <tr><td>キーボードでステップ実行できない</td><td>コードの編集欄などの入力欄にカーソルがあると、キー入力はそちらに入ります。実行モードで画面のほかの場所を一度クリックしてから操作してください</td></tr>
-          <tr><td>タブがグレーで選べない</td><td>そのコードでは使えないビューです（関数を使っていないコードの「代入展開」「呼び出しツリー」など）</td></tr>
+          <tr><td>タブがグレーで選べない</td><td>そのコードでは使えないビューです（関数を使っていないコードの「置換」「呼び出しツリー」など）</td></tr>
           <tr><td>画面が正しく表示されない</td><td>パソコンの最新のブラウザを使ってください。ページを再読み込みすると直ることがあります（スマートフォンでの利用は想定していません）</td></tr>
         </tbody>
       </table>

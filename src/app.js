@@ -164,7 +164,7 @@ switcher.register('exectrace',
   { ja: '代入・条件判定・関数呼び出しなど意味のある変化が起きたステップを時系列で一覧表示します。条件式の真偽も確認できます。',
     en: 'Lists meaningful steps (assignments, conditions, calls) in chronological order. Shows truth values of conditions.' });
 switcher.register('subst',
-  { ja: '代入展開', en: 'Subst' },
+  { ja: '置換', en: 'Subst' },
   SubstTrace,
   { ja: '再帰呼び出しを「置換モデル（関数呼び出しを等価な式に置き換えること）」で段階的に展開し、計算が縮約される過程を追跡します。',
     en: 'Expands recursive calls step by step using the substitution model (replacing a call with its equivalent expression).' });
