@@ -238,7 +238,7 @@ Runモード時、ヘッダー内ステップ操作バーは **1列（ワイド�
 | ビュー | レイアウト方式 | update の方針 |
 |--------|--------------|--------------|
 | RecursionTree | 再帰的サブツリー幅計算（葉=NODE_W、内部=子の和＋gap） | ノードごとの className を cursor で更新 |
-| CallTree | 同上（RecursionTree と同じレイアウトアルゴリズム） | ノードごとの className を cursor で更新 |
+| CallTree | 同上（ただしノード幅は文字数から求める可変幅。サブツリー幅=max(ノード幅, 子の和＋gap)） | ノードごとの className を cursor で更新 |
 | Lifetime | フレームグラフ（X=humanStep, Y=呼び出しの深さ。depth 0 = global が最下段） | カーソル線の x1/x2 を移動し、現在の humanStep を含むバーに `lf-bar--active` |
 | ControlFlow | AST ベース DOM フローチャート（if → true/false 列、while/for → 条件+body、未実行ノードは `cf-node--dead` でグレー） | activeNode の className を更新 |
 | MemoryView | 2カラム（stack \| heap）+ SVG オーバーレイ矢印 | DOM 再描画 → rAF で矢印を再計算 |
@@ -382,7 +382,7 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 - **Variable vs AnimatedTrace**: `animated-trace/` ディレクトリは実装済みだが、タブには現在 `line-trace/`（クラス名 `Variable`、ソース行×変数マトリクス表）を使用
 - **Variable の構成**: 行番号列に `lt-lineno-num`（数字）+ `lt-lineno-snippet`（先頭15文字スニペット）を表示、右側に変数テーブル。列の表示/非表示は `#varMeta[{name, visible}]` で管理し `lt-col-hidden` クラスで制御。列の並び替えは HTML5 drag-and-drop（`<th draggable="true">`）で実装。（以前の2ペイン構成・ソースパネル・リサイザーは削除済み。CSS プレフィックス `lt-` はディレクトリ名 line-trace/ 由来のまま変更していない）
 - **TraceTable の「対象」列**: `prevStepIdx` との env diff で変化した変数名を抽出。CallExpression は `callStack[callStack.length-1].name(args)` 形式、ReturnStatement は `'return'` を表示
-- **CallTree ビュー**: `buildCallTree()` が返すノード配列（再帰・非再帰を問わず全関数呼び出し、cost付き）を SVG ツリーとして描画。表示形式・レイアウトアルゴリズムとも `RecursionTree` と共通（ADR-027 で統合、RecursionTree は非アクティブ化）。CSS クラスは `.ct-*`（`RecursionTree` の `.rt-*` に対応）
+- **CallTree ビュー**: `buildCallTree()` が返すノード配列（再帰・非再帰を問わず全関数呼び出し、cost付き）を SVG ツリーとして描画。cost とレイアウトアルゴリズムは `RecursionTree` と共通（ADR-027 で統合、RecursionTree は非アクティブ化）。ノードは1行目に「関数名(引数)」と状態アイコン、2行目に cost と戻り値を並べたコンパクトな2行表示で、幅は文字数から求める（NODE_H=34、ADR-045）。CSS クラスは `.ct-*`（`RecursionTree` の `.rt-*` に対応）
 - **スコープ統合表示**: `format.js` の `mergeScopesForDisplay(scopes, callStack)` でフレームごとに表示変数を決定。最内側フレームは scopes[0]〜scopes[M-2] を全マージ（ブロックスコープ含む）。外側フレームは env チェーンに含まれないため callStack[i].args + JSFunction.params から引数値を再構築（`reconstructFrameVars`）。ラベルは `factorial(6)` 形式（`formatFrameLabel(frame)`）。`scope-view`・`state-view`・`memory-view` で共通使用。表示順は innermost-first
 - **Heatmap の改善**: 行の実行回数は humanStep 数ではなく文の実行単位で数える（`src/utils/line-exec.js` の `buildLineExecOwners()`。`sum += count;` のように 1 文が複数の humanStep を持っても 1 回）。背景色を `update()` ごとに現在ステップまでの実行回数で動的更新（`lineTimeline` + バイナリサーチ）。カウントを「N回 / M回」形式で表示。ドット幅 360px（3倍）。実行済みドット（`.hm-dot--past`）と未実行ドット（デフォルトグレー）を色分け。異なる行に遷移する連続 humanStep のドット間を `.hm-overlay-svg` 上の `<line class="hm-vline">` で常時表示（`init()` 時に `requestAnimationFrame` で描画）。`.hm-lines` は `position: relative`、オーバーレイ SVG は `position: absolute`。トグルボタンは廃止
 - **Arrays（配列ビュー、旧クラス名ColorBox）**: タブ名「配列」。複数配列を同時選択して表示（折り返しあり）。各配列ブロックを枠線（`border: 1px solid var(--border)`）＋背景色（`var(--surface2)`）で区切り表示。`#scanTrace()` の 2 パス走査で配列ごとの `maxWidth`（最大グリッド幅）と `maxGridHeight`（最大グリッド高）を事前計算。`#render()` で `.cb-grid` に `min-width`/`min-height` を設定し、配列長やポインタ行数が変化しても各ブロックの占有領域が動かないよう固定。空配列時も `.cb-grid` を描画して占有領域を確保。ポインタ変数は変数ごとに個別の行として表示。文字列値は切り詰めなしで表示。オブジェクト・配列要素は `'?'` ではなく `formatValue()` でキー:値ペアをそのまま表示し、セル幅は `#cellWidth()` が内容の文字数から算出（数値セルの幅比例フォントではなく固定 `OBJ_FONT=10px` を使用）

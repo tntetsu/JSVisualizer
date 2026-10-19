@@ -380,9 +380,9 @@ Reference implementation rendering `buildRecursionTree()` (recursive calls only,
 **Tab label**: Call Tree
 
 - All function calls — not just recursive ones — shown as an SVG tree
-- Node display unified with RecursionTree ([ADR-027](adr/ADR-027-calltree-recursiontree-merge.md)): function name (line 1), args (`fmtArgsLines()`, up to 2 lines), return value, and cost (`cost:N`, bottom-left)
+- Two-line compact nodes ([ADR-045](adr/ADR-045-compact-calltree-nodes.md)): line 1 shows `name(args)` (`fmtArgs()`) and the state icon; line 2 shows the cost (`cost:N`, left) and the return value (`→ value`, right)
 - Node colors and icons: not-yet-called (gray, dashed, "…") / executing (blue, thick border, "▶") / completed (green, "✓")
-- Layout: recursive subtree-width calculation (leaf = NODE_W=160; parent = sum of children + gap); NODE_H=80
+- Layout: recursive subtree-width calculation (node width estimated from its text; parent = max(node width, sum of children + gap)); NODE_H=34
 - `update()` only swaps node CSS classes
 - **Tab grayed out** if the trace contains no function calls
 

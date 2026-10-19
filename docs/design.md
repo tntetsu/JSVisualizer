@@ -1097,20 +1097,20 @@ CSS スタイル（`style.css`):
 
 **データ取得**: `builder.buildCallTree()` → ルートノード配列（`buildRecursionTree()` と同一構造。cost プロパティも同じ `#computeCost()` で付与）
 
-**レイアウト定数・ノード表示形式**: RecursionTree と共通（[ADR-027](adr/ADR-027-calltree-recursiontree-merge.md) で統合）。
+**レイアウト定数・ノード表示形式**: cost の計算とレイアウトアルゴリズムは RecursionTree と共通（[ADR-027](adr/ADR-027-calltree-recursiontree-merge.md)）。ノードは「関数名(引数)」を1行にしたコンパクトな2行表示で、幅はノードごとに決める（[ADR-045](adr/ADR-045-compact-calltree-nodes.md)）。
 
 ```js
-const NODE_W=160, NODE_H=80, COL_GAP=20, ROW_GAP=52, PAD_X=24, PAD_Y=24;
+const NODE_H=34, NODE_MIN_W=44, NODE_PAD_X=6, ICON_W=12, COL_GAP=12, ROW_GAP=28, PAD_X=12, PAD_Y=12;
 ```
+
+**ノード幅**: `calcNodeWidth(node)` が、1行目（関数名 11px＋引数 10px＋状態アイコン）と2行目（cost 9px＋戻り値 10px）の文字数からおおよその描画幅を求め（`textWidth()`: モノスペースで半角 0.6em・全角 1em）、長い方に左右の余白を足す。戻り値は `init()` 時点で確定しているので、完了後に表示される戻り値の幅もあらかじめ含める。サブツリー幅は `max(ノード幅, 子の幅の和＋gap)` で、ノードの方が広いときは子の並びを中央に寄せる
 
 **SVG 要素**: ノードごとに `<g class="ct-node ct-node--*">` 内に:
 - `<rect class="ct-rect">` — ノード枠
-- `<text class="ct-name" y=18>` — 関数名（行 1）
-- `<text class="ct-args" y=35>` — 引数行 1（行 2、`fmtArgsLines()`）
-- `<text class="ct-args" y=50>` — 引数行 2（行 3、長い場合のみ）
-- `<text class="ct-retval" y=65 or 52>` — 戻り値（引数が 1 行なら y=52）
-- `<text class="ct-state-icon" y=14>` — 状態アイコン（右上角: …/▶/✓）
-- `<text class="ct-cost" x=6 y=NODE_H-6>` — cost（左下角、「cost:N」）
+- `<text y=14>` 内の `<tspan class="ct-name">`＋`<tspan class="ct-args">` — 「関数名(引数)」（行 1、`fmtArgs()`）
+- `<text class="ct-state-icon" y=13>` — 状態アイコン（右上角: …/▶/✓）
+- `<text class="ct-cost" x=6 y=28>` — cost（行 2 の左、「cost:N」）
+- `<text class="ct-retval" y=28 text-anchor=end>` — 戻り値（行 2 の右、完了後に表示）
 
 エッジは `<line class="ct-edge">`
 

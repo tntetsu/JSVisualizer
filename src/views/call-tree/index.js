@@ -10,6 +10,9 @@
  * （表示形式・cost はいずれも RecursionTree と共通。RecursionTree は
  *   ADR-027 により非アクティブ化され、CallTree が両者を統合する）
  *
+ * ノードは「関数名(引数)」を1行目、cost と戻り値を2行目に並べたコンパクトな2行表示で、
+ * 幅はノードごとに文字数から決める（ADR-045）。
+ *
  * ノードの色:
  *   ct-node--future  … まだ呼ばれていない（グレー）
  *   ct-node--active  … 現在実行中（青）
@@ -20,12 +23,16 @@ import { BaseView } from '../base-view.js';
 import { t }        from '../../i18n.js';
 
 const SVG_NS  = 'http://www.w3.org/2000/svg';
-const NODE_W  = 160;   // 引数表示のため幅を拡大
-const NODE_H  = 80;    // 3行 + 余白
-const COL_GAP = 20;
-const ROW_GAP = 52;
-const PAD_X   = 24;
-const PAD_Y   = 24;
+const NODE_H     = 34;   // 2行（関数名(引数) / cost・戻り値）
+const NODE_MIN_W = 44;
+const NODE_PAD_X = 6;    // ノード内の左右の余白
+const ICON_W     = 12;   // 右上の状態アイコンの幅
+const ROW1_Y     = 14;   // 1行目のベースライン
+const ROW2_Y     = 28;   // 2行目のベースライン
+const COL_GAP    = 12;
+const ROW_GAP    = 28;
+const PAD_X      = 12;
+const PAD_Y      = 12;
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────
 
@@ -56,17 +63,10 @@ function fmtArg(v, maxLen = 18) {
   return String(v).slice(0, maxLen);
 }
 
-/** 引数リストを NODE_W に収まるよう2行に分割して返す（['行1', '行2'] or ['行1']） */
-function fmtArgsLines(args) {
-  if (!args || args.length === 0) return ['()'];
-  const inner = args.map(a => fmtArg(a)).join(', ');
-  const full  = `(${inner})`;
-  if (full.length <= 20) return [full];
-  // 長い場合: args を2行に分割
-  const half  = Math.ceil(args.length / 2);
-  const line1 = `(${args.slice(0, half).map(a => fmtArg(a)).join(', ')}`;
-  const line2 = ` ${args.slice(half).map(a => fmtArg(a)).join(', ')})`;
-  return [line1, line2];
+/** 引数リストを「(a, b)」形式の1行にする */
+function fmtArgs(args) {
+  if (!args || args.length === 0) return '()';
+  return `(${args.map(a => fmtArg(a)).join(', ')})`;
 }
 
 function fmtRet(val) {
@@ -74,30 +74,55 @@ function fmtRet(val) {
   return `→ ${fmtArg(val)}`;
 }
 
-/** サブツリー幅（px）を再帰計算 */
-function calcSubtreeWidth(node) {
-  if (node.children.length === 0) return NODE_W;
-  const childrenW = node.children.reduce((s, c) => s + calcSubtreeWidth(c), 0);
-  return childrenW + (node.children.length - 1) * COL_GAP;
+/** モノスペース文字列のおおよその描画幅（px）。全角文字は半角2文字分として数える */
+function textWidth(str, fontPx) {
+  let units = 0;
+  for (const ch of str) units += ch.charCodeAt(0) > 0xff ? 1 : 0.6;
+  return units * fontPx;
+}
+
+/** ノードの幅（px）。1行目（関数名(引数)＋状態アイコン）と2行目（cost・戻り値）の長い方に合わせる */
+function calcNodeWidth(node) {
+  const row1 = textWidth(node.funcName, 11) + textWidth(fmtArgs(node.args), 10) + ICON_W;
+  const cost = node.cost !== undefined ? textWidth(`cost:${node.cost}`, 9) : 0;
+  const ret  = textWidth(fmtRet(node.returnVal), 10);
+  const row2 = cost + (cost && ret ? 8 : 0) + ret;
+  return Math.max(NODE_MIN_W, Math.ceil(Math.max(row1, row2) + NODE_PAD_X * 2));
+}
+
+/** 子ノード群を横に並べた幅（px） */
+function childrenWidth(node, widths) {
+  const sum = node.children.reduce((s, c) => s + calcSubtreeWidth(c, widths), 0);
+  return sum + (node.children.length - 1) * COL_GAP;
+}
+
+/** サブツリー幅（px）を再帰計算。ノード自身が子の並びより広ければノードの幅 */
+function calcSubtreeWidth(node, widths) {
+  const w = widths.get(node.id);
+  if (node.children.length === 0) return w;
+  return Math.max(w, childrenWidth(node, widths));
 }
 
 /**
  * ノード中心座標を計算して positions Map に格納する
  * @param {Object} node
  * @param {Map}    positions  id → {cx, cy}
+ * @param {Map}    widths     id → ノード幅
  * @param {number} depth      ツリー深さ
  * @param {number} left       このサブツリーの左端 px
  */
-function assignPositions(node, positions, depth, left) {
-  const w  = calcSubtreeWidth(node);
+function assignPositions(node, positions, widths, depth, left) {
+  const w  = calcSubtreeWidth(node, widths);
   const cx = left + w / 2;
   const cy = PAD_Y + depth * (NODE_H + ROW_GAP) + NODE_H / 2;
   positions.set(node.id, { cx, cy });
+  if (node.children.length === 0) return;
 
-  let childLeft = left;
+  // ノードの方が広いときは子の並びを中央に寄せる
+  let childLeft = left + (w - childrenWidth(node, widths)) / 2;
   for (const child of node.children) {
-    const childW = calcSubtreeWidth(child);
-    assignPositions(child, positions, depth + 1, childLeft);
+    const childW = calcSubtreeWidth(child, widths);
+    assignPositions(child, positions, widths, depth + 1, childLeft);
     childLeft += childW + COL_GAP;
   }
 }
@@ -148,6 +173,9 @@ export class CallTree extends BaseView {
   /** @type {Map<number, Object>} id → ノードオブジェクト */
   #nodeById = new Map();
 
+  /** @type {Map<number, number>} id → ノード幅 */
+  #widths = new Map();
+
   // ── BaseView ──────────────────────────────────────────────────────────────
 
   init(container, builder) {
@@ -156,6 +184,7 @@ export class CallTree extends BaseView {
     this.#positions.clear();
     this.#nodeEls.clear();
     this.#nodeById.clear();
+    this.#widths.clear();
 
     if (this.#roots.length === 0) {
       container.innerHTML = `<div class="ct-wrap"><p class="placeholder">${t('view-no-func-calls')}</p></div>`;
@@ -167,13 +196,16 @@ export class CallTree extends BaseView {
     this.#svgEl = container.querySelector('.ct-svg');
 
     // 全ノードを id → object に登録
-    this.#walkNodes(this.#roots, node => this.#nodeById.set(node.id, node));
+    this.#walkNodes(this.#roots, node => {
+      this.#nodeById.set(node.id, node);
+      this.#widths.set(node.id, calcNodeWidth(node));
+    });
 
     // 座標計算
     let left = PAD_X;
     for (const root of this.#roots) {
-      const w = calcSubtreeWidth(root);
-      assignPositions(root, this.#positions, 0, left);
+      const w = calcSubtreeWidth(root, this.#widths);
+      assignPositions(root, this.#positions, this.#widths, 0, left);
       left += w + COL_GAP;
     }
 
@@ -205,59 +237,45 @@ export class CallTree extends BaseView {
       }
 
       // ノード <g>
+      const nodeW = this.#widths.get(node.id);
       const g = svgEl('g', {
         class:     'ct-node',
-        transform: `translate(${cx - NODE_W / 2},${cy - NODE_H / 2})`,
+        transform: `translate(${cx - nodeW / 2},${cy - NODE_H / 2})`,
       });
 
       const rect = svgEl('rect', {
         class: 'ct-rect',
-        width: NODE_W, height: NODE_H, rx: 6,
+        width: nodeW, height: NODE_H, rx: 5,
       });
 
-      // 関数名（行1）
-      const nameT = svgEl('text', {
-        class: 'ct-name', x: NODE_W / 2, y: 18, 'text-anchor': 'middle',
+      // 1行目: 関数名(引数)。状態アイコンの分だけ左に寄せて中央揃え
+      const callT = svgEl('text', {
+        x: (nodeW - ICON_W) / 2, y: ROW1_Y, 'text-anchor': 'middle',
       });
-      nameT.textContent = node.funcName;
-
-      // 引数（行2, 長ければ行3も使用）
-      const argsLines = fmtArgsLines(node.args);
-      const argsT = svgEl('text', {
-        class: 'ct-args', x: NODE_W / 2, y: 35, 'text-anchor': 'middle',
-      });
-      argsT.textContent = argsLines[0];
-
-      let argsT2 = null;
-      if (argsLines.length > 1) {
-        argsT2 = svgEl('text', {
-          class: 'ct-args', x: NODE_W / 2, y: 50, 'text-anchor': 'middle',
-        });
-        argsT2.textContent = argsLines[1];
-      }
-
-      // 戻り値（行3 or 行4）
-      const retY = argsLines.length > 1 ? 65 : 52;
-      const retT = svgEl('text', {
-        class: 'ct-retval', x: NODE_W / 2, y: retY, 'text-anchor': 'middle',
-      });
-      retT.textContent = '';
+      const nameS = svgEl('tspan', { class: 'ct-name' });
+      nameS.textContent = node.funcName;
+      const argsS = svgEl('tspan', { class: 'ct-args' });
+      argsS.textContent = fmtArgs(node.args);
+      callT.append(nameS, argsS);
 
       // 状態インジケーター（右上角）
       const stateT = svgEl('text', {
-        class: 'ct-state-icon', x: NODE_W - 6, y: 14, 'text-anchor': 'end',
+        class: 'ct-state-icon', x: nodeW - 4, y: ROW1_Y - 1, 'text-anchor': 'end',
       });
       stateT.textContent = '…';
 
-      // コスト（左下角、サブツリーサイズ）
+      // 2行目: cost（左、サブツリーサイズ）と戻り値（右）
       const costT = svgEl('text', {
-        class: 'ct-cost', x: 6, y: NODE_H - 6, 'text-anchor': 'start',
+        class: 'ct-cost', x: NODE_PAD_X, y: ROW2_Y, 'text-anchor': 'start',
       });
       costT.textContent = node.cost !== undefined ? `cost:${node.cost}` : '';
 
-      const children = [rect, nameT, argsT];
-      if (argsT2) children.push(argsT2);
-      children.push(retT, stateT, costT);
+      const retT = svgEl('text', {
+        class: 'ct-retval', x: nodeW - NODE_PAD_X, y: ROW2_Y, 'text-anchor': 'end',
+      });
+      retT.textContent = '';
+
+      const children = [rect, callT, stateT, costT, retT];
       g.append(...children);
       nodesG.appendChild(g);
       this.#nodeEls.set(node.id, { g, retT, stateT });
@@ -301,6 +319,7 @@ export class CallTree extends BaseView {
     this.#positions.clear();
     this.#nodeEls.clear();
     this.#nodeById.clear();
+    this.#widths.clear();
   }
 
   // ── 内部ヘルパー ──────────────────────────────────────────────────────────
