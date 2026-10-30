@@ -4,7 +4,7 @@ const BASE = 'http://127.0.0.1:8001';
 
 async function run() {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const page = await browser.newPage({ locale: 'ja-JP' }); // 日本語のタブ名でクリックするため（ADR-046 で表示言語がブラウザの言語に従うようになった）
   const errors = [];
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', e => errors.push(e.message));

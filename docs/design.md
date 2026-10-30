@@ -48,6 +48,7 @@
 | 2.14 | 2026-09-28 | **BhvVisualizer埋め込み時は設定パネルの評価実験用UIを取り除く**（[ADR-040](adr/ADR-040-hide-study-ui-when-bhv-embedded.md)）。`index.html`の STUDY MODE ブロックに`#study-mode-section`を追加し、`app.js`の`init`受理処理（`# BHV:`）で取り除く。§3.7・§4.5 を更新 |
 | 2.15 | 2026-09-29 | **利用者向けマニュアル（日英）とヘッダーの使い方ボタン**（[ADR-041](adr/ADR-041-user-manual-and-help-button.md)）。`web/manual.html`・`web/manual.en.html`・スクリーンショット（`web/manual/{ja,en}`、`scripts/capture-manual-screenshots.mjs`で撮り直し）を追加。ヘッダーの`#btn-help`は`applyI18n()`で表示言語に合わせたリンク先に切り替え、`init`受理時（`# BHV:`）に取り除く。あわせて、英語固定だった各ビューのデータなし表示（「No variables」等）を`i18n.js`のキーに移した（コミット`8b23054`）。§3.7・§3.8・§5 を更新 |
 | 2.16 | 2026-09-29 | **Lifetime（変数寿命）ビューの記述を実装に合わせて訂正**。§3.6 `lifetime/` 節とディレクトリ構成の注記が、2026-06-16（v1.7 と同日、コミット`d22ec59`）にフレームグラフへ全面改定する前の「変数ライフタイム SVG Gantt」のままだった。データ取得（ビュー内 `buildFlameSegments()`）・軸・レイアウト定数・色・バー内容・`update()` を現行実装どおりに書き直し、`buildLifetime()` がビューから使われていないことを注記した。ADRを伴わない変更だったため、v2.1〜2.11 の追いつき（ADR基準）からも漏れていた |
+| 2.17 | 2026-10-30 | **表示言語の初期値をブラウザの言語から決め、エラーメッセージを英訳する**（[ADR-046](adr/ADR-046-browser-language-and-english-errors.md)）。`i18n.js` に `detectLang()` を追加し、`src/utils/error-message.js`（`localizeErrorMessage()`）を新設。`CodeEditor.showError()` が翻訳前のメッセージを覚えて言語切替時に訳し直す。§3.8 を更新 |
 
 ---
 
@@ -1395,7 +1396,10 @@ export const sessionLogger = new SessionLogger();  // モジュール単位シ�
 ```js
 const STRINGS = { ja: { 'btn-edit': '✏ 編集', ... }, en: { 'btn-edit': '✏ Edit', ... } };
 const STORAGE_KEY = 'jsv-lang';
-let currentLang = /* localStorage から復元、'ja'|'en' 以外は 'ja' */;
+let currentLang = /* localStorage から復元。'ja'|'en' 以外なら detectLang(navigator.languages)（ADR-046） */;
+
+// ブラウザの優先言語の先頭が日本語なら 'ja'、それ以外は 'en'。一覧が空なら 'ja'
+export function detectLang(languages) { /* ... */ }
 
 export function t(key)        { return STRINGS[currentLang]?.[key] ?? STRINGS['en']?.[key] ?? key; }
 export function getLang()     { return currentLang; }
@@ -1449,7 +1453,9 @@ document.addEventListener('langchange', (e) => {
 `view-no-data`・`view-no-source`・`view-no-func-calls`・`subst-empty`・`recursiontree-empty`・`objgraph-no-vars`・`objgraph-no-objects`・
 `barchart-no-data` のキーで `t()` から取得する（オブジェクト・置換・制御フロー・呼び出しツリー・ライフタイム・変数、および非アクティブの棒グラフ・再帰ツリー）。
 
-**対象外**: エラーメッセージ（JSInterpreter 由来で追跡困難）・サンプルプログラム名（固有名詞的）。
+**エラーメッセージ**（v2.17、ADR-046）: JSInterpreter と `exercise-source.js` のメッセージは日本語で作られる。英語表示のときは `CodeEditor.showError()` が `src/utils/error-message.js` の `localizeErrorMessage(message, lang)` で、先頭の `[Parser]`/`[Lexer]`/`[Runtime] 行:列:` を残したまま本文を既知の文型（正規表現の表）で英訳する。翻訳前のメッセージを `#errorShown` に覚えておき、`langchange` で訳し直す。文型の漏れは `tests/utils/error-message.test.js` が `../JSInterpreter/src` のソースからメッセージを集めて検出する。利用ログには翻訳前のメッセージを記録する。
+
+**対象外**: サンプルプログラム名（固有名詞的）。
 
 ---
 

@@ -117,9 +117,25 @@ const STRINGS = {
 
 const STORAGE_KEY = 'jsv-lang';
 
+/**
+ * ブラウザの優先言語の一覧から表示言語を決める（ADR-046）。
+ * 先頭の言語が日本語（ja, ja-JP など）なら 'ja'、それ以外なら 'en'。一覧が空なら従来どおり 'ja'。
+ * @param {readonly string[]|undefined|null} languages  navigator.languages（優先順）
+ * @returns {'ja'|'en'}
+ */
+export function detectLang(languages) {
+  const first = languages?.find(Boolean);
+  if (!first) return 'ja';
+  return /^ja(-|$)/i.test(first) ? 'ja' : 'en';
+}
+
+// 保存された設定があればそれを使い、なければブラウザの言語から決める（決めた値は保存しない）
 let currentLang = (() => {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  return (saved === 'ja' || saved === 'en') ? saved : 'ja';
+  let saved = null;
+  try { saved = localStorage.getItem(STORAGE_KEY); } catch { /* localStorage が使えない環境 */ }
+  if (saved === 'ja' || saved === 'en') return saved;
+  const nav = typeof navigator === 'undefined' ? null : navigator;
+  return detectLang(nav?.languages?.length ? nav.languages : [nav?.language]);
 })();
 
 /**

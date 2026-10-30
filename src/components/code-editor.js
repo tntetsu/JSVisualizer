@@ -12,6 +12,8 @@ import { oneDark }                   from '@codemirror/theme-one-dark';
 import { Compartment, EditorState }  from '@codemirror/state';
 import { keymap }                    from '@codemirror/view';
 import { indentWithTab }             from '@codemirror/commands';
+import { getLang }                   from '../i18n.js';
+import { localizeErrorMessage }      from '../utils/error-message.js';
 
 /** HTML エスケープ（エラーメッセージ表示用） */
 function _esc(str) {
@@ -437,6 +439,9 @@ export class CodeEditor {
   /** @type {{line:number,column:number}|null} 現在表示中のエラー位置（クリック再ジャンプ用） */
   #errorLoc = null;
 
+  /** @type {{msg:string, errorType:'parse'|'runtime'|null}|null} 表示中のエラー（翻訳前。言語切替時に訳し直す） */
+  #errorShown = null;
+
   /** @type {HTMLElement|null} プログラム名表示要素（修正4で使用） */
   #programNameEl = null;
 
@@ -552,12 +557,8 @@ export class CodeEditor {
    */
   showError(msg, errorType = null, loc = null) {
     if (msg) {
-      const typeLabel = errorType === 'parse'   ? 'Syntax Error'
-                      : errorType === 'runtime' ? 'Runtime Error'
-                      : null;
-      this.#errorEl.innerHTML = typeLabel
-        ? `<span class="error-badge">${typeLabel}</span> ${_esc(msg)}`
-        : _esc(msg);
+      this.#errorShown = { msg, errorType };
+      this.#renderErrorText();
       this.#errorEl.dataset.errorType = errorType ?? '';
       this.#errorEl.hidden = false;
 
@@ -571,12 +572,26 @@ export class CodeEditor {
         this.#errorEl.title = '';
       }
     } else {
+      this.#errorShown = null;
       this.#errorEl.innerHTML = '';
       this.#errorEl.hidden = true;
       this.#errorLoc = null;
       this.#errorEl.style.cursor = '';
       this.#errorEl.title = '';
     }
+  }
+
+  /** 表示中のエラーの本文を、現在の表示言語で描き直す（ADR-046） */
+  #renderErrorText() {
+    if (!this.#errorShown) return;
+    const { msg, errorType } = this.#errorShown;
+    const typeLabel = errorType === 'parse'   ? 'Syntax Error'
+                    : errorType === 'runtime' ? 'Runtime Error'
+                    : null;
+    const text = localizeErrorMessage(msg, getLang());
+    this.#errorEl.innerHTML = typeLabel
+      ? `<span class="error-badge">${typeLabel}</span> ${_esc(text)}`
+      : _esc(text);
   }
 
   /** エラー位置にカーソルを移動しブリンクアニメーションを実行する */
@@ -694,6 +709,9 @@ export class CodeEditor {
   }
 
   #bindEvents() {
+    // 言語切替: 表示中のエラーを訳し直す（カーソルは動かさない）
+    document.addEventListener('langchange', () => this.#renderErrorText());
+
     // エラーメッセージクリック: mousedown でフォーカス移動を阻止してカーソルジャンプ
     this.#errorEl.addEventListener('mousedown', (e) => {
       if (this.#errorLoc) e.preventDefault(); // エディタのフォーカスを奪われない

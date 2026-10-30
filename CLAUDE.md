@@ -270,10 +270,11 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 → switcher.setLang() // タブラベル・説明バーを再描画
 ```
 
-**永続化**: `localStorage('jsv-lang')`（`'ja'` または `'en'`、デフォルト `'ja'`）
+**永続化**: `localStorage('jsv-lang')`（`'ja'` または `'en'`）。保存された値がなければ、ブラウザの優先言語が日本語なら `'ja'`、それ以外は `'en'`（`detectLang()`。自動で決めた値は保存しない。ADR-046）
 
 **ローカライズ対象**: ボタンラベル・タブラベル・説明文・コンソールタイトル・設定パネルテキスト（約 46 項目）
-**ローカライズ非対象**: エラーメッセージ（JSInterpreter から）・サンプルプログラム名
+**エラーメッセージ**: JSInterpreter と `exercise-source.js` のメッセージは日本語で作られ、英語表示のときは `CodeEditor.showError()` が `src/utils/error-message.js` の `localizeErrorMessage()` で既知の文型を英訳する（表示中に言語を切り替えると訳し直す）。JSInterpreter のメッセージを増やしたら文型も足す（`tests/utils/error-message.test.js` が JSInterpreter のソースから集めて漏れを検出する）。利用ログには翻訳前のメッセージを記録する（ADR-046）
+**ローカライズ非対象**: サンプルプログラム名
 
 ### テーマシステム
 
@@ -300,7 +301,7 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 | `jsv-active-tab` | アクティブタブ ID | `view-switcher.js` |
 | `jsv-editor-pct` | エディタペイン幅（% 文字列、15〜75 の範囲） | `pane-resizer.js` |
 | `jsv-console-h` | コンソールパネル高さ（px 整数、40〜400 の範囲） | `app.js`（コンソールリサイザー） |
-| `jsv-lang` | 表示言語選択（`'ja'` または `'en'`、デフォルト `'ja'`） | `i18n.js` |
+| `jsv-lang` | 表示言語選択（`'ja'` または `'en'`。未保存ならブラウザの言語から決める、ADR-046） | `i18n.js` |
 | `jsv-exectrace-diagram-w` | ExecTrace「配列」列の表示枠幅（px 整数、100〜500 の範囲） | `exec-trace/index.js`（ドラッグハンドル） |
 
 ### キーボードショートカット一覧

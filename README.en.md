@@ -192,7 +192,7 @@ Default is Light. The setting is saved and restored on next visit.
 
 ### Language (日本語 / English)
 
-Click the **EN / 日** button in the header to switch the display language. Button labels, tab names, descriptions, and the settings panel (about 46 items) update instantly. Default is Japanese. The setting is saved and restored on next visit (error messages and sample program names are not localized).
+Click the **EN / 日** button in the header to switch the display language. Button labels, tab names, descriptions, and the settings panel (about 46 items) update instantly. On your first visit, the display language follows your browser: Japanese if your browser prefers Japanese, English otherwise. Once you switch with the button, the setting is saved and restored on your next visit. Error messages are shown in English too when the display language is English (sample program names are not localized).
 
 ### Miscellaneous
 
