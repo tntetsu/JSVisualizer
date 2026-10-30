@@ -304,6 +304,30 @@ JSVisualizer embeds a **general-purpose JavaScript interpreter**, so any code ca
 
 ---
 
+## Publication & Citation
+
+If you use or refer to JSVisualizer in your research, please cite the following paper:
+
+Tetsuo Tanaka and Mari Ueda. "Formative Evaluation of a JavaScript Execution Visualizer with Multi-Granularity Step Control and Multiple Cognitive-Model Views." *Proceedings of the 23rd International Conference on Cognition and Exploratory Learning in Digital Age (CELDA 2026)*, pp. 11–21, October 2026. ISBN 978-989-8704-81-8.
+
+```bibtex
+@inproceedings{tanaka2026celda,
+  author    = {Tanaka, Tetsuo and Ueda, Mari},
+  title     = {Formative Evaluation of a {JavaScript} Execution Visualizer with
+               Multi-Granularity Step Control and Multiple Cognitive-Model Views},
+  booktitle = {Proceedings of the 23rd International Conference on Cognition
+               and Exploratory Learning in Digital Age (CELDA 2026)},
+  pages     = {11--21},
+  year      = {2026},
+  month     = oct,
+  isbn      = {978-989-8704-81-8}
+}
+```
+
+You can also get the citation in APA or BibTeX format from "Cite this repository" in the sidebar of the GitHub repository page ([CITATION.cff](CITATION.cff)).
+
+---
+
 ## License
 
 MIT

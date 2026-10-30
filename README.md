@@ -304,6 +304,30 @@ JSVisualizer は **汎用の JavaScript インタープリタ**を内蔵する�
 
 ---
 
+## 論文・引用
+
+JSVisualizer を研究で使用・言及する場合は、以下の論文を引用してください。
+
+Tetsuo Tanaka and Mari Ueda. "Formative Evaluation of a JavaScript Execution Visualizer with Multi-Granularity Step Control and Multiple Cognitive-Model Views." *Proceedings of the 23rd International Conference on Cognition and Exploratory Learning in Digital Age (CELDA 2026)*, pp. 11–21, October 2026. ISBN 978-989-8704-81-8.
+
+```bibtex
+@inproceedings{tanaka2026celda,
+  author    = {Tanaka, Tetsuo and Ueda, Mari},
+  title     = {Formative Evaluation of a {JavaScript} Execution Visualizer with
+               Multi-Granularity Step Control and Multiple Cognitive-Model Views},
+  booktitle = {Proceedings of the 23rd International Conference on Cognition
+               and Exploratory Learning in Digital Age (CELDA 2026)},
+  pages     = {11--21},
+  year      = {2026},
+  month     = oct,
+  isbn      = {978-989-8704-81-8}
+}
+```
+
+GitHub のリポジトリ画面右側の「Cite this repository」からも、APA 形式・BibTeX 形式で引用情報を取得できます（[CITATION.cff](CITATION.cff)）。
+
+---
+
 ## ライセンス
 
 MIT

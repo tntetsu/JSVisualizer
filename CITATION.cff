@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+message: "If you use JSVisualizer in your research, please cite the following paper."
+title: "JSVisualizer"
+type: software
+authors:
+  - family-names: Tanaka
+    given-names: Tetsuo
+    affiliation: "Faculty of Information Technology, Kanagawa Institute of Technology"
+  - family-names: Ueda
+    given-names: Mari
+    affiliation: "Faculty of Information Technology, Kanagawa Institute of Technology"
+repository-code: "https://github.com/tntetsu/JSVisualizer"
+license: MIT
+preferred-citation:
+  type: conference-paper
+  title: "Formative Evaluation of a JavaScript Execution Visualizer with Multi-Granularity Step Control and Multiple Cognitive-Model Views"
+  authors:
+    - family-names: Tanaka
+      given-names: Tetsuo
+      affiliation: "Faculty of Information Technology, Kanagawa Institute of Technology"
+      address: "1030 Shimo-ogino"
+      city: Atsugi
+      region: Kanagawa
+      post-code: "243-0292"
+      country: JP
+    - family-names: Ueda
+      given-names: Mari
+      affiliation: "Faculty of Information Technology, Kanagawa Institute of Technology"
+      address: "1030 Shimo-ogino"
+      city: Atsugi
+      region: Kanagawa
+      post-code: "243-0292"
+      country: JP
+  collection-title: "Proceedings of the 23rd International Conference on Cognition and Exploratory Learning in Digital Age (CELDA 2026)"
+  collection-type: proceedings
+  conference:
+    name: "23rd International Conference on Cognition and Exploratory Learning in Digital Age (CELDA 2026)"
+  isbn: "978-989-8704-81-8"
+  start: 11
+  end: 21
+  year: 2026
+  month: 10
