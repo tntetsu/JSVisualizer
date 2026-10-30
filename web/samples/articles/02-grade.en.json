@@ -1,0 +1,4 @@
+{
+  "title": "Letter grade from a score",
+  "code": "let score = 72;\nlet grade;\nif (score >= 80) {\n  grade = \"A\";\n} else if (score >= 60) {\n  grade = \"B\";\n} else {\n  grade = \"C\";\n}\nconsole.log(grade);\n"
+}

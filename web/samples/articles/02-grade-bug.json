@@ -1,0 +1,4 @@
+{
+  "title": "成績判定（条件の順番がおかしい）",
+  "code": "let score = 95;\nlet grade;\nif (score >= 60) {\n  grade = \"B\";\n} else if (score >= 80) {\n  grade = \"A\";\n} else {\n  grade = \"C\";\n}\nconsole.log(grade);\n"
+}
