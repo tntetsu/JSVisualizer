@@ -1,0 +1,4 @@
+{
+  "title": "階乗（再帰）",
+  "code": "function fact(n) {\n  if (n <= 1) {\n    return 1;\n  }\n  return n * fact(n - 1);\n}\nconsole.log(fact(4));\n"
+}

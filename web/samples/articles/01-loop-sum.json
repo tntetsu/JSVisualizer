@@ -1,0 +1,4 @@
+{
+  "title": "1から5までの合計",
+  "code": "let sum = 0;\nfor (let i = 1; i <= 5; i++) {\n  sum = sum + i;\n}\nconsole.log(sum);\n"
+}
