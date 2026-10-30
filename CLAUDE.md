@@ -240,7 +240,7 @@ Runモード時、ヘッダー内ステップ操作バーは **1列（ワイド�
 | RecursionTree | 再帰的サブツリー幅計算（葉=NODE_W、内部=子の和＋gap） | ノードごとの className を cursor で更新 |
 | CallTree | 同上（ただしノード幅は文字数から求める可変幅。サブツリー幅=max(ノード幅, 子の和＋gap)） | ノードごとの className を cursor で更新 |
 | Lifetime | フレームグラフ（X=humanStep, Y=呼び出しの深さ。depth 0 = global が最下段） | カーソル線の x1/x2 を移動し、現在の humanStep を含むバーに `lf-bar--active` |
-| ControlFlow | AST ベース DOM フローチャート（if → true/false 列、while/for → 条件+body、未実行ノードは `cf-node--dead` でグレー） | activeNode の className を更新 |
+| ControlFlow | AST ベース DOM フローチャート（if → true/false 列、while/for → 条件+body、未実行ノードは `cf-node--dead` でグレー。×N と灰色は実行全体の集計。入れ子が深いときは横スクロール、現在ノードへは `#scrollToNode()` で縦横にスクロール、ADR-047） | activeNode の className を更新 |
 | MemoryView | 2カラム（stack \| heap）+ SVG オーバーレイ矢印 | DOM 再描画 → rAF で矢印を再計算 |
 | ObjectGraph | 階層型レイアウト（Kahn トポソート + 最長パス法で列割当、左→右）連結成分を BFS で分離し縦スタック | update() ごとに SVG 全体を再描画 |
 

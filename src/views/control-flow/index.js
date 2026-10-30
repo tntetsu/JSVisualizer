@@ -69,12 +69,39 @@ export class ControlFlow extends BaseView {
     const el = this.#container.querySelector(`.cf-node[data-line="${line}"]`);
     if (el) {
       el.classList.add('cf-node--active');
-      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      this.#scrollToNode(el);
       this.#activeEl = el;
     }
   }
 
   reset() {}
+
+  /**
+   * 現在のノードが見える位置まで .cf-wrap を縦横にスクロールする（ADR-047）。
+   * scrollIntoView の inline: 'nearest' は、表示幅より広いノード（スコープいっぱいに広がる文など）で
+   * 右端を見せようとして横にずれるため、左端を優先して自前で計算する。
+   */
+  #scrollToNode(el) {
+    const wrap = el.closest('.cf-wrap');
+    if (!wrap) return;
+    const M = 24;   // 端に残す余白（.cf-wrap の padding とスコープ枠の内側の余白の分）
+    const w = wrap.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+
+    // 横: 左に隠れていれば左端を見せる。右に隠れていれば、表示幅に収まるノードのときだけ右へ寄せる
+    // （収まらないノードは左端を優先し、動かさない）
+    let dx = 0;
+    if (r.left < w.left + 4)                                   dx = r.left - (w.left + M);
+    else if (r.right > w.right - 4 && r.width <= w.width - 2 * M) dx = r.right - (w.right - M);
+
+    // 縦: 同じ考え方
+    let dy = 0;
+    if (r.top < w.top + 4)                                      dy = r.top - (w.top + M);
+    else if (r.bottom > w.bottom - 4 && r.height <= w.height - 2 * M) dy = r.bottom - (w.bottom - M);
+
+    if (dx || dy) wrap.scrollBy({ left: dx, top: dy, behavior: 'smooth' });
+  }
+
 
   destroy() {
     if (this.#container) this.#container.innerHTML = '';

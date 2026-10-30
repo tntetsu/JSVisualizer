@@ -366,7 +366,7 @@
         <tbody>
           <tr><td><strong>式評価</strong></td><td>その時点</td><td>今計算している1行の式が、部分ごとに値に置き換わりながら最終的な値になるまでの過程を表示します。オレンジは直前に置き換わった部分、青の太字は次に計算される部分です。<code>||</code> や <code>&amp;&amp;</code> で計算が省略された部分は、元の式のまま残ります</td></tr>
           <tr><td><strong>置換</strong></td><td>経過</td><td>再帰関数の呼び出しを、<code>fib(5)</code> → <code>fib(4) + fib(3)</code> → … のように、関数呼び出しをその結果の式に置き換えながら展開していく過程を、上から順に表示します</td></tr>
-          <tr><td><strong>制御フロー</strong></td><td>その時点</td><td>実行した行をつないだフローチャートを表示し、今実行している行を強調します。ループで戻る流れはオレンジの破線で示され、実行されなかった分岐はグレーになります</td></tr>
+          <tr><td><strong>制御フロー</strong></td><td>その時点</td><td>if の true／false を左右の列に分け、ループの本体を字下げしたフローチャートで、今実行している行を強調します。各行の「×N」は実行全体で通った回数で、一度も実行されなかった行はグレーになります。入れ子が深くて収まらないときは横にスクロールできます</td></tr>
           <tr><td><strong>ヒートマップ</strong></td><td>経過</td><td>各行が何回実行されたかを、色の濃さと「今までの回数 / 全体の回数」で表示します。右側の点の並びは各行がいつ実行されたかを表し、ループで何度も実行される行がひと目で分かります</td></tr>
           <tr><td><strong>呼び出しツリー</strong></td><td>その時点</td><td>関数の呼び出しを木の形で表示します。各ノードに引数と戻り値が書かれ、灰色の破線は未呼び出し、青の太線は実行中、緑は完了した呼び出しです。左下の <code>cost</code> は、そのノードから下にある呼び出しの数（自分自身を含む）です。再帰関数が何回呼び出されるかを確かめるのに便利です</td></tr>
         </tbody>
@@ -374,7 +374,7 @@
       <div class="view-grid">
         <figure><img src="manual/ja/view-exprtrace.png" alt="式評価ビュー。式の部分が値に置き換わっていく様子が行ごとに表示されている" loading="lazy" /><figcaption>式評価</figcaption></figure>
         <figure><img src="manual/ja/view-subst.png" alt="置換ビュー。fib(5)がfib(4)+fib(3)、…と展開されていく" loading="lazy" /><figcaption>置換</figcaption></figure>
-        <figure><img src="manual/ja/view-controlflow.png" alt="制御フロービュー。実行された行がノードとして縦に並び、矢印でつながっている" loading="lazy" /><figcaption>制御フロー</figcaption></figure>
+        <figure><img src="manual/ja/view-controlflow.png" alt="制御フロービュー。if の true／false が左右の列に分かれ、ループの本体が字下げされたフローチャート" loading="lazy" /><figcaption>制御フロー</figcaption></figure>
         <figure><img src="manual/ja/view-heatmap.png" alt="ヒートマップビュー。各行の実行回数と色の濃さ、実行タイミングの点が表示されている" loading="lazy" /><figcaption>ヒートマップ</figcaption></figure>
         <figure><img src="manual/ja/view-calltree.png" alt="呼び出しツリービュー。fib(5)を根として、fib(4)とfib(3)…と枝分かれした木" loading="lazy" /><figcaption>呼び出しツリー</figcaption></figure>
       </div>

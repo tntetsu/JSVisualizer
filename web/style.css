@@ -2642,15 +2642,20 @@ body {
   gap: 14px;
 }
 
-/* スコープパネル */
+/* スコープパネル
+   入れ子の深い if / else if でも切れないよう、中身の幅まで広がる（最低でもビューの幅いっぱい）。
+   はみ出した分は .cf-wrap の overflow: auto で横スクロールする（ADR-047） */
 .cf-scope {
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
   flex-shrink: 0;
+  box-sizing: border-box;
+  min-width: 100%;
+  width: max-content;
 }
 
 .cf-scope-hdr {
+  border-radius: 8px 8px 0 0;
   background: var(--surface2, var(--surface));
   padding: 5px 12px;
   font-size: 12px;

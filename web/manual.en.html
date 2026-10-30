@@ -364,7 +364,7 @@
         <tbody>
           <tr><td><strong>Expr</strong></td><td>One moment</td><td>Shows how the one-line expression being computed turns into its final value as its parts are replaced by values. Orange marks the part just replaced; bold blue marks the part computed next. Parts skipped by <code>||</code> or <code>&amp;&amp;</code> stay as they are</td></tr>
           <tr><td><strong>Subst</strong></td><td>Whole run</td><td>Shows, from top to bottom, how recursive calls expand as each call is replaced by the expression it returns: <code>fib(5)</code> → <code>fib(4) + fib(3)</code> → …</td></tr>
-          <tr><td><strong>Control Flow</strong></td><td>One moment</td><td>A flowchart connecting the lines that ran, with the current line emphasized. Loop-back flows are dashed orange lines and branches that never ran are grayed out</td></tr>
+          <tr><td><strong>Control Flow</strong></td><td>One moment</td><td>A flowchart that splits each if into true and false columns and indents loop bodies, with the current line emphasized. Each row's “×N” is how many times it ran over the whole run, and rows that never ran are grayed out. Deeply nested flowcharts scroll horizontally</td></tr>
           <tr><td><strong>Heatmap</strong></td><td>Whole run</td><td>Shows how many times each line ran, as color intensity and “count so far / total”. The dots on the right show when each line ran, so lines repeated in loops stand out at a glance</td></tr>
           <tr><td><strong>Call Tree</strong></td><td>One moment</td><td>Shows function calls as a tree. Each node shows arguments and the return value; dashed gray means not yet called, thick blue means running, and green means finished. The <code>cost</code> at the bottom left is the number of calls in that node’s subtree (including itself) — handy for checking how many times a recursive function is called</td></tr>
         </tbody>
@@ -372,7 +372,7 @@
       <div class="view-grid">
         <figure><img src="manual/en/view-exprtrace.png" alt="Expr view: parts of an expression being replaced by values, one row per step" loading="lazy" /><figcaption>Expr</figcaption></figure>
         <figure><img src="manual/en/view-subst.png" alt="Subst view: fib(5) expanding into fib(4) + fib(3) and so on" loading="lazy" /><figcaption>Subst</figcaption></figure>
-        <figure><img src="manual/en/view-controlflow.png" alt="Control Flow view: executed lines as nodes stacked vertically and connected by arrows" loading="lazy" /><figcaption>Control Flow</figcaption></figure>
+        <figure><img src="manual/en/view-controlflow.png" alt="Control Flow view: a flowchart with if branches split into true and false columns and loop bodies indented" loading="lazy" /><figcaption>Control Flow</figcaption></figure>
         <figure><img src="manual/en/view-heatmap.png" alt="Heatmap view: execution count and color intensity for each line, with dots showing when each line ran" loading="lazy" /><figcaption>Heatmap</figcaption></figure>
         <figure><img src="manual/en/view-calltree.png" alt="Call Tree view: a tree rooted at fib(5) branching into fib(4) and fib(3) and so on" loading="lazy" /><figcaption>Call Tree</figcaption></figure>
       </div>

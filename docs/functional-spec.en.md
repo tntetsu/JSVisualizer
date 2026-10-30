@@ -39,6 +39,7 @@
 | 1.13 | 2026-08-27 | **F-11: added URL query (`view`) for specifying the initial view**: for BhvVisualizer's session-level pre/post questions ("predict before touching the tool → operate to check → answer again"), leaving `ViewSwitcher`'s existing behavior (restoring the last-active tab from `localStorage`) as-is meant each student could resume from an unrelated past session's tab, so the "operate to check" step wasn't consistent across students. Added `view` to `exercise-source.js`'s `parseQuery()` and a new `ViewSwitcher.setInitialView(id)`, which takes priority over the `localStorage` value for **only the page's first run** (the stored value itself is left untouched). A `# BHV:`-tag-free general feature ([ADR-036](adr/ADR-036-url-query-initial-view.md)) |
 | 1.16 | 2026-09-29 | **F-15: “no data” placeholders are now translated** (hard-coded English messages such as “No variables” and “No function calls” in the Objects, Subst, Control Flow, Call Tree, Lifetime, and Variable views, plus the inactive Bar Chart and Recursion Tree views, moved to `i18n.js` keys). Added the user manual (`web/manual.html`, `manual.en.html`) and the help button in the header ([ADR-041](adr/ADR-041-user-manual-and-help-button.md)) |
 | 1.17 | 2026-10-30 | **F-15: Initial display language follows the browser, and error messages are shown in English** ([ADR-046](adr/ADR-046-browser-language-and-english-errors.md)). With no saved setting, the app uses Japanese if the browser prefers Japanese and English otherwise. In English, error messages from JSInterpreter and from loading code via URL query are translated |
+| 1.18 | 2026-10-30 | **V-12: Rewrote the Control Flow view description to match the current implementation, and added horizontal scrolling** ([ADR-047](adr/ADR-047-controlflow-horizontal-scroll.md)). The description of the old node-and-edge design had remained after the v1.6 rebuild. Now states that `×N` and graying reflect the whole run, and that deeply nested branches scroll horizontally |
 | 1.15 | 2026-09-28 | **3.2: added the two-axis classification of views** (visualization target × temporal representation, following Table 1 of paper IS-26-049; the array timeline is V-02b ExecTrace, implemented after the paper). Fixed the Lifetime tab's on-screen description (`src/app.js`) to describe the flame chart |
 | 1.14 | 2026-09-24 | **V-02b: integrated an Arrays pointer overlay into ExecTrace**: a deep dive into evaluation-study logs (`docs/study/paper-research-notes.md`) found that a participant who failed to spot an off-by-one bug in selection sort spent a long time in the animation-style Arrays view without ever noticing that the pointer was off by one on every iteration — a cross-iteration pattern the animation-only view can't show. Extracted Arrays' pointer-detection and array-grid rendering logic into `src/utils/array-grid.js`, shared by the time-axis ExecTrace view, which now renders the same mini diagram on each row. Only steps with a detected pointer are drawn; cell width is sized from the longest pointer variable name. The display frame's width is drag-resizable and persisted to `localStorage('jsv-exectrace-diagram-w')` ([ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)) |
 
@@ -409,13 +410,21 @@ Reference implementation rendering `buildRecursionTree()` (recursive calls only,
 
 **Tab label**: Control Flow
 
-- Nodes = executed source lines (in first-seen order, arranged vertically)
-- Forward edges (right, blue); back edges / loop returns (left, orange dashed)
-- Node background color intensity = execution count
-- Current node highlighted with accent border
-- **Color-blindness support**: back edges (loop returns) shown as dashed orange lines (`stroke-dasharray: 6 3`)
+Draws the program's structure from the AST as a flowchart and shows which paths the whole run took, and how many times (rebuilt in v1.6 from the earlier node-and-edge design; ADR-018).
 
-**Input**: `builder.buildControlFlow()`, `state.event`
+- **One panel per scope**: The global scope and each function defined during the run (`ƒ name(params)`) get their own panel
+- **Node types**:
+  - Statements: rectangles. `return` has a green border (⏎); `break` / `continue` have a purple border
+  - `if`: a condition node marked ◇, with a **true** column (left) and a **false** column (right) below it. An `else if` is drawn nested inside the false column. An empty branch shows "—"
+  - `while` / `for` / `for-of` / `for-in` / `do-while`: a condition node marked ↺, with the body indented below it
+- **Execution counts**: Each node shows `×N` (times executed): the number of times execution moved onto that line (expressions within the same line count once). For a loop's condition node, this equals the number of times the condition was checked (e.g. `for (let i = 1; i <= 15; i++)` shows ×16)
+- **Unexecuted nodes**: Nodes that never ran are drawn grayed out with a dashed border and no `×N`, so branches that were never taken stand out
+- **Whole-run totals**: `×N` and the gray state reflect the entire run regardless of the current step (rendered once in `init()`). Stepping only moves the current-node highlight
+- **Current node**: The node for the current step's line gets a blue border and is scrolled into view, vertically and horizontally
+- **Horizontal scrolling**: When deeply nested `if` / `else if` chains don't fit the view's width, the view scrolls horizontally (ADR-047)
+- **Labels**: Labels longer than 46 characters are truncated with `…`
+
+**Input**: `builder.buildCFG()` (per-scope `CfgItem[]` with `execCount`), `state.event`
 
 ---
 

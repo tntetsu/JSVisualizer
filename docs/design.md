@@ -49,6 +49,7 @@
 | 2.15 | 2026-09-29 | **利用者向けマニュアル（日英）とヘッダーの使い方ボタン**（[ADR-041](adr/ADR-041-user-manual-and-help-button.md)）。`web/manual.html`・`web/manual.en.html`・スクリーンショット（`web/manual/{ja,en}`、`scripts/capture-manual-screenshots.mjs`で撮り直し）を追加。ヘッダーの`#btn-help`は`applyI18n()`で表示言語に合わせたリンク先に切り替え、`init`受理時（`# BHV:`）に取り除く。あわせて、英語固定だった各ビューのデータなし表示（「No variables」等）を`i18n.js`のキーに移した（コミット`8b23054`）。§3.7・§3.8・§5 を更新 |
 | 2.16 | 2026-09-29 | **Lifetime（変数寿命）ビューの記述を実装に合わせて訂正**。§3.6 `lifetime/` 節とディレクトリ構成の注記が、2026-06-16（v1.7 と同日、コミット`d22ec59`）にフレームグラフへ全面改定する前の「変数ライフタイム SVG Gantt」のままだった。データ取得（ビュー内 `buildFlameSegments()`）・軸・レイアウト定数・色・バー内容・`update()` を現行実装どおりに書き直し、`buildLifetime()` がビューから使われていないことを注記した。ADRを伴わない変更だったため、v2.1〜2.11 の追いつき（ADR基準）からも漏れていた |
 | 2.17 | 2026-10-30 | **表示言語の初期値をブラウザの言語から決め、エラーメッセージを英訳する**（[ADR-046](adr/ADR-046-browser-language-and-english-errors.md)）。`i18n.js` に `detectLang()` を追加し、`src/utils/error-message.js`（`localizeErrorMessage()`）を新設。`CodeEditor.showError()` が翻訳前のメッセージを覚えて言語切替時に訳し直す。§3.8 を更新 |
+| 2.18 | 2026-10-30 | **制御フロービューを横スクロールできるようにした**（[ADR-047](adr/ADR-047-controlflow-horizontal-scroll.md)）。`.cf-scope` を中身の幅まで広げ、現在ノードへのスクロールを `#scrollToNode()` で計算する。`control-flow/` の節を更新し、廃止済みの戻りエッジ（§6.9・CSS クラス一覧の `.cf-edge--back`）の記述を直した |
 
 ---
 
@@ -1196,7 +1197,14 @@ stmt | return | jump | if | while | for | do-while | seq
 **ラベル省略**: `clip(s)` が `MAX_LABEL=46` 文字を超えるラベルを `…` で切り詰める。
 
 **update()**: `state.event.loc.line` と一致する最初の `.cf-node[data-line]` を
-`querySelector` で検索し `.cf-node--active` を付与（前回のアクティブは解除）。
+`querySelector` で検索し `.cf-node--active` を付与（前回のアクティブは解除）。`×N` と灰色は `init()` で描いた実行全体の集計のままで、
+`update()` が変えるのは現在ノードの強調だけ。
+
+**横スクロール**（v2.18、ADR-047）: `.cf-scope` は `width: max-content; min-width: 100%` で中身の幅まで広がり（`overflow: hidden` は使わない。
+角丸は `.cf-scope-hdr` の上側に付ける）、ビューに収まらない分は `.cf-wrap` の `overflow: auto` で横スクロールする。
+現在ノードへのスクロールは `#scrollToNode(el)` が `.cf-wrap` の表示範囲とノードの位置から縦横の量を計算して `scrollBy()` する。
+左（上）に隠れていれば余白 24px を残して左端（上端）を見せ、右（下）に隠れていれば表示範囲に収まるノードのときだけ寄せる
+（`scrollIntoView` の `inline: 'nearest'` は、表示幅より広いノードで右端を見せようとして横にずれるため使わない）。
 
 **execCount のカウント方式**（`CfgBuilder`、`trace-builder.js` 内部クラス）: 全 AST enter
 イベントではなく「直前と異なる行に enter したときだけ」カウントする
@@ -1909,7 +1917,7 @@ CSS カスタムプロパティで 2 テーマを管理する。
 | recursion-tree | `rt-` | `.rt-node--active`, `.rt-rect`（非アクティブ） |
 | call-tree | `ct-` | `.ct-node--active`, `.ct-rect`, `.ct-name`, `.ct-cost` |
 | lifetime | `lf-` | `.lf-bar`, `.lf-bar--active`, `.lf-cursor` |
-| control-flow | `cf-` | `.cf-node--active`, `.cf-edge--back` |
+| control-flow | `cf-` | `.cf-node--active`, `.cf-node--dead`, `.cf-exec-badge` |
 | memory-view | `mv-` | `.mv-frame`, `.mv-arrows` |
 | object-graph | `og-` | `.og-node`, `.og-edge` |
 
@@ -2022,16 +2030,9 @@ b.v-diff .v-obj, b.v-diff .v-null, b.v-diff .v-undef {
 }
 ```
 
-### 6.9 ControlFlow 戻りエッジ（Phase 6 確認）
+### 6.9 ControlFlow 戻りエッジ（Phase 6 確認、廃止）
 
-```css
-/* 戻りエッジ（ループバック）: 橙色の破線 */
-.cf-edge--back {
-  stroke: var(--hl-orange, #e86b4c);
-  stroke-width: 2;
-  stroke-dasharray: 6 3;
-}
-```
+v1.8（2026-07-17）の刷新でエッジを描かなくなったため、戻りエッジ（`.cf-edge--back`、橙色の破線）は廃止した。ループは ↺ の付いた条件ノードと字下げした本体で表す（`control-flow/` の節を参照）。
 
 ---
 
