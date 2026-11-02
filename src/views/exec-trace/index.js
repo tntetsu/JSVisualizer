@@ -246,7 +246,7 @@ export class ExecTrace extends BaseView {
       html += `<td class="et-td et-col-line">${lineNo}</td>`;
       html += `<td class="et-td et-col-code">${esc(snippet)}</td>`;
 
-      // 配列＋ポインタのミニ図（ポインタが検出された配列のみ描画。Arraysビューと共通の
+      // 配列＋ポインタのミニ図（その行のスコープにある配列を描画。Arraysビューと共通の
       // renderArrayGrid() を使い、アニメーション型のArraysでは見えない「イテレーション横断の
       // ポインタ位置ズレ」を縦スクロールで比較できるようにする）
       if (showDiagram) {
@@ -254,7 +254,9 @@ export class ExecTrace extends BaseView {
         for (const arrName of arrayVarNames) {
           const arr = envMap.get(arrName);
           const ptrByName = detectPointerVars(envMap, arr, subscriptVars, arrayVarNames);
-          if (ptrByName.size === 0) continue;
+          // Arrays ビューと同じく、ポインタが無くてもスコープにある配列は描画する
+          // （`table[3] = 25;` のように添字がリテラルだとポインタが検出されないため。ADR-048）
+          if (!envMap.has(arrName)) continue;
           const maxVal = Array.isArray(arr)
             ? arr.reduce((m, v) => typeof v === 'number' && isFinite(v) ? Math.max(m, Math.abs(v)) : m, 0)
             : 0;

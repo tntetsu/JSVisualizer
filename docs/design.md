@@ -50,6 +50,7 @@
 | 2.16 | 2026-09-29 | **Lifetime（変数寿命）ビューの記述を実装に合わせて訂正**。§3.6 `lifetime/` 節とディレクトリ構成の注記が、2026-06-16（v1.7 と同日、コミット`d22ec59`）にフレームグラフへ全面改定する前の「変数ライフタイム SVG Gantt」のままだった。データ取得（ビュー内 `buildFlameSegments()`）・軸・レイアウト定数・色・バー内容・`update()` を現行実装どおりに書き直し、`buildLifetime()` がビューから使われていないことを注記した。ADRを伴わない変更だったため、v2.1〜2.11 の追いつき（ADR基準）からも漏れていた |
 | 2.17 | 2026-10-30 | **表示言語の初期値をブラウザの言語から決め、エラーメッセージを英訳する**（[ADR-046](adr/ADR-046-browser-language-and-english-errors.md)）。`i18n.js` に `detectLang()` を追加し、`src/utils/error-message.js`（`localizeErrorMessage()`）を新設。`CodeEditor.showError()` が翻訳前のメッセージを覚えて言語切替時に訳し直す。§3.8 を更新 |
 | 2.18 | 2026-10-30 | **制御フロービューを横スクロールできるようにした**（[ADR-047](adr/ADR-047-controlflow-horizontal-scroll.md)）。`.cf-scope` を中身の幅まで広げ、現在ノードへのスクロールを `#scrollToNode()` で計算する。`control-flow/` の節を更新し、廃止済みの戻りエッジ（§6.9・CSS クラス一覧の `.cf-edge--back`）の記述を直した |
+| 2.19 | 2026-11-02 | **実行トレースの「配列」列で、ポインタが無くても配列を描くようにした**（[ADR-048](adr/ADR-048-exectrace-array-always.md)）。添字がリテラルだけのプログラム（`table[3] = 25;`）でポインタが検出されず列が空だった。配列タブと同じく、その行のスコープにある配列はすべて描く。§3.6 exec-trace 節を更新 |
 
 ---
 
@@ -805,7 +806,7 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
   - `renderArrayGrid({ arrName, arr, ptrByName, cellPx, fontPx, maxVal, idxHeightPx, valHeightPx, ptrHeightPx, ... })`: インデックス行・値行・ポインタラベル行の3行を持つグリッドHTMLを生成する。行高（`idxHeightPx`/`valHeightPx`/`ptrHeightPx`）はセル幅（`cellPx`）から独立して指定でき、ExecTrace 側はコンパクトな固定値を渡す（Arrays 側は従来通り `cellPx` に比例させる）
   - `valueToBoxColor(val, maxVal)`: 値の大きさに応じた背景色（Arrays から移設）
 - `init()` の変数名収集ループで、値が `Array.isArray()` となる変数名も同時に `arrayVarNames: Set<string>` として収集する（追加のトレース走査なし）。配列が1つも登場しないプログラムでは配列列自体を出さない
-- 各行では、そのステップで**ポインタが1つ以上検出された配列のみ**ミニ図を描画する（ポインタが無い配列・ステップでは描画しない。数値自体は既存の変数列で見えているため、ミニ図は「ポインタ位置の比較」という狙いに絞る）
+- 各行では、その行のスコープにある配列（`envMap.has(arrName)`）をすべて描画し、ポインタが検出されればラベルを付ける。当初の実装はポインタが1つ以上検出された配列のみ描いていたが、これは「ポインタが見つかればラベルを描く」という本来の意図と違い、`table[3] = 25;` のように添字がリテラルだけのプログラムで列が空のままになっていた。Arrays ビューと同じくポインタの有無に関係なく描くよう直した（[ADR-048](adr/ADR-048-exectrace-array-always.md)）
 - セル幅はポインタ候補の最長変数名（`minIdx` 等）の文字数から動的に算出し、ラベルが見切れないようにする
 - 表示枠の幅（`.et-col-diagram`/`.et-diag-scroll` の `max-width`）はCSS変数 `--et-diag-w` で管理し、列ヘッダーのハンドル（`.et-diag-resize-handle`）をドラッグして変更できる。`pane-resizer.js` と同じ「`mousedown`で開始→`document`の`mousemove`で追従→`mouseup`で終了」パターンで、100〜500pxにクランプし `localStorage('jsv-exectrace-diagram-w')` に永続化する。`ViewSwitcher.onReady()` によるタブ切替のたびの `destroy()`→再マウントに対応するため、`document` に追加した `mousemove`/`mouseup` リスナーは `destroy()` で確実に解除する
 
