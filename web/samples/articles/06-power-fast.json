@@ -1,0 +1,4 @@
+{
+  "title": "べき乗（半分にする再帰）",
+  "code": "function square(y) {\n  return y * y;\n}\n\nfunction fastPower(x, n) {\n  if (n === 0) {\n    return 1;\n  }\n  if (n % 2 === 0) {\n    return square(fastPower(x, n / 2));\n  }\n  return x * fastPower(x, n - 1);\n}\n\nconsole.log(fastPower(2, 10));"
+}
