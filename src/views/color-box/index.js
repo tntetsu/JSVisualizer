@@ -107,8 +107,8 @@ export class Arrays extends BaseView {
   }
 
   update(state) {
-    if (!this.#boxAreaEl || !state.event) return;
-    const vars = flattenEnv(state.event.env ?? []);
+    if (!this.#boxAreaEl) return;
+    const vars = flattenEnv(state.scopes ?? []);
     this.#lastVars = vars;
     this.#render(vars);
   }
@@ -259,7 +259,7 @@ export class Arrays extends BaseView {
         maxVal: meta?.maxVal ?? 0,
         minWidthPx: meta?.maxWidth ?? 0,
         minHeightPx: meta?.maxGridHeight ?? 0,
-        emptyText: '配列が空です',
+        emptyText: t(Array.isArray(arr) ? 'colorbox-array-empty' : 'colorbox-out-of-scope'),
       });
     }
 

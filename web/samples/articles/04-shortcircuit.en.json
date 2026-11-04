@@ -1,0 +1,4 @@
+{
+  "title": "Short-circuit evaluation (user !== null && ...)",
+  "code": "let user = null;\nif (user !== null && user.age >= 20) {\n  console.log(\"yes\");\n} else {\n  console.log(\"no\");\n}"
+}

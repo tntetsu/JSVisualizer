@@ -1,0 +1,4 @@
+{
+  "title": "Range check (0 < x < 10)",
+  "code": "let x = 15;\nlet inRange = 0 < x < 10;\nconsole.log(inRange);"
+}

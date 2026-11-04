@@ -1,0 +1,4 @@
+{
+  "title": "バブルソート",
+  "code": "let a = [6, 3, 8, 1, 5];\nfor (let i = 0; i < a.length - 1; i++) {\n  for (let j = 0; j < a.length - 1 - i; j++) {\n    if (a[j] > a[j + 1]) {\n      let tmp = a[j];\n      a[j] = a[j + 1];\n      a[j + 1] = tmp;\n    }\n  }\n}\nconsole.log(a);"
+}

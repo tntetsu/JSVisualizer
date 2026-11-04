@@ -1,0 +1,4 @@
+{
+  "title": "Counting primes (stop early)",
+  "code": "let count = 0;\nfor (let n = 2; n <= 25; n++) {\n  let isPrime = true;\n  for (let d = 2; d * d <= n; d++) {\n    if (n % d === 0) {\n      isPrime = false;\n      break;\n    }\n  }\n  if (isPrime) {\n    count++;\n  }\n}\nconsole.log(count);"
+}

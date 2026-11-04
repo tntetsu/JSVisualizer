@@ -84,8 +84,8 @@ export class CallStackView extends BaseView {
   }
 
   #renderCallStack(state) {
-    const { scopes, callStack, changedVars, event } = state;
-    if (!event) {
+    const { scopes, callStack, changedVars } = state;
+    if (!scopes || scopes.length === 0) {
       this.#callstackEl.innerHTML = '<p class="placeholder">—</p>';
       return;
     }

@@ -1,0 +1,4 @@
+{
+  "title": "最大公約数（再帰）",
+  "code": "function gcd(a, b) {\n  if (b === 0) {\n    return a;\n  }\n  return gcd(b, a % b);\n}\n\nconsole.log(gcd(48, 18));"
+}

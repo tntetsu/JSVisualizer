@@ -1,9 +1,9 @@
 # 機能仕様書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 1.19  
+**バージョン**: 1.25  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-10-19  
+**最終更新**: 2026-11-04  
 **作成者**: Tetsuo Tanaka
 
 > [English version](functional-spec.en.md)
@@ -43,6 +43,7 @@
 | 1.22 | 2026-11-02 | **V-02b: 実行トレースの「配列」列で、ポインタが無くても配列を描くようにした**（[ADR-048](adr/ADR-048-exectrace-array-always.md)）。`table[3] = 25;` のように添字が数値だけのプログラムではポインタが検出されず、列が空のままだった。配列タブ（V-07）と同じく、その行のスコープにある配列はすべて描く |
 | 1.23 | 2026-11-04 | **V-01 ほか: 呼び出し元のフレームに、呼び出した地点から見える変数をすべて表示するようにした**（[ADR-049](adr/ADR-049-caller-frame-variables.md)）。関数の実行中に呼び出し元の let/const やループ変数が表示から消えていた不具合を修正。グローバルの for の中から呼んだときも同様。メモリビューで呼び出し元の配列・オブジェクトがヒープに表示されるようにし、宣言前の変数は「—」と表示する |
 | 1.24 | 2026-11-04 | **V-14: オブジェクトビューに、呼び出し元のフレームが持つ配列・オブジェクトも `変数名 (フレーム名)` のラベルで表示する**（[ADR-050](adr/ADR-050-objgraph-caller-frames.md)）。V-13: メモリビューで関数を `ƒ 名前`、クラスを `class 名前` と表示する。オブジェクトビューで宣言前の変数を「—」と表示する |
+| 1.25 | 2026-11-04 | **V-02c: 引数の中の再帰呼び出しを正しく展開するようにした**（[ADR-051](adr/ADR-051-subst-expression-tree.md)）。式を木で管理し、`twice(f(n - 1))` の外側が消えないようにした。終了条件のない再帰も値で展開する。**V-02d**: プロパティ名・文字列の中身を変数列に出さない。`console` などの組み込みオブジェクトを値に置き換えない。オブジェクトをキー付きで `{ age: 25 }` と表示する（V-02c も同じ）。**V-07**: 長いポインタ名を切らずに表示する。実行が終わっても配列を表示する（実行後も最後の変数の状態を保つ）。**実行の上限を 10,000 から 50,000 ステップに上げ、V-02b の図を遅延描画にした**（[ADR-052](adr/ADR-052-step-limit-50000.md)）。スタックオーバーフローのメッセージを日英に対応 |
 | 1.18 | 2026-10-19 | **V-02c: タブ名を「代入展開」から「置換」に変更**（ADR-044）。このビューが表すのは代入ではなく置換モデル（substitution model）による関数呼び出しの置き換えであり、「代入展開」では意味が伝わらないため |
 | 1.17 | 2026-10-09 | **V-11: タブ名を「変数寿命」から「ライフタイム」に変更**（ADR-043）。ローカル変数を持たない関数でも関数の実行の区間を表しており、「変数寿命」では違和感があるため |
 | 1.16 | 2026-09-29 | **F-15: 各ビューのデータなし表示を翻訳対象に追加**（オブジェクト・代入展開・制御フロー・呼び出しツリー・変数寿命・変数、および非アクティブの棒グラフ・再帰ツリーで英語固定だった「No variables」「No function calls」等を`i18n.js`のキーに移した）。利用者向けマニュアル（`web/manual.html`・`manual.en.html`）とヘッダーの使い方ボタンを追加（[ADR-041](adr/ADR-041-user-manual-and-help-button.md)） |
@@ -249,7 +250,7 @@
 - `init()` 時に全行を一括描画
 - `update()` は現在行のハイライト移動と scrollIntoView のみ（O(n)）
 - 列構成: # | 行 | コード（先頭 30 文字）| 配列列（配列が登場する場合のみ）| 変数値列（出現順）| 条件式列（出現順）
-  - **配列列**（[ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)）: その行のスコープにある配列について、Arrays ビューと同じ「インデックス行・値行・ポインタラベル行」のミニ図を描画し、ポインタ変数（`i`/`minIdx` 等）が検出されればその位置にラベルを付ける（ポインタが無い配列も描く。[ADR-048](adr/ADR-048-exectrace-array-always.md)）。検出・描画ロジックは `src/utils/array-grid.js` に共通化し Arrays（`color-box/index.js`）と共有。アニメーション型の Arrays では見えない「イテレーション横断のポインタ位置ズレ」を、縦スクロールするだけで比較できる。セル幅はポインタ候補の最長変数名から動的算出。表示枠の幅はヘッダーのハンドルをドラッグして変更でき、`localStorage('jsv-exectrace-diagram-w')` に永続化（100〜500px）
+  - **配列列**（[ADR-037](adr/ADR-037-exectrace-array-pointer-overlay.md)）: その行のスコープにある配列について、Arrays ビューと同じ「インデックス行・値行・ポインタラベル行」のミニ図を描画し、ポインタ変数（`i`/`minIdx` 等）が検出されればその位置にラベルを付ける（ポインタが無い配列も描く。[ADR-048](adr/ADR-048-exectrace-array-always.md)）。図は行が表示範囲に近づいたときに描く（[ADR-052](adr/ADR-052-step-limit-50000.md)）。検出・描画ロジックは `src/utils/array-grid.js` に共通化し Arrays（`color-box/index.js`）と共有。アニメーション型の Arrays では見えない「イテレーション横断のポインタ位置ズレ」を、縦スクロールするだけで比較できる。セル幅はポインタ候補の最長変数名から動的算出。表示枠の幅はヘッダーのハンドルをドラッグして変更でき、`localStorage('jsv-exectrace-diagram-w')` に永続化（100〜500px）
   - **変数値列**: 各行の最後の humanStep 時点の変数値を `flattenEnv` で取得して表示。`formatValueDiff()` で前ステップとの差分を橙太字で強調（`init()` 時に全行一括適用）
   - **条件式列**: `buildConditionExitSet` でループ条件式の exit を事前収集し、`buildCondInfo` で以下の 2 ケースを判定
     - Case 1（while/do-while/for の条件式 exit）: イベント自体が条件式評価結果。値を直接取得
@@ -265,7 +266,7 @@
 タブ名: **置換**（2026-10-19に「代入展開」から変更、ADR-044。タブ登録順: 実行トレースの次、式評価の前）
 
 - 再帰関数呼び出しを「置換モデル（substitution model）」で逐次展開して表示
-- 最初のユーザー定義関数呼び出し（`factorial(5)` 等）から開始し、ReturnStatement ごとに関数呼び出し文字列を評価済み return 式で置換して行を追加
+- 最初のユーザー定義関数呼び出し（`factorial(5)` 等）から開始し、ReturnStatement ごとに実行中の呼び出しを評価済み return 式で置換して行を追加。別の関数の引数になった呼び出しは外側の呼び出しの中に残し、外側の関数に入った時点で引数の値に書き直す（[ADR-051](adr/ADR-051-subst-expression-tree.md)）。置き換えで計算の順番が変わるときは括弧を付ける
 - 最終行はトップレベル CallExpression の確定値（`→ 120` 等）を表示
 - **ハイライト 2 種**:
   - `.stx-hl-expanded`（橙背景）: 直前の置換で展開された部分
@@ -275,9 +276,10 @@
 - 対応ビュー: `ExpressionStatement` から始まるユーザー定義関数呼び出し。ネイティブ関数や非再帰プログラムでは「関数呼び出しが検出されませんでした」を表示
 
 **コアアルゴリズム** (`computeReturnExpr` / `buildSubstitutionLines`):
-- `getCallFrame(trace, enterIdx)`: CallExpression enter の直後で callStack が深くなった最初のイベントからフレームを取得
-- `computeReturnExpr(trace, returnEnterIdx, sourceLines)`: return 引数テキストを走査し Identifier exit は値で・CallExpression は `formatFrameLabel(frame)` で置換。右から左に適用して位置ずれを防ぐ
-- `buildSubstitutionLines()`: `currentExpr` 文字列の中で `callStrToReplace.indexOf()` を使って置換位置を特定
+- 式は「文字列と呼び出しノードの配列」の木で持つ。呼び出しノードは CallExpression enter の trace 位置と結びつく
+- `getCallFrame(trace, enterIdx)`: 呼び出しの exit の直前のイベントからフレームを取得（exit がなければ callStack が深くなった最初のイベントから）
+- `computeReturnExpr()` / `renderSource()`: return 引数テキストを走査し、Identifier exit は値で、ユーザー定義関数の呼び出しは呼び出しノードで置換する
+- `buildSubstitutionLines()`: 実行中の呼び出しのノードを置き換えながら行を作る
 
 **入力**: `builder.trace`, `builder.source`
 

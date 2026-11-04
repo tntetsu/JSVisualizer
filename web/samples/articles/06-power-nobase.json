@@ -1,0 +1,4 @@
+{
+  "title": "べき乗（終了条件なし）",
+  "code": "function power(x, n) {\n  return x * power(x, n - 1);\n}\n\nconsole.log(power(2, 5));"
+}

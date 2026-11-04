@@ -30,6 +30,8 @@ const DIAGRAM_MIN_CELL_PX = 18;
 const DIAGRAM_IDX_H_PX = 9;
 const DIAGRAM_VAL_H_PX = 14;
 const DIAGRAM_PTR_H_PX = 10;
+/** 図を描く前に行へ空けておくおおよその高さ（配列 1 つとポインタ 2 つ分） */
+const DIAGRAM_ROW_H_PX = 60;
 
 /** 「配列」列の表示枠の幅（ドラッグでユーザーが変更・localStorageに永続化） */
 const DIAGRAM_W_STORAGE_KEY = 'jsv-exectrace-diagram-w';
@@ -138,6 +140,8 @@ export class ExecTrace extends BaseView {
   #diagResizeDragging = false;
   #diagResizeStartX   = 0;
   #diagResizeStartW   = 0;
+  #diagramHtml        = new Map();  // 行 → 図の HTML を作る関数
+  #diagramObserver    = null;
   #onDiagResizeMove   = null;
   #onDiagResizeUp     = null;
 
@@ -153,8 +157,9 @@ export class ExecTrace extends BaseView {
     const lines      = source.split('\n');
     const { rows, hiToRow } = buildExecRows(trace, humanSteps);
 
-    this.#humanSteps = humanSteps;
-    this.#hiToRow    = hiToRow;
+    this.#humanSteps  = humanSteps;
+    this.#hiToRow     = hiToRow;
+    this.#diagramHtml = new Map();
 
     if (rows.length === 0) {
       container.innerHTML = `<div class="et-wrap"><p class="et-empty">${esc(t('exectrace-empty'))}</p></div>`;
@@ -250,22 +255,29 @@ export class ExecTrace extends BaseView {
       // renderArrayGrid() を使い、アニメーション型のArraysでは見えない「イテレーション横断の
       // ポインタ位置ズレ」を縦スクロールで比較できるようにする）
       if (showDiagram) {
-        let diagramHtml = '';
-        for (const arrName of arrayVarNames) {
-          const arr = envMap.get(arrName);
-          const ptrByName = detectPointerVars(envMap, arr, subscriptVars, arrayVarNames);
-          // Arrays ビューと同じく、ポインタが無くてもスコープにある配列は描画する
-          // （`table[3] = 25;` のように添字がリテラルだとポインタが検出されないため。ADR-048）
-          if (!envMap.has(arrName)) continue;
-          const maxVal = Array.isArray(arr)
-            ? arr.reduce((m, v) => typeof v === 'number' && isFinite(v) ? Math.max(m, Math.abs(v)) : m, 0)
-            : 0;
-          diagramHtml += renderArrayGrid({
-            arrName, arr, ptrByName, cellPx: diagramCellPx, fontPx: DIAGRAM_FONT_PX, maxVal, emptyText: '',
-            idxHeightPx: DIAGRAM_IDX_H_PX, valHeightPx: DIAGRAM_VAL_H_PX, ptrHeightPx: DIAGRAM_PTR_H_PX,
+        // 図は 1 行あたりのマスが多いので、行が画面に近づいたときに描く（#observeDiagrams）
+        const hasArray = [...arrayVarNames].some(arrName => envMap.has(arrName));
+        html += `<td class="et-td et-col-diagram"><div class="et-diag-scroll"${hasArray ? ` data-row="${r}"` : ''}></div></td>`;
+        if (hasArray) {
+          this.#diagramHtml.set(r, () => {
+            let diagramHtml = '';
+            for (const arrName of arrayVarNames) {
+              const arr = envMap.get(arrName);
+              const ptrByName = detectPointerVars(envMap, arr, subscriptVars, arrayVarNames);
+              // Arrays ビューと同じく、ポインタが無くてもスコープにある配列は描画する
+              // （`table[3] = 25;` のように添字がリテラルだとポインタが検出されないため。ADR-048）
+              if (!envMap.has(arrName)) continue;
+              const maxVal = Array.isArray(arr)
+                ? arr.reduce((m, v) => typeof v === 'number' && isFinite(v) ? Math.max(m, Math.abs(v)) : m, 0)
+                : 0;
+              diagramHtml += renderArrayGrid({
+                arrName, arr, ptrByName, cellPx: diagramCellPx, fontPx: DIAGRAM_FONT_PX, maxVal, emptyText: '',
+                idxHeightPx: DIAGRAM_IDX_H_PX, valHeightPx: DIAGRAM_VAL_H_PX, ptrHeightPx: DIAGRAM_PTR_H_PX,
+              });
+            }
+            return diagramHtml;
           });
         }
-        html += `<td class="et-td et-col-diagram"><div class="et-diag-scroll">${diagramHtml}</div></td>`;
       }
 
       // 変数列（前ステップとの差分をボールドで強調）
@@ -302,6 +314,31 @@ export class ExecTrace extends BaseView {
 
       const handle = container.querySelector('.et-diag-resize-handle');
       if (handle && wrapEl) this.#bindDiagramResizer(handle, wrapEl);
+      if (wrapEl) this.#observeDiagrams(wrapEl);
+    }
+  }
+
+  /**
+   * 「配列」列の図を、行が表示範囲に近づいたときに描く（ADR-052）。
+   * 全行を最初に描くと、長い配列ではマスの数が数百万になり、タブの表示に数十秒かかる。
+   * @param {HTMLElement} wrapEl `.et-wrap` 要素（スクロールする要素）
+   */
+  #observeDiagrams(wrapEl) {
+    this.#diagramObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const el = entry.target;
+        el.innerHTML = this.#diagramHtml.get(Number(el.dataset.row))?.() ?? '';
+        el.style.minHeight = '';
+        this.#diagramObserver.unobserve(el);
+      }
+    }, { root: wrapEl, rootMargin: '600px 0px' });
+
+    // 描く前の行が潰れないよう、おおよその高さを空けておく
+    const minHeight = `${DIAGRAM_ROW_H_PX}px`;
+    for (const el of wrapEl.querySelectorAll('.et-diag-scroll[data-row]')) {
+      el.style.minHeight = minHeight;
+      this.#diagramObserver.observe(el);
     }
   }
 
@@ -384,6 +421,9 @@ export class ExecTrace extends BaseView {
   }
 
   destroy() {
+    this.#diagramObserver?.disconnect();
+    this.#diagramObserver = null;
+    this.#diagramHtml     = new Map();
     if (this.#onDiagResizeMove) document.removeEventListener('mousemove', this.#onDiagResizeMove);
     if (this.#onDiagResizeUp)   document.removeEventListener('mouseup', this.#onDiagResizeUp);
     this.#diagResizeHandle   = null;

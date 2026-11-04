@@ -1,0 +1,4 @@
+{
+  "title": "Multiplication table",
+  "code": "for (let i = 1; i <= 9; i++) {\n  let row = \"\";\n  for (let j = 1; j <= 9; j++) {\n    row = row + (i * j) + \" \";\n  }\n  console.log(row);\n}"
+}

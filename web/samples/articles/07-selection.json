@@ -1,0 +1,4 @@
+{
+  "title": "選択ソート",
+  "code": "let a = [6, 3, 8, 1, 5];\nfor (let i = 0; i < a.length - 1; i++) {\n  let minIdx = i;\n  for (let j = i + 1; j < a.length; j++) {\n    if (a[j] < a[minIdx]) {\n      minIdx = j;\n    }\n  }\n  let tmp = a[i];\n  a[i] = a[minIdx];\n  a[minIdx] = tmp;\n}\nconsole.log(a);"
+}

@@ -1,0 +1,4 @@
+{
+  "title": "Power (recursive)",
+  "code": "function power(x, n) {\n  if (n === 0) {\n    return 1;\n  }\n  return x * power(x, n - 1);\n}\n\nconsole.log(power(2, 5));"
+}

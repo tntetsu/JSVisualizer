@@ -1,0 +1,4 @@
+{
+  "title": "Order of evaluation (a + b * c > 10 && d)",
+  "code": "let a = 2;\nlet b = 3;\nlet c = 4;\nlet d = true;\nlet ok = a + b * c > 10 && d;\nconsole.log(ok);"
+}

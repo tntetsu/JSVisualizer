@@ -33,6 +33,8 @@ const PATTERNS = [
   // ── 実行（Runtime） ──
   [/^(?:\[MaxSteps\]\s*)?実行が最大ステップ数 (.*) を超えたため停止しました$/s,
                                                   (n) => `Execution stopped because it exceeded the maximum of ${n} steps`],
+  [/^関数の呼び出しが深くなりすぎたため停止しました（再帰が止まっていない可能性があります）$/,
+                                                  () => 'Maximum call stack size exceeded (a recursive function may not be stopping)'],
   [/^Promise は保留中です（非同期 I\/O は未対応）$/, () => 'The Promise is still pending (asynchronous I/O is not supported)'],
   [/^ネイティブ Promise の await は未対応（同期実行のみサポート）$/,
                                                   () => 'await on a native Promise is not supported (only synchronous execution is supported)'],

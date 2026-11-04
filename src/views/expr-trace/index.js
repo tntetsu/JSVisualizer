@@ -16,7 +16,7 @@
  */
 
 import { BaseView } from '../base-view.js';
-import { esc, isTDZ } from '../../utils/format.js';
+import { esc, formatPlain as fmtPlain } from '../../utils/format.js';
 import { t }        from '../../i18n.js';
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────────
@@ -27,29 +27,6 @@ function isFunctionVal(v) {
     return v.__type__ === 'JSFunction' || v.__type__ === 'JSClass';
   }
   return false;
-}
-
-function fmtPlain(v, depth = 0) {
-  if (isTDZ(v))         return '';
-  if (v === undefined) return 'undefined';
-  if (v === null)      return 'null';
-  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
-  if (typeof v === 'string') return JSON.stringify(v);
-  if (isFunctionVal(v) || typeof v === 'function') return 'ƒ';
-  if (Array.isArray(v)) {
-    if (depth >= 3) return '[…]';
-    if (v.length === 0) return '[]';
-    const elems = v.slice(0, 6).map(x => fmtPlain(x, depth + 1)).join(', ');
-    return '[' + elems + (v.length > 6 ? ', …' : '') + ']';
-  }
-  if (typeof v === 'object') {
-    if (depth >= 3) return '{…}';
-    const vals = Object.values(v).filter(x => !isFunctionVal(x) && typeof x !== 'function');
-    if (vals.length === 0) return '{}';
-    const items = vals.slice(0, 6).map(x => fmtPlain(x, depth + 1)).join(', ');
-    return '{' + items + (vals.length > 6 ? ', …' : '') + '}';
-  }
-  return String(v);
 }
 
 const JS_KEYWORDS = new Set([
@@ -185,19 +162,35 @@ function computeUnevaluatedGaps(subs, baseCol, endBound) {
 // ── トレース解析 ──────────────────────────────────────────────────────────────
 
 /**
+ * 式のテキストから、変数の候補になる識別子を順に返す。
+ * 文字列の中身と、プロパティ名（. の直後）は変数ではないので除く。
+ * テンプレートリテラルは ${...} の中だけを見る。
+ */
+function identifiersIn(exprText) {
+  const code = exprText
+    .replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""')
+    .replace(/`(?:[^`\\]|\\.)*`/g, (tpl) => [...tpl.matchAll(/\$\{([^}]*)\}/g)].map(m => m[1]).join(' '));
+  return [...code.matchAll(/(?<![.\w$])(?<!\?\.)([a-zA-Z_$][a-zA-Z0-9_$]*)/g)].map(m => m[1]);
+}
+
+/**
  * 式評価トレースの変数列に表示すべき変数名リストを返す。
  *
- * 式テキストに登場する識別子のみを返す（関数値・JS キーワード・組み込みグローバルを除外）。
+ * 式テキストに登場する識別子のうち、スコープにあるものを返す
+ * （オブジェクトリテラルのキーはスコープにないので除かれる）。
+ * 関数値・JS キーワード・組み込みグローバルは除外する。
  * env 全変数を追加する拡張は行わない。
  */
-function extractVarNames(exprText, trace, enterIdx, exitIdx) {
+export function extractVarNames(exprText, trace, enterIdx, exitIdx) {
   const fnNames = new Set();
+  const scoped  = new Set();
   const idxBound = Math.min(exitIdx, trace.length - 1);
   for (const idx of [enterIdx, idxBound]) {
     const ev = trace[idx];
     if (!ev?.env) continue;
     for (const frame of ev.env) {
       for (const [k, v] of Object.entries(frame)) {
+        scoped.add(k);
         if (isFunctionVal(v)) fnNames.add(k);
       }
     }
@@ -205,11 +198,8 @@ function extractVarNames(exprText, trace, enterIdx, exitIdx) {
 
   const seen = new Set();
   const names = [];
-  const re = /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\b/g;
-  let m;
-  while ((m = re.exec(exprText)) !== null) {
-    const name = m[1];
-    if (!seen.has(name) && !JS_KEYWORDS.has(name) && !GLOBAL_BUILTINS.has(name) && !fnNames.has(name)) {
+  for (const name of identifiersIn(exprText)) {
+    if (!seen.has(name) && scoped.has(name) && !JS_KEYWORDS.has(name) && !GLOBAL_BUILTINS.has(name) && !fnNames.has(name)) {
       seen.add(name);
       names.push(name);
     }
@@ -282,6 +272,8 @@ function buildSectionRows(trace, sourceLines, enterIdx, exitIdx, lineNo, initCol
 
     if (evSrcStart < initColStart) continue;
     if (evSrcEnd > endBound) continue;
+    // console・Math などの組み込みオブジェクトは値に置き換えない
+    if (ev.nodeType === 'Identifier' && GLOBAL_BUILTINS.has(line.slice(evSrcStart, evSrcEnd))) continue;
 
     const valueText  = fmtPlain(ev.value);
     const newSubs    = addSubstitution(subs, evSrcStart, evSrcEnd, valueText);
@@ -649,7 +641,7 @@ export class ExprTrace extends BaseView {
 
     this.#sectionEls = [...container.querySelectorAll('.xev-section')];
     this.#rowsBySec  = this.#sections.map((sec, si) =>
-      [...container.querySelectorAll(`.xev-row[data-si="${si}"]`)]
+      [...this.#sectionEls[si].querySelectorAll('.xev-row')]
         .map((el, ri) => ({
           el,
           traceIdx: sec.rows[ri].traceIdx,
@@ -685,7 +677,8 @@ export class ExprTrace extends BaseView {
         else break;
       }
 
-      const cursorEnv = this.#trace?.[cursor]?.env ?? [];
+      // 実行が終わると cursor は trace の末尾の次を指すので、最後のイベントの env を使う
+      const cursorEnv = this.#trace?.[Math.min(cursor, this.#trace.length - 1)]?.env ?? [];
 
       for (let k = 0; k < rows.length; k++) {
         rows[k].el.classList.toggle('xev-row--past',   k < activeRow);

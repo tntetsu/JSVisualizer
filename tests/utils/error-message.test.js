@@ -49,6 +49,11 @@ describe('localizeErrorMessage', () => {
       .toBe('The code was not found or is not public');
   });
 
+  test('スタックオーバーフローのメッセージを英語にする', () => {
+    expect(localizeErrorMessage('関数の呼び出しが深くなりすぎたため停止しました（再帰が止まっていない可能性があります）', 'en'))
+      .toBe('Maximum call stack size exceeded (a recursive function may not be stopping)');
+  });
+
   test('知らない文型（利用者が throw したメッセージなど）はそのまま返す', () => {
     expect(localizeErrorMessage('[Runtime] 3:1: 自分で投げたエラー', 'en')).toBe('[Runtime] 3:1: 自分で投げたエラー');
     expect(localizeErrorMessage('Maximum call stack size exceeded', 'en')).toBe('Maximum call stack size exceeded');

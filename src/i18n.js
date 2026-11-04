@@ -33,6 +33,8 @@ const STRINGS = {
     // ── ColorBox（配列）ビュー ─────────────────────────────────
     'colorbox-empty':        '選択された配列が見つかりません',
     'colorbox-no-arrays':    '配列変数が見つかりません',
+    'colorbox-array-empty':  '配列が空です',
+    'colorbox-out-of-scope': 'この時点ではこの配列は使えません',
     // ── CallTree / RecursionTree ビュー（アクセシビリティラベル） ─
     'calltree-aria':         '呼び出しツリー',
     'recursiontree-aria':    '再帰ツリー',
@@ -87,6 +89,8 @@ const STRINGS = {
     'exectrace-col-array':   'Array',
     'colorbox-empty':        'No selected arrays found',
     'colorbox-no-arrays':    'No array variables found',
+    'colorbox-array-empty':  'The array is empty',
+    'colorbox-out-of-scope': 'This array is not in scope here',
     'calltree-aria':         'Call tree',
     'recursiontree-aria':    'Recursion tree',
     'barchart-empty':        'Step forward to see the bar chart',

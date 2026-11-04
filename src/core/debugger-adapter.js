@@ -105,7 +105,7 @@ export class DebuggerAdapter extends EventTarget {
    */
   load(source) {
     try {
-      this.#dbg = new JSDebugger(source, { maxSteps: 10_000 });
+      this.#dbg = new JSDebugger(source, { maxSteps: 50_000 });
       this.#prevFlat = new Map();
       this.dispatchEvent(new CustomEvent('ready', { detail: this.#buildState([]) }));
     } catch (err) {
@@ -206,11 +206,18 @@ export class DebuggerAdapter extends EventTarget {
    * @returns {string[]}
    */
   #calcChanged() {
-    const ev = this.#dbg.getCurrentEvent();
-    const currFlat = flattenEnv(ev?.env ?? []);
+    const currFlat = flattenEnv(this.#snapshotEvent()?.env ?? []);
     const changed = detectChanges(this.#prevFlat, currFlat);
     this.#prevFlat = currFlat;
     return changed;
+  }
+
+  /**
+   * 変数の状態を取り出すイベントを返す。
+   * 実行が終わると現在のイベントは null になるが、変数は最後のイベントのまま残っている。
+   */
+  #snapshotEvent() {
+    return this.#dbg.getCurrentEvent() ?? this.#dbg.trace[this.#dbg.trace.length - 1] ?? null;
   }
 
   /**
@@ -227,7 +234,8 @@ export class DebuggerAdapter extends EventTarget {
     }
 
     const ev   = this.#dbg.getCurrentEvent();
-    const flat = flattenEnv(ev?.env ?? []);
+    const snap = this.#snapshotEvent();
+    const flat = flattenEnv(snap?.env ?? []);
     const variables = Object.fromEntries(flat);
 
     return {
@@ -235,10 +243,10 @@ export class DebuggerAdapter extends EventTarget {
       totalSteps:    this.#dbg.trace.length,
       event:         ev,
       variables,
-      scopes:        ev?.env ?? [],
-      callStack:     this.#dbg.getCallStack(),
-      frameEnvs:     ev?.frameEnvs ?? [],
-      globalBlockVars: ev?.globalBlockVars ?? {},
+      scopes:        snap?.env ?? [],
+      callStack:     ev ? this.#dbg.getCallStack() : snap?.callStack ?? [],
+      frameEnvs:     snap?.frameEnvs ?? [],
+      globalBlockVars: snap?.globalBlockVars ?? {},
       changedVars,
       consoleOutput: this.#dbg.getConsoleOutput(),
       done:          this.#dbg.isDone(),

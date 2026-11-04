@@ -228,7 +228,7 @@
         <img src="manual/en/error.png" alt="Line 21 of the code has a mistake; a Syntax Error badge and message appear below the code" loading="lazy" style="max-width: min(380px, 100%)" />
         <figcaption>A syntax error</figcaption>
       </figure>
-      <p>If execution exceeds <strong>10,000 steps</strong>, it is stopped and reported as a runtime error, since the program may be stuck (for example, in a loop that never ends). You can step through everything up to the point where it stopped.</p>
+      <p>If execution exceeds <strong>50,000 steps</strong>, it is stopped and reported as a runtime error, since the program may be stuck (for example, in a loop that never ends). You can step through everything up to the point where it stopped.</p>
     </section>
 
     <!-- ─────────────────────────────── -->
@@ -415,7 +415,7 @@
           <tr><td>The stepping buttons are not shown</td><td>You are in Edit mode. Press “▶ Run”</td></tr>
           <tr><td>The sample selector is not shown</td><td>You are in Run mode. Press “✏ Edit”</td></tr>
           <tr><td>The sample selector cannot be changed</td><td>You opened a link to a single piece of code. To use the built-in samples, open <a href="https://tntetsu.github.io/JSVisualizer/">https://tntetsu.github.io/JSVisualizer/</a> again</td></tr>
-          <tr><td>A Runtime Error says execution was stopped because it exceeded the maximum number of steps (10,000; the message is in Japanese: 「実行が最大ステップ数 10,000 を超えたため停止しました」)</td><td>A loop or recursion may never end. Step through up to where it stopped and check the exit condition. If the program simply does a lot of work, use smaller data</td></tr>
+          <tr><td>A Runtime Error says execution stopped because it exceeded the maximum of 50,000 steps</td><td>A loop or recursion may never end. Step through up to where it stopped and check the exit condition. If the program simply does a lot of work, use smaller data</td></tr>
           <tr><td>Keyboard shortcuts do not work</td><td>If the cursor is in an input area such as the code editor, keys go there. In Run mode, click somewhere else on the screen first</td></tr>
           <tr><td>A tab is grayed out</td><td>That view cannot be used with this code (e.g., “Subst” and “Call Tree” for code without functions)</td></tr>
           <tr><td>The screen does not display correctly</td><td>Use an up-to-date desktop browser; reloading the page may help (smartphones are not supported)</td></tr>

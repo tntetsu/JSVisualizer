@@ -75,6 +75,36 @@ export function formatValue(v, depth = 0) {
   return `<span>${esc(String(v))}</span>`;
 }
 
+/**
+ * 値をプレーンテキストに変換する（式評価・置換ビューの式の中に埋め込む表記）
+ * @param {any}    v
+ * @param {number} [depth=0]  再帰深さ（配列・オブジェクトの省略判定）
+ * @returns {string}
+ */
+export function formatPlain(v, depth = 0) {
+  if (isTDZ(v))        return '';
+  if (v === undefined) return 'undefined';
+  if (v === null)      return 'null';
+  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
+  if (typeof v === 'string') return JSON.stringify(v);
+  if (isJSFunction(v) || isJSClass(v) || typeof v === 'function') return 'ƒ';
+  if (Array.isArray(v)) {
+    if (depth >= 3) return '[…]';
+    if (v.length === 0) return '[]';
+    const elems = v.slice(0, 6).map(x => formatPlain(x, depth + 1)).join(', ');
+    return '[' + elems + (v.length > 6 ? ', …' : '') + ']';
+  }
+  if (typeof v === 'object') {
+    if (depth >= 3) return '{…}';
+    const entries = Object.entries(v)
+      .filter(([k, x]) => !k.startsWith('__') && !isJSFunction(x) && !isJSClass(x) && typeof x !== 'function');
+    if (entries.length === 0) return '{}';
+    const items = entries.slice(0, 6).map(([k, x]) => `${k}: ${formatPlain(x, depth + 1)}`).join(', ');
+    return '{ ' + items + (entries.length > 6 ? ', …' : '') + ' }';
+  }
+  return String(v);
+}
+
 /** 深い等価比較（JSON.stringify ベース） */
 function valEqual(a, b) {
   if (a === b) return true;
