@@ -1,9 +1,9 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 2.16  
+**バージョン**: 2.23  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-09-29 (v2.16)  
+**最終更新**: 2026-11-04 (v2.23)  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -53,6 +53,8 @@
 | 2.19 | 2026-11-02 | **実行トレースの「配列」列で、ポインタが無くても配列を描くようにした**（[ADR-048](adr/ADR-048-exectrace-array-always.md)）。添字がリテラルだけのプログラム（`table[3] = 25;`）でポインタが検出されず列が空だった。配列タブと同じく、その行のスコープにある配列はすべて描く。§3.6 exec-trace 節を更新 |
 | 2.20 | 2026-11-04 | **呼び出し元のフレームに、呼び出した地点から見える変数をすべて表示する**（[ADR-049](adr/ADR-049-caller-frame-variables.md)）。JSInterpreter の `frameEnvs` に関数本体やブロックの let/const を含め、`globalBlockVars` を追加。メモリビューのヒープを `frameEnvs`・`globalBlockVars` からも作る。§1.2 と `scope-view/` の節を更新 |
 | 2.21 | 2026-11-04 | **オブジェクトビューに呼び出し元のオブジェクトを表示する**（[ADR-050](adr/ADR-050-objgraph-caller-frames.md)）。`buildGraph()` に `callStack`・`frameEnvs`・`globalBlockVars` を渡す。メモリビューの `fmtPrim()` で関数・クラスを、オブジェクトビューの `fmtVal()` で宣言前の変数を表示する |
+| 2.22 | 2026-11-04 | **置換ビューを式の木で管理する**（[ADR-051](adr/ADR-051-subst-expression-tree.md)）。式を「文字列と呼び出しノードの配列」の木で持ち、`return` では実行中の呼び出しのノードを置き換える。引数の中の再帰呼び出しの外側が消える問題と、終了条件のない再帰が途中で止まる問題を直す。計算の順番が変わるときは括弧を付ける |
+| 2.23 | 2026-11-04 | **実行の上限を 50,000 ステップにし、重いビューの描画を軽くする**（[ADR-052](adr/ADR-052-step-limit-50000.md)）。`exec-trace/` の配列の図を `IntersectionObserver` で遅延描画にする。ExprTrace の `init()` はセクションの要素の中だけを探す。実行の終了後は最後のイベントの変数の状態を保ち、配列・コールスタックを表示する（`DebuggerAdapter` の `#snapshotEvent()`） |
 
 ---
 
@@ -796,7 +798,7 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
 
 タブ名: **実行トレース**
 
-- `init()` で全行を実行順（humanStep インデックス順）に一括描画。行は文の実行ごと（`src/utils/line-exec.js` の `buildExecRows(trace, humanSteps)`）: `buildLineExecOwners()`（Heatmap と共通）で同じ文の実行に属する連続した humanStep を 1 行にまとめる（`console.log(x);` の ExpressionStatement enter と CallExpression exit、`i++;` の ExpressionStatement enter と UpdateExpression exit など）。変数値はその行の最後の humanStep 時点（文の実行後）、行番号は最初の humanStep のものを使う。途中で関数呼び出しの中に入る文は連続しないため、呼び出し前と戻った後の 2 行に分かれる。Program enter は行にしない（`update()` でカーソルが Program enter にあるときはどの行も強調しない）
+- `init()` で全行を実行順（humanStep インデックス順）に一括描画（配列列の図だけは、行が表示範囲に近づいたときに `IntersectionObserver` で描く。[ADR-052](adr/ADR-052-step-limit-50000.md)）。行は文の実行ごと（`src/utils/line-exec.js` の `buildExecRows(trace, humanSteps)`）: `buildLineExecOwners()`（Heatmap と共通）で同じ文の実行に属する連続した humanStep を 1 行にまとめる（`console.log(x);` の ExpressionStatement enter と CallExpression exit、`i++;` の ExpressionStatement enter と UpdateExpression exit など）。変数値はその行の最後の humanStep 時点（文の実行後）、行番号は最初の humanStep のものを使う。途中で関数呼び出しの中に入る文は連続しないため、呼び出し前と戻った後の 2 行に分かれる。Program enter は行にしない（`update()` でカーソルが Program enter にあるときはどの行も強調しない）
 - `update()` は `et-row--active` クラスの付け替えと scrollIntoView のみ（O(n)）
 
 **列構成**: # | 行 | コード（先頭 30 文字）| 配列列（配列が登場する場合のみ）| 変数値列（出現順）| 条件式列（出現順）
