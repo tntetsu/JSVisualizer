@@ -1,0 +1,4 @@
+{
+  "title": "関数の中で引数を変えると？",
+  "code": "function addOne(n) {\n  n = n + 1;\n  return n;\n}\n\nlet n = 10;\naddOne(n);\nconsole.log(n);\n"
+}

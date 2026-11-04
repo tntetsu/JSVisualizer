@@ -1,0 +1,4 @@
+{
+  "title": "Changing a parameter inside a function",
+  "code": "function addOne(n) {\n  n = n + 1;\n  return n;\n}\n\nlet n = 10;\naddOne(n);\nconsole.log(n);\n"
+}

@@ -1,0 +1,4 @@
+{
+  "title": "2 つの数の 2 乗を足す",
+  "code": "function square(x) {\n  return x * x;\n}\n\nfunction sumOfSquares(x, y) {\n  return square(x) + square(y);\n}\n\nlet x = 10;\nlet answer = sumOfSquares(3, 4);\nconsole.log(answer);\nconsole.log(x);\n"
+}
