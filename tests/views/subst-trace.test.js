@@ -117,6 +117,7 @@ describe('buildSubstitutionLines', () => {
     const lines = texts(src);
     expect(lines.slice(0, 3)).toEqual(['power(2, 5)', '2 * power(2, 4)', '2 * 2 * power(2, 3)']);
     expect(lines.length).toBeGreaterThan(10);
-    expect(lines[lines.length - 1]).toMatch(/^2 \* 2 \* .* \* power\(2, .*\)$/);
+    // 止まる位置はホストの JS エンジンによるので、最後の行の末尾の形は決めない
+    expect(lines[lines.length - 1]).toMatch(/^2 \* 2 \* 2 \* 2 \* 2 \* .*power\(/);
   });
 });
