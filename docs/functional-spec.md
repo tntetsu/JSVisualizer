@@ -543,7 +543,7 @@ AST からプログラムの構造をフローチャートとして描き、実�
 - **連結成分分離**: 無向 BFS で連結成分を検出し、各成分を独立に配置後 y 軸方向に積み上げ。成分 ≥2 のとき点線境界矩形（`.og-comp-bg`）を表示
 - **ノード色分け**: 6 色パレット（`--og-bg-0` ～ `--og-bg-5`）でノードごとに背景色を割り当て
 
-**入力**: `state.variables`, `state.scopes`
+**入力**: `state.variables`, `state.scopes`, `state.callStack`, `state.frameEnvs`, `state.globalBlockVars`
 
 ---
 

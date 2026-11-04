@@ -462,7 +462,7 @@ Draws the program's structure from the AST as a flowchart and shows which paths 
 - **Node colors**: 6-color palette (`--og-bg-0` through `--og-bg-5`) by node index
 - **Tab grayed out** if the trace contains no heap objects
 
-**Input**: `state.variables`, `state.scopes`
+**Input**: `state.variables`, `state.scopes`, `state.callStack`, `state.frameEnvs`, `state.globalBlockVars`
 
 ---
 
