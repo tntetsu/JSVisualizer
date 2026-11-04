@@ -52,6 +52,7 @@
 | 2.18 | 2026-10-30 | **制御フロービューを横スクロールできるようにした**（[ADR-047](adr/ADR-047-controlflow-horizontal-scroll.md)）。`.cf-scope` を中身の幅まで広げ、現在ノードへのスクロールを `#scrollToNode()` で計算する。`control-flow/` の節を更新し、廃止済みの戻りエッジ（§6.9・CSS クラス一覧の `.cf-edge--back`）の記述を直した |
 | 2.19 | 2026-11-02 | **実行トレースの「配列」列で、ポインタが無くても配列を描くようにした**（[ADR-048](adr/ADR-048-exectrace-array-always.md)）。添字がリテラルだけのプログラム（`table[3] = 25;`）でポインタが検出されず列が空だった。配列タブと同じく、その行のスコープにある配列はすべて描く。§3.6 exec-trace 節を更新 |
 | 2.20 | 2026-11-04 | **呼び出し元のフレームに、呼び出した地点から見える変数をすべて表示する**（[ADR-049](adr/ADR-049-caller-frame-variables.md)）。JSInterpreter の `frameEnvs` に関数本体やブロックの let/const を含め、`globalBlockVars` を追加。メモリビューのヒープを `frameEnvs`・`globalBlockVars` からも作る。§1.2 と `scope-view/` の節を更新 |
+| 2.21 | 2026-11-04 | **オブジェクトビューに呼び出し元のオブジェクトを表示する**（[ADR-050](adr/ADR-050-objgraph-caller-frames.md)）。`buildGraph()` に `callStack`・`frameEnvs`・`globalBlockVars` を渡す。メモリビューの `fmtPrim()` で関数・クラスを、オブジェクトビューの `fmtVal()` で宣言前の変数を表示する |
 
 ---
 

@@ -23,10 +23,10 @@ export function esc(s) {
  * JSInterpreter の内部オブジェクト（JSFunction / JSClass）かを判定する
  * @param {any} v
  */
-function isJSFunction(v) {
+export function isJSFunction(v) {
   return v && typeof v === 'object' && v.__type__ === 'JSFunction';
 }
-function isJSClass(v) {
+export function isJSClass(v) {
   return v && typeof v === 'object' && v.__type__ === 'JSClass';
 }
 

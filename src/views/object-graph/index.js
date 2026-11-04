@@ -2,7 +2,8 @@
  * object-graph/index.js — オブジェクトグラフビュー（SVG）
  *
  * 現在スコープ内のオブジェクト・配列とその参照関係を
- * SVG グラフとして描画する。
+ * SVG グラフとして描画する。関数の実行中は、呼び出し元のフレームが持つオブジェクト・配列も
+ * 「変数名 (フレーム名)」のラベルで描画する（ADR-050）。
  *
  * 機能:
  *   - プリミティブ変数はルートラベルとして表示
@@ -15,7 +16,7 @@
  */
 
 import { BaseView }              from '../base-view.js';
-import { BUILTIN_NAMES, esc }    from '../../utils/format.js';
+import { BUILTIN_NAMES, esc, isTDZ, isJSFunction, isJSClass } from '../../utils/format.js';
 import { t }                     from '../../i18n.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -52,13 +53,16 @@ function isHeapObj(v) {
 /**
  * プリミティブ値の短いテキスト表現
  */
-function fmtVal(v) {
+export function fmtVal(v) {
+  if (isTDZ(v)) return '—';   // 宣言前の let/const（ADR-038）
   if (v === undefined) return 'undef';
   if (v === null)      return 'null';
   if (typeof v === 'string') {
     const s = JSON.stringify(v);
     return s.length > 12 ? s.slice(0, 11) + '…"' : s;
   }
+  if (isJSFunction(v)) return `ƒ ${v.name || '(anonymous)'}`;
+  if (isJSClass(v))    return `class ${v.name || '(anonymous)'}`;
   return String(v);
 }
 
@@ -67,12 +71,16 @@ function fmtVal(v) {
  *
  * @param {Object}   variables  state.variables（フラット化済み）
  * @param {Object[]} scopes     ev.env（env[0] = 最内スコープ）
+ * @param {Object}   [callers]
+ * @param {Object[]} [callers.callStack]        コールスタック（外→内）
+ * @param {Object[]} [callers.frameEnvs]        各フレームの変数（callStack と同じ順）
+ * @param {Object}   [callers.globalBlockVars]  関数の呼び出し中に、グローバルのブロックにある変数
  * @returns {{ nodes, edges, rootVars }}
  *   nodes:    { id, ref, label, rows: [{key, displayVal, childId|null}], x, y }[]
  *   edges:    { id, from, to, label }[]
  *   rootVars: { name, type: 'prim'|'ref', val, nodeId|null }[]  （変数エントリ）
  */
-function buildGraph(variables, scopes) {
+export function buildGraph(variables, scopes, { callStack = [], frameEnvs = [], globalBlockVars = {} } = {}) {
   /** @type {Map<id, Node>} */
   const nodeMap  = new Map();
   const refToId  = new WeakMap(); // object ref → node id
@@ -144,6 +152,18 @@ function buildGraph(variables, scopes) {
       rootVars.push({ name, type: 'prim', val, nodeId: null });
     }
   }
+
+  // 呼び出し元のフレームが持つオブジェクト・配列（ADR-050）。
+  // 同じ名前の変数が複数のフレームにあるので、フレーム名を付けて区別する。
+  // プリミティブは図が読みにくくなるので足さない。いま見えている変数と同じものは重ねて足さない
+  const addCallerVars = (vars, frameName) => {
+    for (const [name, val] of Object.entries(vars ?? {})) {
+      if (BUILTIN_NAMES.has(name) || !isHeapObj(val) || variables[name] === val) continue;
+      rootVars.push({ name: `${name} (${frameName})`, type: 'ref', val, nodeId: register(val) });
+    }
+  };
+  for (let i = callStack.length - 2; i >= 0; i--) addCallerVars(frameEnvs[i], callStack[i].name);
+  addCallerVars(globalBlockVars, 'global');
 
   return { nodes: [...nodeMap.values()], edges, rootVars };
 }
@@ -322,13 +342,13 @@ export class ObjectGraph extends BaseView {
   update(state) {
     if (!this.#svgEl) return;
 
-    const { variables, scopes } = state;
+    const { variables, scopes, callStack, frameEnvs, globalBlockVars } = state;
     if (!variables || !scopes || scopes.length === 0) {
       this.#showPlaceholder(t('objgraph-no-vars'));
       return;
     }
 
-    const { nodes, edges, rootVars } = buildGraph(variables, scopes);
+    const { nodes, edges, rootVars } = buildGraph(variables, scopes, { callStack, frameEnvs, globalBlockVars });
 
     if (nodes.length === 0 && !rootVars.some(rv => rv.type === 'prim')) {
       this.#showPlaceholder(t('objgraph-no-objects'));

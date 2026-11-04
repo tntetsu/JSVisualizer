@@ -9,7 +9,7 @@
  */
 
 import { BaseView }                      from '../base-view.js';
-import { formatValue, BUILTIN_NAMES, esc, isTDZ, mergeScopesForDisplay } from '../../utils/format.js';
+import { formatValue, BUILTIN_NAMES, esc, isTDZ, isJSFunction, isJSClass, mergeScopesForDisplay } from '../../utils/format.js';
 import { t }                             from '../../i18n.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -96,6 +96,9 @@ function fmtPrim(v) {
     const s = JSON.stringify(v);
     return `<span class="v-str">${esc(s.length > 14 ? s.slice(0, 13) + '…"' : s)}</span>`;
   }
+  if (isJSFunction(v)) return `<span class="v-fn">ƒ ${esc(v.name || '(anonymous)')}</span>`;
+  if (isJSClass(v))    return `<span class="v-fn">class ${esc(v.name || '(anonymous)')}</span>`;
+  if (typeof v === 'function') return '<span class="v-fn">[native]</span>';
   return `<span>${esc(String(v))}</span>`;
 }
 
