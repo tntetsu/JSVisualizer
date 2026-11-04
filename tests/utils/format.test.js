@@ -8,7 +8,8 @@
  * 表示すべき。
  */
 
-import { formatValue, formatValueDiff } from '../../src/utils/format.js';
+import { JSDebugger } from '../../../JSInterpreter/src/interpreter/debugger.js';
+import { formatValue, formatValueDiff, mergeScopesForDisplay } from '../../src/utils/format.js';
 
 const TDZ_LIKE = Symbol('TDZ');
 
@@ -43,3 +44,35 @@ describe('TDZセンチネルの表示', () => {
     expect(formatValue(null)).toContain('null');
   });
 });
+
+// 関数の実行中も、呼び出し元の let/const やブロックの変数が消えない（ADR-049）
+describe('mergeScopesForDisplay: 呼び出し元の変数', () => {
+  function frames(code, name) {
+    const dbg = new JSDebugger(code);
+    const ev = dbg.trace.find(e => e.phase === 'enter' && e.nodeType === 'ReturnStatement'
+      && e.callStack.at(-1)?.name === name);
+    return mergeScopesForDisplay(ev.env, ev.callStack, ev.frameEnvs, ev.globalBlockVars);
+  }
+
+  test('呼び出し元のフレームに関数本体の let とブロックの変数が出る', () => {
+    const [inner, outer] = frames(`
+      function inner(x) { return x; }
+      function outer(a) {
+        let total = a + 1;
+        for (let i = 0; i < 1; i++) { inner(total); }
+      }
+      outer(3);`, 'inner');
+    expect(inner.label).toBe('inner(4)');
+    expect(outer.vars).toMatchObject({ a: 3, total: 4, i: 0 });
+  });
+
+  test('グローバルの for から呼ぶと、Global のフレームにブロックの変数が出る', () => {
+    const scopes = frames(`
+      function f(v) { return v; }
+      let s = 1;
+      for (let i = 5; i < 6; i++) { let t = 2; f(i); }`, 'f');
+    const global = scopes.find(x => x.label === 'global');
+    expect(global.vars).toMatchObject({ s: 1, i: 5, t: 2 });
+  });
+});
+

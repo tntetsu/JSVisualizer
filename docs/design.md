@@ -51,6 +51,7 @@
 | 2.17 | 2026-10-30 | **表示言語の初期値をブラウザの言語から決め、エラーメッセージを英訳する**（[ADR-046](adr/ADR-046-browser-language-and-english-errors.md)）。`i18n.js` に `detectLang()` を追加し、`src/utils/error-message.js`（`localizeErrorMessage()`）を新設。`CodeEditor.showError()` が翻訳前のメッセージを覚えて言語切替時に訳し直す。§3.8 を更新 |
 | 2.18 | 2026-10-30 | **制御フロービューを横スクロールできるようにした**（[ADR-047](adr/ADR-047-controlflow-horizontal-scroll.md)）。`.cf-scope` を中身の幅まで広げ、現在ノードへのスクロールを `#scrollToNode()` で計算する。`control-flow/` の節を更新し、廃止済みの戻りエッジ（§6.9・CSS クラス一覧の `.cf-edge--back`）の記述を直した |
 | 2.19 | 2026-11-02 | **実行トレースの「配列」列で、ポインタが無くても配列を描くようにした**（[ADR-048](adr/ADR-048-exectrace-array-always.md)）。添字がリテラルだけのプログラム（`table[3] = 25;`）でポインタが検出されず列が空だった。配列タブと同じく、その行のスコープにある配列はすべて描く。§3.6 exec-trace 節を更新 |
+| 2.20 | 2026-11-04 | **呼び出し元のフレームに、呼び出した地点から見える変数をすべて表示する**（[ADR-049](adr/ADR-049-caller-frame-variables.md)）。JSInterpreter の `frameEnvs` に関数本体やブロックの let/const を含め、`globalBlockVars` を追加。メモリビューのヒープを `frameEnvs`・`globalBlockVars` からも作る。§1.2 と `scope-view/` の節を更新 |
 
 ---
 
@@ -161,18 +162,24 @@ snapshot() {
 // Recorder コンストラクタ
 this.frameEnvStack = [];   // アクティブフレームの live Environment 参照スタック
 
-// callFunction / newInstance で関数呼び出し時
-recorder.frameEnvStack.push(callEnv);   // push: フレーム開始
-// 関数終了時
-recorder.frameEnvStack.pop();           // pop: フレーム終了
+this.callSiteEnvs  = [];   // 各フレームを呼び出した地点の環境（ADR-049）
+this.curEnv        = null; // いま評価しているノードの環境
 
-// record() でイベント生成時
-const frameEnvs = this.frameEnvStack.map(e => e.snapshotOwn());
-// → TraceEvent.frameEnvs に格納
+// callFunction / newInstance で関数呼び出し時
+recorder.pushFrame(frame, callEnv);   // callStack・frameEnvStack・callSiteEnvs に積む
+// 関数終了時
+recorder.popFrame();
+
+// record() でイベント生成時（複製の対応表 seen を env・frameEnvs・globalBlockVars で共有する）
+const frameEnvs = this.frameEnvStack.map((callEnv, i) =>
+  callEnv.snapshotFrom(this.callSiteEnvs[i + 1] ?? env, seen));   // 呼び出した地点から callEnv までをまとめる
+const globalBlockVars = this.callSiteEnvs[0]?.snapshotBlocks(seen) ?? {};
+// → TraceEvent.frameEnvs・TraceEvent.globalBlockVars に格納
 ```
 
 `frameEnvStack` には `callEnv`（`bindParams` でパラメータを束縛した後の live な `Environment`）が積まれるため、
-関数実行中に変化する変数（デフォルト引数、function-body `let/const/var`）もステップごとに正確に取得できる。
+関数実行中に変化する変数もステップごとに正確に取得できる。関数本体やブロックの `let/const` は `callEnv` の内側の環境にあるので、
+呼び出した地点の環境から `callEnv` までをたどって集める（ADR-049）。
 
 ### 1.3 JSInterpreter 内部設計（`var`/`let`/`const` スコープ実装）
 
@@ -413,9 +420,8 @@ this.dispatchEvent(new CustomEvent('error', {
 frameEnvs: ev?.frameEnvs ?? [],
 ```
 
-`TraceEvent.frameEnvs` は JSInterpreter の `Recorder` が各イベント生成時に
-`frameEnvStack.map(e => e.snapshotOwn())` で作成したスナップショット配列。
-`debugger-adapter.js` はそのまま `AppState.frameEnvs` として公開する。
+`TraceEvent.frameEnvs` は JSInterpreter の `Recorder` が各イベント生成時に作成したスナップショット配列（§1.2）。
+`debugger-adapter.js` はそのまま `AppState.frameEnvs` として公開する。`TraceEvent.globalBlockVars` も同様に `AppState.globalBlockVars` として公開する。
 
 ---
 
@@ -700,7 +706,7 @@ update(state) で callStack.length > 0 の場合:
 
 #### `scope-view/` — スコープ・変数ビュー ✅（タブ非登録・非アクティブ）
 
-**スコープ統合表示** (`mergeScopesForDisplay(scopes, callStack, frameEnvs)` in `format.js`):
+**スコープ統合表示** (`mergeScopesForDisplay(scopes, callStack, frameEnvs, globalBlockVars)` in `format.js`):
 
 JavaScript は lexical scoping を採用しており、JSInterpreter の `callFunction` は
 `new Environment(callee.closure)` でスコープを作成する（呼び出し元スコープではなく定義元スコープが親）。
@@ -709,10 +715,10 @@ JavaScript は lexical scoping を採用しており、JSInterpreter の `callFu
 env チェーンに含まれない。
 
 外側フレームの変数を正確に表示するため、JSInterpreter の `Recorder` は各フレームの
-`callEnv`（`Environment` オブジェクト）への参照を `frameEnvStack` で管理し、
-TraceEvent 生成時に `snapshotOwn()`（自スコープのみのスナップショット）を呼んで
-`frameEnvs` として記録する。これにより params・デフォルト引数・function-body 変数が
-正確にキャプチャされる。
+`callEnv`（`Environment` オブジェクト）と呼び出した地点の環境を管理し、
+TraceEvent 生成時に呼び出した地点から `callEnv` までの変数をまとめて `frameEnvs` として記録する。
+これにより引数・関数本体やブロックの let/const/var が正確にキャプチャされる（ADR-049）。
+グローバルのブロックの変数は `globalBlockVars` として記録され、Global のフレームに合わせて表示する。
 
 ```
 callStack の順序: [0]=最外側, [N-1]=最内側（現在実行中）

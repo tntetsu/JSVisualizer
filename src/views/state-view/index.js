@@ -90,7 +90,7 @@ export class CallStackView extends BaseView {
       return;
     }
     const changed = new Set(changedVars);
-    const displayScopes = mergeScopesForDisplay(scopes, callStack, state.frameEnvs);
+    const displayScopes = mergeScopesForDisplay(scopes, callStack, state.frameEnvs, state.globalBlockVars);
 
     // Global フレームは mergeScopesForDisplay() が返す順序（関数呼び出し中は末尾）に
     // 関わらず、このビューでは常に先頭に表示する（callStack が空でも変数を可視化するため）

@@ -118,7 +118,7 @@ function buildBarHTML(seg, ev) {
   // depth d のフレームは displayScopes[N - d]（N = ev.callDepth）
   const N = ev.callDepth;
   const displayIdx = seg.depth === 0 ? N : N - seg.depth;
-  const displayScopes = mergeScopesForDisplay(ev.env, ev.callStack, ev.frameEnvs);
+  const displayScopes = mergeScopesForDisplay(ev.env, ev.callStack, ev.frameEnvs, ev.globalBlockVars);
   const scope = displayIdx >= 0 && displayIdx < displayScopes.length
     ? displayScopes[displayIdx]
     : null;

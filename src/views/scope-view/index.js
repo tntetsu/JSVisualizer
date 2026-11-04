@@ -38,7 +38,7 @@ export class ScopeView extends BaseView {
       return;
     }
 
-    const displayScopes = mergeScopesForDisplay(scopes, callStack, state.frameEnvs);
+    const displayScopes = mergeScopesForDisplay(scopes, callStack, state.frameEnvs, state.globalBlockVars);
     let html = '';
 
     for (const { label, vars, isInnermost } of displayScopes) {

@@ -186,14 +186,15 @@ export function formatFrameLabel(frame) {
  * 再帰呼び出し（factorial(3)→factorial(2)）では、外側フレームのスコープが
  * env チェーンに含まれない。
  *
- * JSInterpreter の Recorder が各フレームの callEnv を frameEnvStack で管理し、
+ * JSInterpreter の Recorder が各フレームの変数を、呼び出した地点から見えるものまで含めて
  * TraceEvent.frameEnvs として記録する（外→内の順、callStack と同じインデックス）。
  * この frameEnvs を使って各フレームのローカル変数（引数・let/const 宣言）を正確に表示する。
+ * グローバルのブロック（for の本体など）の変数は TraceEvent.globalBlockVars に記録される。
  *
  * アルゴリズム:
  *   - 最内側フレーム: scopes[0]〜scopes[M-2] を全てマージ（ブロックスコープ含む）
- *   - 外側フレーム:  frameEnvs[i] を使用（callEnv スナップショット）
- *   - グローバルフレーム: scopes[M-1]
+ *   - 外側フレーム:  frameEnvs[i] を使用（呼び出した地点から見える変数のスナップショット）
+ *   - グローバルフレーム: scopes[M-1] と globalBlockVars
  *
  * env スナップショットの順序:
  *   scopes[0]   = 最内スコープ（最もネストしたブロック or パラメータ）
@@ -206,10 +207,11 @@ export function formatFrameLabel(frame) {
  *
  * @param {Object[]} scopes      env スコープチェーン（AppState.scopes）
  * @param {Object[]} callStack   コールスタック（AppState.callStack）
- * @param {Object[]} [frameEnvs] 各フレームの callEnv スナップショット（AppState.frameEnvs）
+ * @param {Object[]} [frameEnvs] 各フレームの変数のスナップショット（AppState.frameEnvs）
+ * @param {Object}   [globalBlockVars] 関数の呼び出し中に、グローバルのブロック（for の本体など）にある変数（AppState.globalBlockVars）
  * @returns {Array<{label:string, vars:Object, isInnermost:boolean}>}
  */
-export function mergeScopesForDisplay(scopes, callStack, frameEnvs = []) {
+export function mergeScopesForDisplay(scopes, callStack, frameEnvs = [], globalBlockVars = {}) {
   const N = callStack?.length ?? 0;
   const M = scopes?.length ?? 0;
 
@@ -236,8 +238,8 @@ export function mergeScopesForDisplay(scopes, callStack, frameEnvs = []) {
     isInnermost: true,
   });
 
-  // 外側フレーム: frameEnvs[i] に callEnv スナップショットが記録されている
-  // （params + function-body let/const/var。ブロックスコープ内変数は含まない）
+  // 外側フレーム: frameEnvs[i] に、次のフレームを呼び出した地点から見える変数が記録されている
+  // （引数、関数本体やブロックの let/const/var。ADR-049）
   for (let i = N - 2; i >= 0; i--) {
     display.push({
       label:       formatFrameLabel(callStack[i]),
@@ -249,7 +251,7 @@ export function mergeScopesForDisplay(scopes, callStack, frameEnvs = []) {
   // グローバルスコープ
   display.push({
     label:       'global',
-    vars:        { ...(scopes[M - 1] ?? {}) },
+    vars:        { ...(scopes[M - 1] ?? {}), ...globalBlockVars },
     isInnermost: false,
   });
 

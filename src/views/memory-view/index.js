@@ -9,7 +9,7 @@
  */
 
 import { BaseView }                      from '../base-view.js';
-import { formatValue, BUILTIN_NAMES, esc, mergeScopesForDisplay } from '../../utils/format.js';
+import { formatValue, BUILTIN_NAMES, esc, isTDZ, mergeScopesForDisplay } from '../../utils/format.js';
 import { t }                             from '../../i18n.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -87,6 +87,7 @@ function buildHeap(scopes) {
 
 /** プリミティブ値の短い HTML 表現 */
 function fmtPrim(v) {
+  if (isTDZ(v)) return '<span class="lt-empty">—</span>';   // 宣言前の let/const（ADR-038）
   if (v === undefined) return '<span class="v-undef">undef</span>';
   if (v === null)      return '<span class="v-null">null</span>';
   if (typeof v === 'boolean') return `<span class="v-bool">${v}</span>`;
@@ -143,7 +144,7 @@ export class MemoryView extends BaseView {
   update(state) {
     if (!this.#stackEl) return;
 
-    const { scopes, callStack, changedVars, frameEnvs } = state;
+    const { scopes, callStack, changedVars, frameEnvs, globalBlockVars } = state;
     const changed = new Set(changedVars ?? []);
 
     if (!scopes || scopes.length === 0) {
@@ -153,9 +154,11 @@ export class MemoryView extends BaseView {
       return;
     }
 
-    const { heap, refMap } = buildHeap(scopes);
+    // 呼び出し元のフレームだけが持つ配列・オブジェクトもヒープに載せる（ADR-049）。
+    // JSInterpreter が同じ値を同じクローンで記録するので、共有している値は 1 つのヒープ要素になる
+    const { heap, refMap } = buildHeap([...scopes, ...(frameEnvs ?? []), globalBlockVars ?? {}]);
 
-    this.#renderStack(scopes, callStack ?? [], changed, refMap, heap, frameEnvs ?? []);
+    this.#renderStack(scopes, callStack ?? [], changed, refMap, heap, frameEnvs ?? [], globalBlockVars ?? {});
     this.#renderHeap(heap);
 
     // DOM が確定してから矢印を描画
@@ -186,12 +189,13 @@ export class MemoryView extends BaseView {
    * @param {Set<string>} changed
    * @param {WeakMap}     refMap
    * @param {Object[]}    heap
-   * @param {Object[]}    frameEnvs 各フレームの callEnv スナップショット
+   * @param {Object[]}    frameEnvs 各フレームの変数のスナップショット
+   * @param {Object}      globalBlockVars 関数の呼び出し中に、グローバルのブロックにある変数
    */
-  #renderStack(scopes, callStack, changed, refMap, heap, frameEnvs = []) {
+  #renderStack(scopes, callStack, changed, refMap, heap, frameEnvs = [], globalBlockVars = {}) {
     let html = '';
 
-    const displayScopes = mergeScopesForDisplay(scopes, callStack ?? [], frameEnvs);
+    const displayScopes = mergeScopesForDisplay(scopes, callStack ?? [], frameEnvs, globalBlockVars);
 
     for (const { label, vars, isInnermost } of displayScopes) {
       const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));
