@@ -1,0 +1,4 @@
+{
+  "title": "二分探索",
+  "code": "let a = [3, 8, 15, 21, 30, 42, 57, 64];\nlet target = 30;\nlet lo = 0;\nlet hi = a.length - 1;\nlet found = -1;\nwhile (lo <= hi) {\n  let mid = Math.floor((lo + hi) / 2);\n  if (a[mid] === target) {\n    found = mid;\n    break;\n  } else if (a[mid] < target) {\n    lo = mid + 1;\n  } else {\n    hi = mid - 1;\n  }\n}\nconsole.log(found);"
+}

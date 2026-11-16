@@ -312,25 +312,43 @@ export class MemoryView extends BaseView {
         const indicatorEl = refEl.querySelector('.mv-ref-indicator') || refEl;
         const from = indicatorEl.getBoundingClientRect();
 
-        // 上下どちらから出す/入れるかは、要素自身を跨がないよう相対位置で決める
-        const fromCy = from.top + from.height / 2;
-        const toCy   = toRect.top + toRect.height / 2;
-        const fromIsBelow = fromCy > toCy;
-
-        const x1 = from.left + from.width / 2 - containerRect.left;
-        const y1 = (fromIsBelow ? from.top : from.bottom) - containerRect.top;
-
-        // 終点はタイトル幅内で均等分散（同じ対象に集まる矢印の矢じり重なりを回避）
         const n    = srcEls.length;
         const frac = (i + 1) / (n + 1);
-        const x2   = toRect.left + toRect.width * frac - containerRect.left;
-        const y2   = (fromIsBelow ? toRect.bottom : toRect.top) - containerRect.top;
+        let d;
 
-        const my = (y1 + y2) / 2;
+        if (from.right + 8 < toRect.left) {
+          // 始点が終点より左に離れている（STACK → HEAP）: 右へ出して、見出しの左端へ横から入れる。
+          // 上下から入れると、矢印が途中のヒープ要素のマスを横切ってしまうため（ADR-053）。
+          // 同じ対象に集まる矢印は、見出しの高さの中で終点を分散させる
+          const x1 = from.right - containerRect.left;
+          const y1 = from.top + from.height / 2 - containerRect.top;
+          const x2 = toRect.left - containerRect.left;
+          const y2 = toRect.top + toRect.height * frac - containerRect.top;
+          // 自分の行の高さのまま右へ進み、終点の手前（STACK と HEAP のあいだ）でだけ曲げる。
+          // 途中で曲げ始めると、上下にあるほかの変数の行やフレームの上を斜めに横切るため
+          const bend = Math.min(40, Math.max(16, (x2 - x1) / 2));
+          const xb   = x2 - bend;
+          d = `M ${x1},${y1} H ${xb} C ${xb + bend * 0.6},${y1} ${x2 - bend * 0.6},${y2} ${x2},${y2}`;
+        } else {
+          // 上下どちらから出す/入れるかは、要素自身を跨がないよう相対位置で決める
+          const fromCy = from.top + from.height / 2;
+          const toCy   = toRect.top + toRect.height / 2;
+          const fromIsBelow = fromCy > toCy;
+
+          const x1 = from.left + from.width / 2 - containerRect.left;
+          const y1 = (fromIsBelow ? from.top : from.bottom) - containerRect.top;
+
+          // 終点はタイトル幅内で均等分散（同じ対象に集まる矢印の矢じり重なりを回避）
+          const x2   = toRect.left + toRect.width * frac - containerRect.left;
+          const y2   = (fromIsBelow ? toRect.bottom : toRect.top) - containerRect.top;
+
+          const my = (y1 + y2) / 2;
+          d = `M ${x1},${y1} C ${x1},${my} ${x2},${my} ${x2},${y2}`;
+        }
 
         const path = svgEl('path', {
           class: 'mv-arrow',
-          d: `M ${x1},${y1} C ${x1},${my} ${x2},${my} ${x2},${y2}`,
+          d,
           fill: 'none',
           'marker-end': 'url(#mv-arr)',
         });

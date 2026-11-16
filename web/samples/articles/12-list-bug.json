@@ -1,0 +1,4 @@
+{
+  "title": "連結リスト（つなぎ替えの順番を間違える）",
+  "code": "let head = { value: 1, next: null };\nhead.next = { value: 2, next: null };\nhead.next.next = { value: 4, next: null };\n\nlet node = { value: 3, next: null };\nlet prev = head.next;\nprev.next = node;\nnode.next = prev.next;\n\nlet p = head;\nwhile (p !== null) {\n  console.log(p.value);\n  p = p.next;\n}"
+}

@@ -30,6 +30,11 @@ const MAX_PROPS   = 8;   // 1ノードに表示するプロパティの最大数
 const COLUMN_GAP  = 80;  // 列間の水平間隔（エッジラベルが8文字以上収まる幅）
 const ROW_GAP     = 16;  // 同列内ノード間の垂直間隔
 const COMP_GAP    = 24;  // 連結成分間の垂直間隔
+// 後ろ向き（右から左へ戻る）・自己参照の矢印（ADR-053）。輪のない構造では使われない
+const BACK_LANE_PAD  = 14; // ノード群の下端から 1 本目の回り込み線までの間隔
+const BACK_LANE_STEP = 8;  // 回り込み線どうしの間隔
+const BACK_SIDE      = 10; // ノードの横で折れる位置（ノードの辺からの距離）
+const SELF_LOOP_W    = 28; // 自己参照の輪がノードの右へ張り出す幅
 
 // ノード背景色パレット（CSS 変数 → style.css で定義）
 const NODE_BG = [
@@ -182,10 +187,15 @@ function hierarchicalLayout(nodes, edges) {
   if (nodes.length === 0) return;
   if (nodes.length === 1) { nodes[0].x = 0; nodes[0].y = 0; return; }
 
+  // 輪を作るエッジ（深さ優先探索の後退辺・自己参照）を除いて、DAG として並べる（ADR-053）。
+  // 輪のない構造では後退辺はないので、従来と同じ配置になる
+  const back = findBackEdges(nodes, edges);
+
   // 隣接リストと入次数を構築
   const adj   = new Map(nodes.map(n => [n.id, []]));
   const inDeg = new Map(nodes.map(n => [n.id, 0]));
   for (const e of edges) {
+    if (back.has(e)) continue;
     adj.get(e.from)?.push(e.to);
     inDeg.set(e.to, (inDeg.get(e.to) ?? 0) + 1);
   }
@@ -240,6 +250,50 @@ function hierarchicalLayout(nodes, edges) {
 }
 
 /**
+ * 深さ優先探索で、輪を作るエッジ（後退辺と自己参照）を求める。
+ * 探索はノードの並び順（＝変数から見つけた順）に、入次数 0 のノードを優先して始める。
+ * @param {{ id }[]} nodes
+ * @param {{ from, to }[]} edges
+ * @returns {Set<object>} 後退辺（edges の要素そのもの）
+ */
+export function findBackEdges(nodes, edges) {
+  const out = new Map(nodes.map(n => [n.id, []]));
+  const inDeg = new Map(nodes.map(n => [n.id, 0]));
+  for (const e of edges) {
+    out.get(e.from)?.push(e);
+    inDeg.set(e.to, (inDeg.get(e.to) ?? 0) + 1);
+  }
+  const state = new Map(); // id → 1: 探索中, 2: 済み
+  const back  = new Set();
+  const starts = [...nodes.filter(n => inDeg.get(n.id) === 0), ...nodes];
+  for (const start of starts) {
+    if (state.has(start.id)) continue;
+    const stack = [{ id: start.id, i: 0 }];
+    state.set(start.id, 1);
+    while (stack.length) {
+      const top = stack[stack.length - 1];
+      const es  = out.get(top.id) ?? [];
+      if (top.i >= es.length) { state.set(top.id, 2); stack.pop(); continue; }
+      const e = es[top.i++];
+      const st = state.get(e.to);
+      if (st === 1) back.add(e);               // 探索中のノードへ戻る＝輪
+      else if (st === undefined && out.has(e.to)) {
+        state.set(e.to, 1);
+        stack.push({ id: e.to, i: 0 });
+      }
+    }
+  }
+  return back;
+}
+
+/** 配置後に、右から左へ戻る（または同じ列の）エッジかどうか。自己参照は含まない */
+function isBackward(e, nodeById) {
+  if (e.from === e.to) return false;
+  const s = nodeById.get(e.from), d = nodeById.get(e.to);
+  return !!(s && d && d.x <= s.x + 4);
+}
+
+/**
  * 連結成分ごとに独立した階層レイアウトを行い、縦に積み上げる。
  * 各成分の外接矩形が他と重ならない（Y 方向に COMP_GAP を挟む）。
  *
@@ -247,7 +301,7 @@ function hierarchicalLayout(nodes, edges) {
  * @param {{ from, to }[]}  edges
  * @returns {{ nodes, edges }[]} 成分ごとの配列（背景矩形描画用）
  */
-function layoutGraph(nodes, edges) {
+export function layoutGraph(nodes, edges) {
   if (nodes.length === 0) return [];
 
   // 無向グラフで連結成分を BFS 検出
@@ -284,6 +338,9 @@ function layoutGraph(nodes, edges) {
     hierarchicalLayout(comp.nodes, comp.edges);
     let compH = 0;
     for (const n of comp.nodes) compH = Math.max(compH, n.y + nodeHeight(n));
+    // 後ろ向きの矢印は成分の下を回り込むので、その分の高さを確保する
+    const backCount = comp.edges.filter(e => isBackward(e, nodeById)).length;
+    if (backCount > 0) compH += BACK_LANE_PAD + (backCount - 1) * BACK_LANE_STEP + 4;
     for (const n of comp.nodes) n.y += yOffset;
     yOffset += compH + COMP_GAP;
   }
@@ -407,15 +464,34 @@ export class ObjectGraph extends BaseView {
     const maxX = Math.max(...xs) + NODE_W + PAD;
     const maxY = Math.max(...ys.map((y, i) => y + nh[i])) + PAD;
 
-    const vw = maxX - minX;
-    const vh = maxY - minY;
+    // id → node lookup
+    const nodeById = new Map(nodes.map(n => [n.id, n]));
+
+    // ── 後ろ向きの矢印の回り込み線（成分ごとに、ノード群の下に 1 本ずつ）（ADR-053） ──
+    const laneByEdge  = new Map();  // e.id → { y, k }
+    const laneBottom  = new Map();  // 成分の index → 最も下の回り込み線の y
+    comps.forEach((comp, ci) => {
+      let bottom = -Infinity;
+      for (const n of comp.nodes) bottom = Math.max(bottom, n.y + nodeHeight(n));
+      let k = 0;
+      for (const e of comp.edges) {
+        if (!isBackward(e, nodeById)) continue;
+        const y = bottom + BACK_LANE_PAD + k * BACK_LANE_STEP;
+        laneByEdge.set(e.id, { y, k });
+        laneBottom.set(ci, y);
+        k++;
+      }
+    });
+    const hasSelfLoop = edges.some(e => e.from === e.to);
+    const maxXAll = maxX + (hasSelfLoop ? SELF_LOOP_W + 36 : 0);
+    const maxYAll = Math.max(maxY, ...[...laneBottom.values()].map(y => y + PAD));
+
+    const vw = maxXAll - minX;
+    const vh = maxYAll - minY;
 
     this.#svgEl.setAttribute('width',   Math.max(300, vw));
     this.#svgEl.setAttribute('height',  Math.max(200, vh));
     this.#svgEl.setAttribute('viewBox', `${minX} ${minY} ${vw} ${vh}`);
-
-    // id → node lookup
-    const nodeById = new Map(nodes.map(n => [n.id, n]));
 
     // ── defs: arrow marker ──
     const defs   = svgEl('defs');
@@ -434,7 +510,7 @@ export class ObjectGraph extends BaseView {
     // ── 連結成分の背景矩形（複数成分がある場合のみ） ──
     if (comps.length > 1) {
       const CPAD = 8;  // 成分外接矩形の内側パディング
-      for (const { nodes: cNodes } of comps) {
+      comps.forEach(({ nodes: cNodes }, ci) => {
         let cx0 = Infinity, cy0 = Infinity, cx1 = -Infinity, cy1 = -Infinity;
         for (const n of cNodes) {
           cx0 = Math.min(cx0, n.x);
@@ -442,6 +518,7 @@ export class ObjectGraph extends BaseView {
           cx1 = Math.max(cx1, n.x + NODE_W);
           cy1 = Math.max(cy1, n.y + nodeHeight(n));
         }
+        if (laneBottom.has(ci)) cy1 = laneBottom.get(ci) + 2;
         compBgG.appendChild(svgEl('rect', {
           class: 'og-comp-bg',
           x: cx0 - CPAD, y: cy0 - CPAD,
@@ -449,7 +526,7 @@ export class ObjectGraph extends BaseView {
           height: (cy1 - cy0) + CPAD * 2,
           rx: 8,
         }));
-      }
+      });
     }
 
     // ── エッジポート位置を事前計算（同ノード複数エッジが重ならないよう分散） ──
@@ -494,7 +571,27 @@ export class ObjectGraph extends BaseView {
       const y2 = Math.round(dstPort.get(e.id) ?? (dst.y + nodeHeight(dst) / 2));
 
       let pathD, labelX, labelY, labelAnchor;
-      if (x2 > x1 + 4) {
+      if (e.from === e.to) {
+        // 自己参照: ノードの右に小さな輪を描き、右辺へ戻す（ノードの中を横切らない）
+        let ya = y1, yb = y2;
+        if (Math.abs(yb - ya) < 12) { const m = (ya + yb) / 2; ya = m - 7; yb = m + 7; }
+        if (ya > yb) [ya, yb] = [yb, ya];
+        const xr   = x1 + SELF_LOOP_W;
+        pathD      = `M ${x1},${ya} C ${xr},${ya} ${xr},${yb} ${x1},${yb}`;
+        labelX      = x1 + SELF_LOOP_W * 0.75 + 4;
+        labelY      = Math.round((ya + yb) / 2) + 3;
+        labelAnchor = 'start';
+      } else if (laneByEdge.has(e.id)) {
+        // 後ろ向き: 右へ出て、成分の下を回り込み、宛先の左辺へ入る（途中のノードを横切らない）
+        const { y: lane, k } = laneByEdge.get(e.id);
+        const off  = BACK_SIDE + 4 * Math.min(k, 2);
+        const sx   = x1 + off;
+        const dx   = x2 - off;
+        pathD      = `M ${x1},${y1} H ${sx} V ${lane} H ${dx} V ${y2} H ${x2}`;
+        labelX      = Math.round((sx + dx) / 2);
+        labelY      = lane - 2;
+        labelAnchor = 'middle';
+      } else if (x2 > x1 + 4) {
         // 前向きエッジ: エルボーコネクタ（中間 x で折れる）
         const mx   = Math.round((x1 + x2) / 2);
         pathD      = `M ${x1},${y1} H ${mx} V ${y2} H ${x2}`;

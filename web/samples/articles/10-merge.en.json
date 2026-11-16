@@ -1,0 +1,4 @@
+{
+  "title": "Merge sort",
+  "code": "function mergeSort(a) {\n  if (a.length <= 1) {\n    return a;\n  }\n  let mid = Math.floor(a.length / 2);\n  let left = mergeSort(a.slice(0, mid));\n  let right = mergeSort(a.slice(mid));\n  return merge(left, right);\n}\n\nfunction merge(left, right) {\n  let result = [];\n  let i = 0;\n  let j = 0;\n  while (i < left.length && j < right.length) {\n    if (left[i] <= right[j]) {\n      result.push(left[i]);\n      i++;\n    } else {\n      result.push(right[j]);\n      j++;\n    }\n  }\n  while (i < left.length) {\n    result.push(left[i]);\n    i++;\n  }\n  while (j < right.length) {\n    result.push(right[j]);\n    j++;\n  }\n  return result;\n}\n\nconsole.log(mergeSort([5, 2, 7, 1, 8, 3, 6, 4]));"
+}

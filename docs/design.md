@@ -1,9 +1,9 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 2.23  
+**バージョン**: 2.24  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-11-04 (v2.23)  
+**最終更新**: 2026-11-16 (v2.24)  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -55,6 +55,7 @@
 | 2.21 | 2026-11-04 | **オブジェクトビューに呼び出し元のオブジェクトを表示する**（[ADR-050](adr/ADR-050-objgraph-caller-frames.md)）。`buildGraph()` に `callStack`・`frameEnvs`・`globalBlockVars` を渡す。メモリビューの `fmtPrim()` で関数・クラスを、オブジェクトビューの `fmtVal()` で宣言前の変数を表示する |
 | 2.22 | 2026-11-04 | **置換ビューを式の木で管理する**（[ADR-051](adr/ADR-051-subst-expression-tree.md)）。式を「文字列と呼び出しノードの配列」の木で持ち、`return` では実行中の呼び出しのノードを置き換える。引数の中の再帰呼び出しの外側が消える問題と、終了条件のない再帰が途中で止まる問題を直す。計算の順番が変わるときは括弧を付ける |
 | 2.23 | 2026-11-04 | **実行の上限を 50,000 ステップにし、重いビューの描画を軽くする**（[ADR-052](adr/ADR-052-step-limit-50000.md)）。`exec-trace/` の配列の図を `IntersectionObserver` で遅延描画にする。ExprTrace の `init()` はセクションの要素の中だけを探す。実行の終了後は最後のイベントの変数の状態を保ち、配列・コールスタックを表示する（`DebuggerAdapter` の `#snapshotEvent()`） |
+| 2.24 | 2026-11-16 | **範囲の端の変数に印を付け、メモリ・オブジェクトの矢印をノードの上を通らないように描く**（[ADR-053](adr/ADR-053-pointer-and-arrow-readability.md)）。`computeSubscriptVars()` に、足し算・引き算だけの添字の中の識別子と、添字の変数と互いに計算し合う変数を加える。MemoryView の `#drawArrows()` は、始点が終点より左に離れているとき `M x1,y1 H xb C … x2,y2` で見出しの左端へ入れる。ObjectGraph は `findBackEdges()`（深さ優先探索）で輪を作るエッジを除いて `hierarchicalLayout()` し、後ろ向きのエッジは成分の下の回り込み線（`BACK_LANE_*`）、自己参照は右の輪（`SELF_LOOP_W`）で描く |
 
 ---
 
@@ -810,7 +811,7 @@ frameEnvs の順序: [0]=最外側フレーム, [N-1]=最内側フレーム（ca
 評価実験ログの深掘り分析（`docs/study/paper-research-notes.md`）で、Arrays（アニメーション型、現在の1ステップのみ描画）に長時間費やしても「ポインタが毎回1つズレている」というイテレーション横断のパターンに気づけなかった参加者がいたことが判明した。ExecTrace は既に「行＝humanStep のタイムライン」を持つため、Arrays と同じポインタ・オーバーレイ表現をここに統合すれば、縦スクロールするだけでそのパターンを比較できる。
 
 - ポインタ検出・配列グリッド描画ロジックは `src/utils/array-grid.js` に共通化し、Arrays（`color-box/index.js`）と共有する:
-  - `computeSubscriptVars(source)`: ソース中で `identifier[varName` の形に登場する識別子（配列添字候補）のホワイトリストを抽出する純関数
+  - `computeSubscriptVars(source)`: ソース中で `identifier[varName` の形に登場する識別子（配列添字候補）のホワイトリストを抽出する純関数。足し算・引き算だけの添字の中の識別子と、添字の変数と互いに計算し合う変数（`mid = (lo + hi) / 2` と `lo = mid + 1` の `lo`）も含める（ADR-053）
   - `detectPointerVars(vars, arr, subscriptVars, arrayVarNames)`: 1スナップショットからポインタ変数（`BUILTIN_NAMES`除外・他の配列変数名除外・`subscriptVars`必須・整数かつ`[0, arr.length)`）を検出し `Map<name, idx>` を返す
   - `renderArrayGrid({ arrName, arr, ptrByName, cellPx, fontPx, maxVal, idxHeightPx, valHeightPx, ptrHeightPx, ... })`: インデックス行・値行・ポインタラベル行の3行を持つグリッドHTMLを生成する。行高（`idxHeightPx`/`valHeightPx`/`ptrHeightPx`）はセル幅（`cellPx`）から独立して指定でき、ExecTrace 側はコンパクトな固定値を渡す（Arrays 側は従来通り `cellPx` に比例させる）
   - `valueToBoxColor(val, maxVal)`: 値の大きさに応じた背景色（Arrays から移設）
@@ -1266,6 +1267,9 @@ requestAnimationFrame → getBoundingClientRect() → layoutEl 基準の座標�
 → 上端/下端の選択: from/to の中心Y比較で要素自身を跨がない側を選ぶ
 → 同一 heapId に集まる矢印は .mv-heap-title 幅内で終点 x を均等分散（矢じり重なり回避）
 → ベジェ曲線パス M x1,y1 C x1,my x2,my x2,y2（my = (y1+y2)/2、垂直方向のS字カーブ）
+→ ただし始点が終点より左に離れているとき（STACK → HEAP）は、始点の右端から自分の行の高さのまま右へ進み、
+  終点の手前 bend（16〜40px）でだけ曲げて見出しの左端へ入れる: M x1,y1 H xb C … x2,y2。
+  同じ対象に集まる矢印は見出しの高さの中で終点 y を均等分散（ADR-053）
 → SVG に <path class="mv-arrow" marker-end="url(#mv-arr)"> を追加
 ```
 
@@ -1296,6 +1300,7 @@ const NODE_BG    = ['var(--og-bg-0)', ..., 'var(--og-bg-5)'];  // 6 色パレッ
 **階層型レイアウト** (`hierarchicalLayout(nodes, edges)`):
 ```js
 function hierarchicalLayout(nodes, edges) {
+  // 0. findBackEdges(): 深さ優先探索で輪を作るエッジ（後退辺・自己参照）を求めて除く（ADR-053。輪のない構造では空）
   // 1. Kahn のトポロジカルソート（in-degree = 0 から BFS）
   // 2. 最長パス法: col[n] = max(col[predecessor]) + 1
   // 3. 列番号 → x = col * (NODE_W + COLUMN_GAP)
@@ -1317,6 +1322,8 @@ function layoutGraph(nodes, edges) {
 - 肘型コネクタ: `M x1,y1 H mx V y2 H x2`（出口右→縦→入口右）
 - ポートスプレッド: 同一ノードから複数エッジが出る場合、出口 y 座標をノード高さ内で均等分散（`srcPort`/`dstPort` Map）
 - ラベル: 縦セグメント左側（`x = mx - 2, text-anchor = 'end'`）
+- 後ろ向きのエッジ（宛先が同じ列か左）: `M x1,y1 H sx V lane H dx V y2 H x2`。lane は連結成分のノード群の下端 + `BACK_LANE_PAD` + k × `BACK_LANE_STEP`。`layoutGraph()` はその分の高さを成分に確保する（ADR-053）
+- 自己参照: ノードの右辺から `SELF_LOOP_W` 張り出す輪 `M x1,ya C xr,ya xr,yb x1,yb`（ADR-053）
 
 **連結成分境界矩形**: 成分 ≥2 のとき `<rect class="og-comp-bg">` で点線境界を描画
 

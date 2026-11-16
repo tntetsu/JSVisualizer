@@ -1,0 +1,4 @@
+{
+  "title": "フィボナッチ数（再帰）",
+  "code": "function fib(n) {\n  if (n == 1 || n == 2) return 1;\n  return fib(n - 1) + fib(n - 2);\n}\nconsole.log(fib(6));"
+}

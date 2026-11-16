@@ -1,0 +1,4 @@
+{
+  "title": "連結リストに挿入する",
+  "code": "let head = { value: 1, next: null };\nhead.next = { value: 2, next: null };\nhead.next.next = { value: 4, next: null };\n\nlet node = { value: 3, next: null };\nlet prev = head.next;\nnode.next = prev.next;\nprev.next = node;\n\nlet p = head;\nwhile (p !== null) {\n  console.log(p.value);\n  p = p.next;\n}"
+}

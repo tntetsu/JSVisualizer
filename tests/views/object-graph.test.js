@@ -85,3 +85,41 @@ describe('fmtVal', () => {
     expect(fmtVal({ __type__: 'JSClass', name: 'P' })).toBe('class P');
   });
 });
+
+// ── 輪のある構造の配置（ADR-053） ─────────────────────────────────────────
+
+import { findBackEdges, layoutGraph } from '../../src/views/object-graph/index.js';
+
+const nodesOf = (...ids) => ids.map(id => ({ id, rows: [] }));
+const edge = (from, to, label = 'next') => ({ id: `${from}->${to}:${label}`, from, to, label });
+
+describe('findBackEdges / layoutGraph: 輪のある構造', () => {
+  test('輪のない構造（木・連結リスト）には後退辺がない', () => {
+    const edges = [edge('a', 'b', 'left'), edge('a', 'c', 'right'), edge('b', 'd')];
+    expect(findBackEdges(nodesOf('a', 'b', 'c', 'd'), edges).size).toBe(0);
+  });
+
+  test('自己参照は後退辺になる', () => {
+    const self = edge('a', 'a');
+    expect([...findBackEdges(nodesOf('a'), [self])]).toEqual([self]);
+  });
+
+  test('双方向リストは next の向きに 1 列に並び、prev が後退辺になる', () => {
+    const nodes = nodesOf('a', 'b', 'c');
+    const edges = [edge('a', 'b'), edge('b', 'a', 'prev'), edge('b', 'c'), edge('c', 'b', 'prev')];
+    const back = findBackEdges(nodes, edges);
+    expect([...back].map(e => e.label)).toEqual(['prev', 'prev']);
+    layoutGraph(nodes, edges);
+    const [a, b, c] = nodes;
+    expect(a.x < b.x && b.x < c.x).toBe(true);
+    expect(a.y === b.y && b.y === c.y).toBe(true);
+  });
+
+  test('循環リストも 1 列に並ぶ（最後から先頭へ戻る矢印だけが後退辺）', () => {
+    const nodes = nodesOf('a', 'b', 'c');
+    const edges = [edge('a', 'b'), edge('b', 'c'), edge('c', 'a')];
+    expect([...findBackEdges(nodes, edges)].map(e => e.id)).toEqual(['c->a:next']);
+    layoutGraph(nodes, edges);
+    expect(nodes[0].x < nodes[1].x && nodes[1].x < nodes[2].x).toBe(true);
+  });
+});

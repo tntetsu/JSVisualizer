@@ -1,0 +1,4 @@
+{
+  "title": "入れ子の配列のコピー",
+  "code": "let seats = [[\"A\", \"B\"], [\"C\", \"D\"]];\nlet copy = seats.slice();\ncopy[0][0] = \"X\";\nconsole.log(seats[0][0]);"
+}

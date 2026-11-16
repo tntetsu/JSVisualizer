@@ -1,0 +1,4 @@
+{
+  "title": "Linked list (relinking in the wrong order)",
+  "code": "let head = { value: 1, next: null };\nhead.next = { value: 2, next: null };\nhead.next.next = { value: 4, next: null };\n\nlet node = { value: 3, next: null };\nlet prev = head.next;\nprev.next = node;\nnode.next = prev.next;\n\nlet p = head;\nwhile (p !== null) {\n  console.log(p.value);\n  p = p.next;\n}"
+}

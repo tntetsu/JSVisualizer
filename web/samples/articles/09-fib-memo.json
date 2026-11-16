@@ -1,0 +1,4 @@
+{
+  "title": "フィボナッチ数（メモ化）",
+  "code": "let memo = {};\nfunction fib(n) {\n  if (n == 1 || n == 2) return 1;\n  if (memo[n]) return memo[n];\n  memo[n] = fib(n - 1) + fib(n - 2);\n  return memo[n];\n}\nconsole.log(fib(6));"
+}

@@ -8,19 +8,65 @@
 
 import { BUILTIN_NAMES, esc, formatValue } from './format.js';
 
+/** 識別子のうち、変数ではないもの（右辺から拾わない） */
+const NON_VAR_WORDS = new Set([
+  'true', 'false', 'null', 'undefined', 'NaN', 'Infinity',
+  'let', 'const', 'var', 'new', 'typeof', 'function', 'return', 'this',
+]);
+
+/** 代入（`x = …`・`let x = …`・`x += …`・`x -= …`）。比較演算子・アロー関数・プロパティへの代入は除く */
+const ASSIGN_RE = /(?:^|[^\w$.])([A-Za-z_$][\w$]*)\s*(?:\+=|-=|=(?![=>]))\s*([^;\n{}]*)/g;
+
+/**
+ * 式の文字列から、変数として使われている識別子を取り出す（`.length` のようなプロパティ名は除く）。
+ * @param {string} expr
+ * @returns {string[]}
+ */
+function identifiersIn(expr) {
+  const names = [];
+  for (const m of expr.matchAll(/(^|[^\w$.])([A-Za-z_$][\w$]*)/g)) {
+    if (!NON_VAR_WORDS.has(m[2])) names.push(m[2]);
+  }
+  return names;
+}
+
 /**
  * ソース中で配列添字として実際に使われている識別子のホワイトリストを抽出する。
- * `arr[j]` や `arr[j + 1]` に登場する `j` のような識別子を収集する。
- * `\w\[` とすることで配列リテラル `[a, b]` の `a` を誤検出しない。
+ *
+ * 1. 添字の先頭の識別子: `arr[j]`・`arr[j + 1]` の `j`（`\w\[` なので配列リテラル `[a, b]` は対象外）
+ * 2. 足し算・引き算だけでできた添字に出てくる識別子: `arr[n - 1 - i]` の `i`、`grid[i][j]` の `j`
+ * 3. 添字の変数と互いに計算し合う変数（ADR-053）: 二分探索の `lo`・`hi` のように、
+ *    `mid = Math.floor((lo + hi) / 2)`（添字の変数の右辺に出てくる）と
+ *    `lo = mid + 1`（自分の右辺に添字の変数が出てくる）の両方を満たすもの。
+ *    片方だけ（`idx = key % size` の `key` など）では範囲の端とはいえないので含めない
  * @param {string} source
  * @returns {Set<string>}
  */
 export function computeSubscriptVars(source) {
-  const SUBSCRIPT_RE = /\w\[([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+  const src = source ?? '';
   const result = new Set();
-  for (const m of (source ?? '').matchAll(SUBSCRIPT_RE)) {
+
+  // 1. 添字の先頭の識別子（従来どおり）
+  for (const m of src.matchAll(/\w\[([a-zA-Z_$][a-zA-Z0-9_$]*)/g)) {
     result.add(m[1]);
   }
+  // 2. 足し算・引き算だけでできた添字の中の識別子
+  for (const m of src.matchAll(/(?<=[\w$\]])\[([\w$\s+-]+)\]/g)) {
+    for (const name of identifiersIn(m[1])) result.add(name);
+  }
+
+  // 3. 添字の変数と互いに計算し合う変数
+  const assigns = [...src.matchAll(ASSIGN_RE)].map(m => ({ name: m[1], rhs: identifiersIn(m[2]) }));
+  const derived = new Set();
+  for (const { name, rhs } of assigns) {
+    if (!result.has(name)) continue;
+    for (const x of rhs) {
+      if (result.has(x)) continue;
+      const feedsBack = assigns.some(a => a.name === x && a.rhs.some(r => result.has(r)));
+      if (feedsBack) derived.add(x);
+    }
+  }
+  for (const x of derived) result.add(x);
   return result;
 }
 

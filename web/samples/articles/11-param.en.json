@@ -1,0 +1,4 @@
+{
+  "title": "Passing an array to a function",
+  "code": "function addOne(arr) {\n  arr[0] = arr[0] + 1;\n}\n\nlet nums = [10, 20];\naddOne(nums);\nconsole.log(nums);"
+}

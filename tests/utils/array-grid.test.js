@@ -29,6 +29,42 @@ describe('computeSubscriptVars()', () => {
     expect(result.has('b')).toBe(false);
   });
 
+  test('足し算・引き算だけの添字の中の識別子も抽出する（n - 1 - i、grid[i][j]）', () => {
+    const result = computeSubscriptVars('let x = a[n - 1 - i]; let y = grid[i][j];');
+    expect(result.has('i')).toBe(true);
+    expect(result.has('j')).toBe(true);
+  });
+
+  test('二分探索の lo・hi のように、添字の変数と互いに計算し合う変数を含める（ADR-053）', () => {
+    const source = `
+      let lo = 0;
+      let hi = a.length - 1;
+      while (lo <= hi) {
+        let mid = Math.floor((lo + hi) / 2);
+        if (a[mid] < target) lo = mid + 1;
+        else hi = mid - 1;
+      }
+    `;
+    const result = computeSubscriptVars(source);
+    expect(result.has('mid')).toBe(true);
+    expect(result.has('lo')).toBe(true);
+    expect(result.has('hi')).toBe(true);
+    expect(result.has('target')).toBe(false);
+    expect(result.has('Math')).toBe(false);
+  });
+
+  test('添字の変数の右辺に出てくるだけの変数は含めない（ハッシュの key など）', () => {
+    const result = computeSubscriptVars('let idx = key % size; table[idx] = key;');
+    expect(result.has('idx')).toBe(true);
+    expect(result.has('key')).toBe(false);
+    expect(result.has('size')).toBe(false);
+  });
+
+  test('比較演算子やアロー関数を代入と取り違えない', () => {
+    const result = computeSubscriptVars('let mid = lo; if (lo === mid) {} const f = lo => mid; a[mid];');
+    expect(result.has('lo')).toBe(false);
+  });
+
   test('空文字列・undefinedでは空集合を返す', () => {
     expect(computeSubscriptVars('').size).toBe(0);
     expect(computeSubscriptVars(undefined).size).toBe(0);

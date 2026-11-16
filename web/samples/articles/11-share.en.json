@@ -1,0 +1,4 @@
+{
+  "title": "Assigning vs. copying an array",
+  "code": "let a = [1, 2, 3];\nlet b = a;\nlet c = a.slice();\nb[0] = 99;\nconsole.log(a);\nconsole.log(c);"
+}
