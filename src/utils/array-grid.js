@@ -128,13 +128,14 @@ export function valueToBoxColor(val, maxVal) {
  * @param {number} [opts.valHeightPx] 値行の高さ（省略時は cellPx）
  * @param {number} [opts.ptrHeightPx] ポインタ行の高さ（省略時は cellPx*0.65）
  * @param {string} [opts.emptyText] 配列が空/無効なときのメッセージ
+ * @param {string} [opts.note] グリッドの下に添える説明（undefined の要素の「—」の意味など）。空なら出さない
  * @returns {string}
  */
 export function renderArrayGrid({
   arrName, arr, ptrByName = new Map(), cellPx, fontPx, maxVal = 0,
   minWidthPx = 0, minHeightPx = 0,
   idxHeightPx, valHeightPx, ptrHeightPx,
-  emptyText = '',
+  emptyText = '', note = '',
 }) {
   const minW = minWidthPx  ? `min-width:${minWidthPx}px;`   : '';
   const minH = minHeightPx ? `min-height:${minHeightPx}px;` : '';
@@ -174,13 +175,17 @@ export function renderArrayGrid({
       : '';
     const hlCls  = isHl ? ' cb-cell--hl' : '';
     const isObj  = v !== null && typeof v === 'object';
-    const content = typeof v === 'number' ? esc(String(v))
+    // undefined（値を入れていない要素・穴）は「—」で示す。文字が長くマスに収まらないため（ADR-054）
+    const isUndef = v === undefined;
+    const content = isUndef ? '—'
+                  : typeof v === 'number' ? esc(String(v))
                   : typeof v === 'string' ? esc(v)
                   : typeof v === 'boolean' ? esc(String(v))
                   : isObj ? formatValue(v)
                   : esc(String(v));
-    const objCls = isObj ? ' cb-cell--obj' : '';
-    html += `<div class="cb-cell${hlCls}${objCls}" style="${style};height:${VAL_H}px;${bgColor}">${content}</div>`;
+    const objCls = isObj ? ' cb-cell--obj' : isUndef ? ' cb-cell--undef' : '';
+    const tip    = isUndef ? ' title="undefined"' : '';
+    html += `<div class="cb-cell${hlCls}${objCls}"${tip} style="${style};height:${VAL_H}px;${bgColor}">${content}</div>`;
   }
   html += '</div>';
 
@@ -194,6 +199,8 @@ export function renderArrayGrid({
     html += '</div>';
   }
 
-  html += '</div></div>';
+  html += '</div>';
+  if (note) html += `<p class="cb-note">${esc(note)}</p>`;
+  html += '</div>';
   return html;
 }

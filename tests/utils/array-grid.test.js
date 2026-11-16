@@ -133,3 +133,29 @@ describe('renderArrayGrid()', () => {
     expect(html).not.toContain('cb-cell--ptr');
   });
 });
+
+// ── undefined の要素（ADR-054） ─────────────────────────────────────────
+
+describe('renderArrayGrid(): undefined の要素', () => {
+  test('undefined の要素は「—」で示し、title に undefined を入れる', () => {
+    const html = renderArrayGrid({ arrName: 'memo', arr: [undefined, 2, 3], cellPx: 40 });
+    expect(html).toContain('cb-cell--undef');
+    expect(html).toContain('title="undefined"');
+    expect(html).toContain('>—</div>');
+    expect(html).not.toContain('>undefined</div>');
+  });
+
+  test('note を渡したときだけ説明を添える', () => {
+    const withNote = renderArrayGrid({ arrName: 'm', arr: [undefined, 1], cellPx: 40, note: '「—」は undefined' });
+    expect(withNote).toContain('<p class="cb-note">「—」は undefined</p>');
+    const without = renderArrayGrid({ arrName: 'm', arr: [1, 2], cellPx: 40 });
+    expect(without).not.toContain('cb-note');
+  });
+
+  test('null や 0 は「—」にしない', () => {
+    const html = renderArrayGrid({ arrName: 'a', arr: [null, 0], cellPx: 40 });
+    expect(html).not.toContain('cb-cell--undef');
+    expect(html).toContain('>null</div>');
+    expect(html).toContain('>0</div>');
+  });
+});

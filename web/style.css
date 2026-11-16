@@ -2114,6 +2114,18 @@ body {
   font-weight: normal;
 }
 
+/* undefined の要素（「—」）。値ではないことがわかるよう薄くする（ADR-054） */
+.cb-cell--undef {
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.cb-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .cb-cell--idx {
   background: transparent;
   border: none;

@@ -146,8 +146,10 @@ export class Arrays extends BaseView {
       for (const [name, val] of vars) {
         if (BUILTIN_NAMES.has(name)) continue;
         if (!Array.isArray(val)) continue;
-        const m = metaMap.get(name) ?? { maxVal: 0, maxWidth: 0, maxGridHeight: 0, maxObjectTextLen: 0 };
-        for (const v of val) {
+        const m = metaMap.get(name) ?? { maxVal: 0, maxWidth: 0, maxGridHeight: 0, maxObjectTextLen: 0, hasUndefined: false };
+        for (let i = 0; i < val.length; i++) {
+          const v = val[i];
+          if (v === undefined) m.hasUndefined = true;
           if (typeof v === 'number' && isFinite(v)) m.maxVal = Math.max(m.maxVal, Math.abs(v));
           else if (v !== null && typeof v === 'object') {
             m.maxObjectTextLen = Math.max(m.maxObjectTextLen, formatObjectPlain(v).length);
@@ -260,6 +262,8 @@ export class Arrays extends BaseView {
         minWidthPx: meta?.maxWidth ?? 0,
         minHeightPx: meta?.maxGridHeight ?? 0,
         emptyText: t(Array.isArray(arr) ? 'colorbox-array-empty' : 'colorbox-out-of-scope'),
+        // 実行中に一度でも undefined の要素があった配列には、「—」の意味を常に添える（ステップで出たり消えたりしないように）
+        note: meta?.hasUndefined ? t('colorbox-undef-note') : '',
       });
     }
 

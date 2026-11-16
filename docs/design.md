@@ -1,9 +1,9 @@
 # 詳細設計書
 
 **プロジェクト名**: JSVisualizer  
-**バージョン**: 2.24  
+**バージョン**: 2.25  
 **作成日**: 2026-05-25  
-**最終更新**: 2026-11-16 (v2.24)  
+**最終更新**: 2026-11-16 (v2.25)  
 **作成者**: Tetsuo Tanaka
 
 ---
@@ -56,6 +56,7 @@
 | 2.22 | 2026-11-04 | **置換ビューを式の木で管理する**（[ADR-051](adr/ADR-051-subst-expression-tree.md)）。式を「文字列と呼び出しノードの配列」の木で持ち、`return` では実行中の呼び出しのノードを置き換える。引数の中の再帰呼び出しの外側が消える問題と、終了条件のない再帰が途中で止まる問題を直す。計算の順番が変わるときは括弧を付ける |
 | 2.23 | 2026-11-04 | **実行の上限を 50,000 ステップにし、重いビューの描画を軽くする**（[ADR-052](adr/ADR-052-step-limit-50000.md)）。`exec-trace/` の配列の図を `IntersectionObserver` で遅延描画にする。ExprTrace の `init()` はセクションの要素の中だけを探す。実行の終了後は最後のイベントの変数の状態を保ち、配列・コールスタックを表示する（`DebuggerAdapter` の `#snapshotEvent()`） |
 | 2.24 | 2026-11-16 | **範囲の端の変数に印を付け、メモリ・オブジェクトの矢印をノードの上を通らないように描く**（[ADR-053](adr/ADR-053-pointer-and-arrow-readability.md)）。`computeSubscriptVars()` に、足し算・引き算だけの添字の中の識別子と、添字の変数と互いに計算し合う変数を加える。MemoryView の `#drawArrows()` は、始点が終点より左に離れているとき `M x1,y1 H xb C … x2,y2` で見出しの左端へ入れる。ObjectGraph は `findBackEdges()`（深さ優先探索）で輪を作るエッジを除いて `hierarchicalLayout()` し、後ろ向きのエッジは成分の下の回り込み線（`BACK_LANE_*`）、自己参照は右の輪（`SELF_LOOP_W`）で描く |
+| 2.25 | 2026-11-16 | **配列の undefined の要素を「—」で示す**（[ADR-054](adr/ADR-054-array-undefined-elements.md)）。`renderArrayGrid()` は undefined の要素を `.cb-cell--undef`（`title="undefined"`）で「—」と描き、`note` オプションの説明を `.cb-note` で箱の下に添える。ColorBox の `#scanTrace()` は配列ごとに `hasUndefined` を集め、該当する配列に `t('colorbox-undef-note')` を渡す |
 
 ---
 
