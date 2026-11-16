@@ -110,6 +110,8 @@ node scripts/capture-manual-screenshots.mjs
 
 > **マニュアルの更新**: 画面・操作を変更したら、`web/manual.html`・`web/manual.en.html` の説明とスクリーンショットも更新すること。BhvVisualizer の学生向けマニュアル（`../BhvVisualizer/web/manual.html`）にも同じ操作説明があるため、あわせて直す（ADR-041）。
 
+> **授業の評価計画への記録**: 学生の画面に見える変更（ビューの表示・タブ名・上限・エラー表示など）を公開版に出したら、BhvVisualizer の評価計画 `../BhvVisualizer/docs/evaluation-plan.md` 3.9 節の表に、日付・変更・記録（ADR とコミット）を足す。BhvVisualizer は公開版を `<iframe>` で埋め込むので、授業の学生の画面もその日に変わり、利用ログの分析の前提になる。記事など別のリポジトリで起動したセッションから直した場合も同じ。
+
 > **注意**: プロジェクトは ES modules (`"type": "module"`) を使用します。  
 > テストは必ず `npm test` 経由で実行してください。
 
