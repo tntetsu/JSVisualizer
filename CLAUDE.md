@@ -70,6 +70,8 @@ JSVisualizer/
 │   │   ├── trace-builder.test.js # TraceBuilder 全7メソッドのユニットテスト
 │   │   ├── step-controller.test.js
 │   │   └── samples.test.js       # 21サンプルコード全エラーなし・trace ≥ 1 確認
+│   ├── views/
+│   │   └── exec-trace.test.js    # 実行トレースの「配列」列（renderRowDiagram）。ADR-048 の例をそのままテストにしたもの
 │   └── utils/
 │       ├── array-grid.test.js    # 配列＋ポインタグリッド描画（computeSubscriptVars等）のユニットテスト
 │       └── line-exec.test.js     # humanStep を文の実行単位にまとめる処理（buildLineExecOwners / buildExecRows）のユニットテスト
@@ -418,6 +420,7 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 - **URLクエリによるコード読み込み（`exercise`/`code`、完全なURLを渡す方式）**: BhvVisualizerの公開読み取り専用API（認証不要）に限らず、呼び出し元がfetch可能な任意のURLからコードを取得しエディタへ反映する、`# BHV:` タグなしの通常機能。`src/core/exercise-source.js`の`loadExerciseFromQuery()`が`app.js`から呼ばれる。クエリが無い場合は何もせず、既定のFibonacciサンプル表示・21種の組み込みサンプルは変更しない（加算的な機能）。動作検証は `verify-exercise-query.mjs`（`node verify-exercise-query.mjs`）。設計判断の背景は [ADR-029](docs/adr/ADR-029-url-query-exercise-loading.md)（初期実装、当時は`exerciseId`/`codeId`/`bhvApiBase`方式）・[ADR-031](docs/adr/ADR-031-url-based-exercise-loading.md)（現行の`exercise`/`code`完全URL方式への再設計）
 - **URLクエリによる初期表示ビューの指定（`view`）**: コード読み込みとは独立に、`ViewSwitcher.setInitialView(id)`でそのページの最初の実行1回だけ初期ビューを指定できる、`# BHV:` タグなしの通常機能。`localStorage`の「前回タブ」復元より優先するが、保存値自体は書き換えない。BhvVisualizerのセッション内pre/post設問で「操作して確認」の内容を学生間で揃える用途を想定。設計判断の背景は [ADR-036](docs/adr/ADR-036-url-query-initial-view.md)
 - **ADR運用ルール（2026-08-12改定、ADR-030）**: JSVisualizer単体の改良のための変更を対象とする。BhvVisualizerからの要求による変更（`# BHV:` タグの配線・単体機能改善として本体に取り込むものを含む）に限らず、重要な設計判断を伴う変更を加えたときは、**都度 `docs/adr/` に ADR を追加**し、`docs/adr/README.md` の一覧表も更新する。変更の背景（なぜ必要か）と代替案を残すことで、BhvVisualizer側の事情を知らない将来のJSVisualizer単体の contributor にも意図が伝わるようにする
+- **利用者に見える ADR には例とテストを付ける（2026-11-25、田中さんの判断）**: 画面に何が表示される／されないかを決める・直す ADR には、**利用者に見える例**（入力のプログラムと「表示される／されない」）を実装用語なしで書き、**同じ例をテストにする**（テスト名に ADR 番号を入れる。DOM に描くビューは、描く中身を作る部分を関数に切り出してテストする。例: `tests/views/exec-trace.test.js` と ADR-048）。テストは、直す前のコードで失敗することを確かめてから足す。内部の構造だけの ADR には求めない。ADR の記述が意図と違っていた ADR-037 の件（記録は残っていたが、人も読まずテストも無かった）がきっかけ
 
 ## 依存 JSInterpreter の主要 API
 

@@ -126,6 +126,37 @@ function buildCondInfo(trace, si, lines, conditionExitSet) {
   return null;
 }
 
+// ── 「配列」列の 1 行分の図 ────────────────────────────────────────────────
+
+/**
+ * 「配列」列の 1 行分の図（配列＋ポインタのミニ図）の HTML を作る。
+ * Arraysビューと共通の renderArrayGrid() を使う（ADR-037）。
+ * Arrays ビューと同じく、ポインタが無くてもその行のスコープにある配列は描く
+ * （`table[3] = 25;` のように添字がリテラルだとポインタが検出されないため。ADR-048）
+ * @param {object} p
+ * @param {Map<string, any>} p.envMap        その行の変数（flattenEnv の結果）
+ * @param {Set<string>}      p.arrayVarNames プログラム全体で配列になる変数名
+ * @param {Set<string>}      p.subscriptVars ソース中で添字に使われる識別子（computeSubscriptVars）
+ * @param {number}           p.cellPx        マスの幅
+ * @returns {string} HTML（スコープに配列が無ければ空文字列）
+ */
+export function renderRowDiagram({ envMap, arrayVarNames, subscriptVars, cellPx }) {
+  let html = '';
+  for (const arrName of arrayVarNames) {
+    if (!envMap.has(arrName)) continue;
+    const arr = envMap.get(arrName);
+    const ptrByName = detectPointerVars(envMap, arr, subscriptVars, arrayVarNames);
+    const maxVal = Array.isArray(arr)
+      ? arr.reduce((m, v) => typeof v === 'number' && isFinite(v) ? Math.max(m, Math.abs(v)) : m, 0)
+      : 0;
+    html += renderArrayGrid({
+      arrName, arr, ptrByName, cellPx, fontPx: DIAGRAM_FONT_PX, maxVal, emptyText: '',
+      idxHeightPx: DIAGRAM_IDX_H_PX, valHeightPx: DIAGRAM_VAL_H_PX, ptrHeightPx: DIAGRAM_PTR_H_PX,
+    });
+  }
+  return html;
+}
+
 // ── ExecTrace ─────────────────────────────────────────────────────────────
 
 export class ExecTrace extends BaseView {
@@ -259,24 +290,9 @@ export class ExecTrace extends BaseView {
         const hasArray = [...arrayVarNames].some(arrName => envMap.has(arrName));
         html += `<td class="et-td et-col-diagram"><div class="et-diag-scroll"${hasArray ? ` data-row="${r}"` : ''}></div></td>`;
         if (hasArray) {
-          this.#diagramHtml.set(r, () => {
-            let diagramHtml = '';
-            for (const arrName of arrayVarNames) {
-              const arr = envMap.get(arrName);
-              const ptrByName = detectPointerVars(envMap, arr, subscriptVars, arrayVarNames);
-              // Arrays ビューと同じく、ポインタが無くてもスコープにある配列は描画する
-              // （`table[3] = 25;` のように添字がリテラルだとポインタが検出されないため。ADR-048）
-              if (!envMap.has(arrName)) continue;
-              const maxVal = Array.isArray(arr)
-                ? arr.reduce((m, v) => typeof v === 'number' && isFinite(v) ? Math.max(m, Math.abs(v)) : m, 0)
-                : 0;
-              diagramHtml += renderArrayGrid({
-                arrName, arr, ptrByName, cellPx: diagramCellPx, fontPx: DIAGRAM_FONT_PX, maxVal, emptyText: '',
-                idxHeightPx: DIAGRAM_IDX_H_PX, valHeightPx: DIAGRAM_VAL_H_PX, ptrHeightPx: DIAGRAM_PTR_H_PX,
-              });
-            }
-            return diagramHtml;
-          });
+          this.#diagramHtml.set(r, () => renderRowDiagram({
+            envMap, arrayVarNames, subscriptVars, cellPx: diagramCellPx,
+          }));
         }
       }
 
