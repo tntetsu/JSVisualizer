@@ -9,7 +9,8 @@
  */
 
 import { BaseView }                      from '../base-view.js';
-import { formatValue, BUILTIN_NAMES, esc, isTDZ, isJSFunction, isJSClass, mergeScopesForDisplay } from '../../utils/format.js';
+import { formatValue, BUILTIN_NAMES, esc, mergeScopesForDisplay } from '../../utils/format.js';
+import { vm, isContainer, truncLiteral }  from '../../utils/value-model.js';
 import { t }                             from '../../i18n.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -23,19 +24,14 @@ function svgEl(tag, attrs = {}) {
   return el;
 }
 
-/** ヒープに乗るべき値か（オブジェクト・配列、関数除く） */
+/** ヒープに乗るべき値か（オブジェクト・配列・dict など、関数除く） */
 function isHeapVal(v) {
-  if (v === null || v === undefined) return false;
-  if (typeof v === 'function')       return false;
-  if (typeof v !== 'object')         return false;
-  if (v.__type__ === 'JSFunction' || v.__type__ === 'JSClass') return false;
-  return true;
+  return isContainer(v);
 }
 
 /** ヒープエントリのラベル */
 function heapLabel(v) {
-  if (Array.isArray(v)) return `Array[${v.length}]`;
-  return 'Object';
+  return vm().label(v);
 }
 
 /**
@@ -62,10 +58,8 @@ function buildHeap(scopes) {
     const entry = { id, ref: v, label: heapLabel(v), entries: [] };
     heap.push(entry);
 
-    const isArr    = Array.isArray(v);
-    const rawEntries = isArr
-      ? v.slice(0, 24).map((x, i) => [i, x])
-      : Object.entries(v).filter(([k]) => !k.startsWith('__')).slice(0, 12);
+    const isArr    = vm().kind(v) === 'sequence';
+    const rawEntries = vm().entries(v).slice(0, isArr ? 24 : 12);
 
     for (const [k, x] of rawEntries) {
       const childId = depth < 5 ? register(x, depth + 1) : null;
@@ -87,18 +81,18 @@ function buildHeap(scopes) {
 
 /** プリミティブ値の短い HTML 表現 */
 function fmtPrim(v) {
-  if (isTDZ(v)) return '<span class="lt-empty">—</span>';   // 宣言前の let/const（ADR-038）
-  if (v === undefined) return '<span class="v-undef">undef</span>';
-  if (v === null)      return '<span class="v-null">null</span>';
-  if (typeof v === 'boolean') return `<span class="v-bool">${v}</span>`;
-  if (typeof v === 'number')  return `<span class="v-num">${v}</span>`;
-  if (typeof v === 'string') {
-    const s = JSON.stringify(v);
-    return `<span class="v-str">${esc(s.length > 14 ? s.slice(0, 13) + '…"' : s)}</span>`;
+  const m = vm();
+  switch (m.kind(v)) {
+    case 'tdz':       return '<span class="lt-empty">—</span>';   // 宣言前の let/const（ADR-038）
+    case 'undefined': return '<span class="v-undef">undef</span>';
+    case 'none':      return `<span class="v-null">${m.literal(v)}</span>`;
+    case 'bool':      return `<span class="v-bool">${m.literal(v)}</span>`;
+    case 'number':    return `<span class="v-num">${m.literal(v)}</span>`;
+    case 'string':    return `<span class="v-str">${esc(truncLiteral(m.literal(v), 14))}</span>`;
+    case 'function':  return `<span class="v-fn">ƒ ${esc(v.name || '(anonymous)')}</span>`;
+    case 'class':     return `<span class="v-fn">class ${esc(v.name || '(anonymous)')}</span>`;
+    case 'native':    return '<span class="v-fn">[native]</span>';
   }
-  if (isJSFunction(v)) return `<span class="v-fn">ƒ ${esc(v.name || '(anonymous)')}</span>`;
-  if (isJSClass(v))    return `<span class="v-fn">class ${esc(v.name || '(anonymous)')}</span>`;
-  if (typeof v === 'function') return '<span class="v-fn">[native]</span>';
   return `<span>${esc(String(v))}</span>`;
 }
 
@@ -263,8 +257,9 @@ export class MemoryView extends BaseView {
         }
       }
 
-      const overflow = item.ref && Array.isArray(item.ref) && item.ref.length > 24
-        ? `<span class="mv-heap-overflow">+${item.ref.length - 24}…</span>` : '';
+      const seqLen = item.ref && vm().kind(item.ref) === 'sequence' ? vm().length(item.ref) : 0;
+      const overflow = seqLen > 24
+        ? `<span class="mv-heap-overflow">+${seqLen - 24}…</span>` : '';
       html += `${overflow}</div></div>`;
     }
 

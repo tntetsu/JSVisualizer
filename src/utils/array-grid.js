@@ -6,6 +6,7 @@
  * を再利用できるようにする。HTML生成は `.cb-*` CSSクラス（web/style.css）を使う。
  */
 
+import { vm, isObjectLike } from './value-model.js';
 import { BUILTIN_NAMES, esc, formatValue } from './format.js';
 
 /** 識別子のうち、変数ではないもの（右辺から拾わない） */
@@ -170,17 +171,17 @@ export function renderArrayGrid({
   for (let i = 0; i < arr.length; i++) {
     const v      = arr[i];
     const isHl   = highlightedSet.has(i);
-    const bgColor = typeof v === 'number'
-      ? `background:${valueToBoxColor(v, maxVal)};`
+    const kind   = vm().kind(v);
+    const bgColor = kind === 'number'
+      ? `background:${valueToBoxColor(vm().numberValue(v), maxVal)};`
       : '';
     const hlCls  = isHl ? ' cb-cell--hl' : '';
-    const isObj  = v !== null && typeof v === 'object';
+    const isObj  = isObjectLike(v);
     // undefined（値を入れていない要素・穴）は「—」で示す。文字が長くマスに収まらないため（ADR-054）
-    const isUndef = v === undefined;
+    const isUndef = kind === 'undefined';
     const content = isUndef ? '—'
-                  : typeof v === 'number' ? esc(String(v))
-                  : typeof v === 'string' ? esc(v)
-                  : typeof v === 'boolean' ? esc(String(v))
+                  : kind === 'string' ? esc(v)
+                  : kind === 'number' || kind === 'bool' || kind === 'none' ? esc(vm().literal(v))
                   : isObj ? formatValue(v)
                   : esc(String(v));
     const objCls = isObj ? ' cb-cell--obj' : isUndef ? ' cb-cell--undef' : '';

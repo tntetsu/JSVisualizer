@@ -14,6 +14,7 @@
  * 条件列: 行が条件文 enter / ループ条件式の humanStep を含むときだけ値を表示、それ以外は空
  */
 
+import { vm } from '../../utils/value-model.js';
 import { BaseView } from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES, formatValue, formatValueDiff, esc } from '../../utils/format.js';
 import { computeSubscriptVars, detectPointerVars, renderArrayGrid } from '../../utils/array-grid.js';
@@ -147,7 +148,7 @@ export function renderRowDiagram({ envMap, arrayVarNames, subscriptVars, cellPx 
     const arr = envMap.get(arrName);
     const ptrByName = detectPointerVars(envMap, arr, subscriptVars, arrayVarNames);
     const maxVal = Array.isArray(arr)
-      ? arr.reduce((m, v) => typeof v === 'number' && isFinite(v) ? Math.max(m, Math.abs(v)) : m, 0)
+      ? arr.reduce((m, v) => vm().kind(v) === 'number' && isFinite(vm().numberValue(v)) ? Math.max(m, Math.abs(vm().numberValue(v))) : m, 0)
       : 0;
     html += renderArrayGrid({
       arrName, arr, ptrByName, cellPx, fontPx: DIAGRAM_FONT_PX, maxVal, emptyText: '',
@@ -308,7 +309,7 @@ export class ExecTrace extends BaseView {
       // 条件列（この step が該当条件を評価したときだけ値を表示）
       for (const cond of condNames) {
         if (condInfo && condInfo.text === cond) {
-          html += `<td class="et-td et-col-cond"><span class="v-bool">${condInfo.value}</span></td>`;
+          html += `<td class="et-td et-col-cond"><span class="v-bool">${vm().literal(condInfo.value)}</span></td>`;
         } else {
           html += '<td class="et-td et-col-cond"></td>';
         }

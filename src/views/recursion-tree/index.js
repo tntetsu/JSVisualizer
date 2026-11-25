@@ -9,6 +9,7 @@
  *   rt-node--done    … 戻り値が確定済み（緑）
  */
 
+import { vm, truncLiteral } from '../../utils/value-model.js';
 import { BaseView } from '../base-view.js';
 import { t }        from '../../i18n.js';
 
@@ -31,20 +32,28 @@ function svgEl(tag, attrs = {}) {
 
 /** 引数値を読みやすい文字列にフォーマット（配列要素を展開） */
 function fmtArg(v, maxLen = 18) {
-  if (v === undefined || v === null) return String(v);
-  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
-  if (typeof v === 'string') {
-    const s = JSON.stringify(v);
-    return s.length > maxLen ? s.slice(0, maxLen - 1) + '…"' : s;
-  }
-  if (Array.isArray(v)) {
-    if (v.length === 0) return '[]';
-    const elems = v.slice(0, 4).map(e => fmtArg(e, 6)).join(', ');
-    return v.length > 4 ? `[${elems}, …]` : `[${elems}]`;
-  }
-  if (typeof v === 'object') {
-    const keys = Object.keys(v).filter(k => !k.startsWith('__'));
-    return keys.length === 0 ? '{}' : `{${keys[0]}:…}`;
+  const m = vm();
+  switch (m.kind(v)) {
+    case 'undefined':
+    case 'none':
+    case 'bool':
+    case 'number':   return m.literal(v);
+    case 'string':   return truncLiteral(m.literal(v), maxLen);
+    case 'sequence': {
+      const [open, close] = m.brackets(v);
+      const all = m.entries(v);
+      if (all.length === 0) return open + close;
+      const elems = all.slice(0, 4).map(([, e]) => fmtArg(e, 6)).join(', ');
+      return all.length > 4 ? `${open}${elems}, …${close}` : `${open}${elems}${close}`;
+    }
+    case 'mapping':
+    case 'object':
+    case 'function':
+    case 'class': {
+      const [open, close] = m.brackets(v);
+      const entries = m.entries(v);
+      return entries.length === 0 ? open + close : `${open}${entries[0][0]}:…${close}`;
+    }
   }
   return String(v).slice(0, maxLen);
 }

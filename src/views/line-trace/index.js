@@ -10,6 +10,7 @@
  * #rebuildColumns() は変数列を条件列の直前に insertBefore で挿入する。
  */
 
+import { vm } from '../../utils/value-model.js';
 import { BaseView }                           from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES, formatValue, formatValueDiff, esc } from '../../utils/format.js';
 import { t, getLang }                         from '../../i18n.js';
@@ -370,7 +371,7 @@ export class Variable extends BaseView {
         const val = condState?.get(this.#condMeta[ci]);
         condCellEl.innerHTML = val === undefined
           ? ''
-          : `<span class="v-bool">${val}</span>`;
+          : `<span class="v-bool">${vm().literal(val)}</span>`;
       }
     }
   }

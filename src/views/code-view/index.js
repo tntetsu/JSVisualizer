@@ -15,6 +15,8 @@
  *      → 「どこから呼ばれたか」を一目で把握できる。
  */
 
+import { getLanguage } from '../../lang/index.js';
+
 /** HTML エスケープ */
 function esc(s) {
   return s
@@ -23,14 +25,10 @@ function esc(s) {
     .replace(/>/g, '&gt;');
 }
 
-const TOKEN_PATTERNS = [
-  { cls: 'tok-comment', re: /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/g },
-  { cls: 'tok-string',  re: /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g },
-  { cls: 'tok-number',  re: /\b(\d+(?:\.\d+)?)\b/g },
-  { cls: 'tok-keyword', re: /\b(function|return|if|else|while|for|let|const|var|new|class|extends|import|export|break|continue|null|undefined|true|false|this|of|in|typeof|instanceof|throw|try|catch|finally|async|await)\b/g },
-];
+// 色分けの規則は言語プロファイルの syntaxTokens（JS は lang/javascript.js）
 
 function highlightSyntax(source) {
+  const TOKEN_PATTERNS = getLanguage().syntaxTokens;
   const placeholders = [];
   let s = source;
 

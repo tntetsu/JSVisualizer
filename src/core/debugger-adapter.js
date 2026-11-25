@@ -1,5 +1,5 @@
 /**
- * debugger-adapter.js — JSDebugger ラッパー
+ * debugger-adapter.js — デバッガー（言語プロファイルの Debugger。JS は JSDebugger）のラッパー
  *
  * 責務:
  *  - JSDebugger のライフサイクル管理（load / moveTo）
@@ -8,7 +8,8 @@
  *  - 'ready' / 'step' カスタムイベントの発火
  */
 
-import { JSDebugger, ExecutionError } from '../../web/interpreter.bundle.js';
+import { getLanguage } from '../lang/index.js';
+import { joinConsoleLines } from '../utils/console-lines.js';
 
 // ── ヘルパー ────────────────────────────────────────────────────────────────
 
@@ -105,16 +106,18 @@ export class DebuggerAdapter extends EventTarget {
    */
   load(source) {
     try {
-      this.#dbg = new JSDebugger(source, { maxSteps: 50_000 });
+      const { Debugger } = getLanguage();
+      this.#dbg = new Debugger(source, { maxSteps: 50_000 });
       this.#prevFlat = new Map();
       this.dispatchEvent(new CustomEvent('ready', { detail: this.#buildState([]) }));
     } catch (err) {
       this.#dbg = null;
       // 実行エラー（maxSteps 超過・スタックオーバーフロー等）:
       // 部分トレースで閲覧可能にしてからエラーバッジを表示する
+      const { Debugger, ExecutionError } = getLanguage();
       if (err instanceof ExecutionError) {
         if (err.partialTrace?.length > 0) {
-          this.#dbg = JSDebugger.fromTrace(
+          this.#dbg = Debugger.fromTrace(
             err.partialSource, err.partialTrace, err.partialAst, err.partialConsoleLogs
           );
           this.#prevFlat = new Map();
@@ -248,7 +251,7 @@ export class DebuggerAdapter extends EventTarget {
       frameEnvs:     snap?.frameEnvs ?? [],
       globalBlockVars: snap?.globalBlockVars ?? {},
       changedVars,
-      consoleOutput: this.#dbg.getConsoleOutput(),
+      consoleOutput: joinConsoleLines(this.#dbg.getConsoleOutput()),
       done:          this.#dbg.isDone(),
       error:         null,
     };

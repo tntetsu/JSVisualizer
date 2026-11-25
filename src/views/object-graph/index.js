@@ -16,7 +16,8 @@
  */
 
 import { BaseView }              from '../base-view.js';
-import { BUILTIN_NAMES, esc, isTDZ, isJSFunction, isJSClass } from '../../utils/format.js';
+import { BUILTIN_NAMES, esc } from '../../utils/format.js';
+import { vm, isContainer, truncLiteral } from '../../utils/value-model.js';
 import { t }                     from '../../i18n.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -48,26 +49,24 @@ const NODE_BG = [
  * 値がヒープに乗るオブジェクト/配列か
  */
 function isHeapObj(v) {
-  if (v === null || v === undefined) return false;
-  if (typeof v === 'function')       return false;
-  if (typeof v !== 'object')         return false;
-  if (v.__type__ === 'JSFunction' || v.__type__ === 'JSClass') return false;
-  return true;
+  return isContainer(v);
 }
 
 /**
  * プリミティブ値の短いテキスト表現
  */
 export function fmtVal(v) {
-  if (isTDZ(v)) return '—';   // 宣言前の let/const（ADR-038）
-  if (v === undefined) return 'undef';
-  if (v === null)      return 'null';
-  if (typeof v === 'string') {
-    const s = JSON.stringify(v);
-    return s.length > 12 ? s.slice(0, 11) + '…"' : s;
+  const m = vm();
+  switch (m.kind(v)) {
+    case 'tdz':       return '—';   // 宣言前の let/const（ADR-038）
+    case 'undefined': return 'undef';
+    case 'none':      return m.literal(v);
+    case 'string':    return truncLiteral(m.literal(v), 12);
+    case 'function':  return `ƒ ${v.name || '(anonymous)'}`;
+    case 'class':     return `class ${v.name || '(anonymous)'}`;
+    case 'bool':
+    case 'number':    return m.literal(v);
   }
-  if (isJSFunction(v)) return `ƒ ${v.name || '(anonymous)'}`;
-  if (isJSClass(v))    return `class ${v.name || '(anonymous)'}`;
   return String(v);
 }
 
@@ -104,11 +103,8 @@ export function buildGraph(variables, scopes, { callStack = [], frameEnvs = [], 
     const id = String(nextId++);
     refToId.set(v, id);
 
-    const isArr   = Array.isArray(v);
-    const label   = isArr ? `Array[${v.length}]` : 'Object';
-    const rawList = isArr
-      ? v.slice(0, MAX_PROPS).map((x, i) => [String(i), x])
-      : Object.entries(v).filter(([k]) => !k.startsWith('__')).slice(0, MAX_PROPS);
+    const label   = vm().label(v);
+    const rawList = vm().entries(v).slice(0, MAX_PROPS).map(([k, x]) => [String(k), x]);
 
     // ノードを先に登録してから rows を埋める（循環参照対策）
     const node = { id, ref: v, label, rows: [], x: 0, y: 0 };
@@ -118,7 +114,7 @@ export function buildGraph(variables, scopes, { callStack = [], frameEnvs = [], 
       if (isHeapObj(x) && depth < 6) {
         const childId = register(x, depth + 1);
         if (childId !== null) {
-          node.rows.push({ key: k, displayVal: isHeapObj(x) ? `→ ${Array.isArray(x) ? 'Array' : 'Obj'}` : fmtVal(x), childId });
+          node.rows.push({ key: k, displayVal: isHeapObj(x) ? `→ ${vm().shortLabel(x)}` : fmtVal(x), childId });
           const eKey = `${id}->${childId}:${k}`;
           if (!edgeSet.has(eKey)) {
             edgeSet.add(eKey);
@@ -133,7 +129,7 @@ export function buildGraph(variables, scopes, { callStack = [], frameEnvs = [], 
     }
 
     // 省略した要素の表示
-    const total = isArr ? v.length : Object.keys(v).length;
+    const total = vm().length(v, { hidden: true });
     if (total > MAX_PROPS) {
       node.rows.push({ key: '…', displayVal: `+${total - MAX_PROPS}`, childId: null });
     }

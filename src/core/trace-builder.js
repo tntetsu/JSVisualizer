@@ -6,6 +6,7 @@
  */
 
 import { flattenEnv, BUILTIN_NAMES } from '../utils/format.js';
+import { getLanguage } from '../lang/index.js';
 
 /** 関数・クラス値か判定（列/変数に載せない対象） */
 function isFunctionVal(v) {
@@ -81,24 +82,11 @@ export class TraceBuilder {
 
     const set = new Set();
 
-    // WhileStatement / ForStatement は条件式評価ごとに個別追加するため除外
-    const HUMAN_ENTER_TYPES = new Set([
-      'ExpressionStatement',
-      'IfStatement',
-      'ForOfStatement',
-      'ForInStatement',
-      'BreakStatement',
-      'ContinueStatement',
-    ]);
-
-    const HUMAN_EXIT_TYPES = new Set([
-      'VariableDeclaration',
-      'AssignmentExpression',
-      'UpdateExpression',
-      'ReturnStatement',
-      'ThrowStatement',
-      'CallExpression',
-    ]);
+    // 行を作るノード型は言語プロファイルの traceRowTypes（JS は lang/javascript.js）。
+    // WhileStatement / ForStatement は条件式評価ごとに個別追加するため enter には含めない
+    const { enter, exit } = getLanguage().traceRowTypes;
+    const HUMAN_ENTER_TYPES = new Set(enter);
+    const HUMAN_EXIT_TYPES  = new Set(exit);
 
     for (let i = 0; i < this.#trace.length; i++) {
       const ev = this.#trace[i];

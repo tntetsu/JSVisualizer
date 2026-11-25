@@ -24,10 +24,16 @@ JSVisualizer/
 │   │   ├── trace-builder.js      # 全トレースデータの事前集計（8メソッド）
 │   │   └── session-logger.js     # 操作ログ記録（評価実験用）JSON/CSV エクスポート
 │   ├── i18n.js                   # 日英表示切替（STRINGS/t/getLang/setLang・langchange イベント）
+│   ├── lang/                     # 言語プロファイル（ADR-055）。既定は JS。PyVisualizer は app.js より先に setLanguage() で Python を登録する
+│   │   ├── index.js              # setLanguage / getLanguage（LanguageProfile・ValueModel の型の説明）
+│   │   ├── javascript.js         # JS のプロファイル（JSDebugger・エディタ・色分け・traceRowTypes・valueModel）
+│   │   └── javascript-samples.js # JS の組み込みサンプル（code-editor.js からも SAMPLES を再 export）
 │   ├── utils/
 │   │   ├── format.js             # formatValueDiff・mergeScopesForDisplay 等の表示整形ヘルパー
 │   │   ├── array-grid.js         # 配列＋ポインタのグリッド描画（Arrays・ExecTrace共通、ADR-037）
-│   │   └── line-exec.js          # humanStep を文の実行単位にまとめる（Heatmap・ExecTrace共通）
+│   │   ├── line-exec.js          # humanStep を文の実行単位にまとめる（Heatmap・ExecTrace共通）
+│   │   ├── value-model.js        # 値の見せ方（言語プロファイルの valueModel）を使う vm()。ビューは値の判定・書き方にこれを使う（ADR-055）
+│   │   └── console-lines.js      # コンソール出力の断片（行の途中で終わる出力）を行にまとめる（ADR-055）
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
 │   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅
 │   │   ├── state-view/           # コールスタックビュー（CallStackView・Global疑似フレーム＋関数フレーム）✅ ← タブ「コールスタック」

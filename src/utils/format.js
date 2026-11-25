@@ -1,6 +1,9 @@
 /**
  * format.js — 値フォーマット・HTML エスケープ共有ユーティリティ
+ *
+ * 値の種類と書き方は言語プロファイルの valueModel（utils/value-model.js の vm()）に尋ねる。
  */
+import { vm, truncLiteral } from './value-model.js';
 
 export const BUILTIN_NAMES = new Set([
   'undefined', 'NaN', 'Infinity',
@@ -48,29 +51,36 @@ export function isTDZ(v) {
  * @returns {string}
  */
 export function formatValue(v, depth = 0) {
-  if (isTDZ(v))                return '<span class="lt-empty">—</span>';
-  if (v === undefined)         return '<span class="v-undef">undefined</span>';
-  if (v === null)              return '<span class="v-null">null</span>';
-  if (typeof v === 'boolean')  return `<span class="v-bool">${v}</span>`;
-  if (typeof v === 'number')   return `<span class="v-num">${v}</span>`;
-  if (typeof v === 'string')   return `<span class="v-str">${esc(JSON.stringify(v))}</span>`;
-  if (isJSFunction(v))         return `<span class="v-fn">ƒ ${esc(v.name || '(anonymous)')}</span>`;
-  if (isJSClass(v))            return `<span class="v-fn">class ${esc(v.name || '(anonymous)')}</span>`;
-  if (typeof v === 'function') return '<span class="v-fn">[native]</span>';
-  if (Array.isArray(v)) {
-    if (depth > 0) return '<span class="v-obj">[…]</span>';
-    const items = v.slice(0, 8).map(x => formatValue(x, depth + 1)).join(', ');
-    const more  = v.length > 8 ? `, <span class="v-muted">+${v.length - 8}</span>` : '';
-    return `<span class="v-obj">[${items}${more}]</span>`;
-  }
-  if (typeof v === 'object') {
-    if (depth > 0) return '<span class="v-obj">{…}</span>';
-    const entries = Object.entries(v).slice(0, 4);
-    const items   = entries.map(([k, val]) =>
-      `<span class="v-key">${esc(k)}</span>: ${formatValue(val, depth + 1)}`
-    ).join(', ');
-    const more = Object.keys(v).length > 4 ? ', …' : '';
-    return `<span class="v-obj">{ ${items}${more} }</span>`;
+  const m = vm();
+  switch (m.kind(v)) {
+    case 'tdz':       return '<span class="lt-empty">—</span>';
+    case 'undefined': return `<span class="v-undef">${m.literal(v)}</span>`;
+    case 'none':      return `<span class="v-null">${m.literal(v)}</span>`;
+    case 'bool':      return `<span class="v-bool">${m.literal(v)}</span>`;
+    case 'number':    return `<span class="v-num">${m.literal(v)}</span>`;
+    case 'string':    return `<span class="v-str">${esc(m.literal(v))}</span>`;
+    case 'function':  return `<span class="v-fn">ƒ ${esc(v.name || '(anonymous)')}</span>`;
+    case 'class':     return `<span class="v-fn">class ${esc(v.name || '(anonymous)')}</span>`;
+    case 'native':    return '<span class="v-fn">[native]</span>';
+    case 'sequence': {
+      const [open, close] = m.brackets(v);
+      if (depth > 0) return `<span class="v-obj">${open}…${close}</span>`;
+      const all   = m.entries(v);
+      const items = all.slice(0, 8).map(([, x]) => formatValue(x, depth + 1)).join(', ');
+      const more  = all.length > 8 ? `, <span class="v-muted">+${all.length - 8}</span>` : '';
+      return `<span class="v-obj">${open}${items}${more}${close}</span>`;
+    }
+    case 'mapping':
+    case 'object': {
+      const [open, close] = m.brackets(v);
+      if (depth > 0) return `<span class="v-obj">${open}…${close}</span>`;
+      const entries = m.entries(v, { hidden: true }).slice(0, 4);
+      const items   = entries.map(([k, val]) =>
+        `<span class="v-key">${esc(k)}</span>: ${formatValue(val, depth + 1)}`
+      ).join(', ');
+      const more = m.length(v, { hidden: true }) > 4 ? ', …' : '';
+      return `<span class="v-obj">${open} ${items}${more} ${close}</span>`;
+    }
   }
   return `<span>${esc(String(v))}</span>`;
 }
@@ -82,25 +92,34 @@ export function formatValue(v, depth = 0) {
  * @returns {string}
  */
 export function formatPlain(v, depth = 0) {
-  if (isTDZ(v))        return '';
-  if (v === undefined) return 'undefined';
-  if (v === null)      return 'null';
-  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
-  if (typeof v === 'string') return JSON.stringify(v);
-  if (isJSFunction(v) || isJSClass(v) || typeof v === 'function') return 'ƒ';
-  if (Array.isArray(v)) {
-    if (depth >= 3) return '[…]';
-    if (v.length === 0) return '[]';
-    const elems = v.slice(0, 6).map(x => formatPlain(x, depth + 1)).join(', ');
-    return '[' + elems + (v.length > 6 ? ', …' : '') + ']';
-  }
-  if (typeof v === 'object') {
-    if (depth >= 3) return '{…}';
-    const entries = Object.entries(v)
-      .filter(([k, x]) => !k.startsWith('__') && !isJSFunction(x) && !isJSClass(x) && typeof x !== 'function');
-    if (entries.length === 0) return '{}';
-    const items = entries.slice(0, 6).map(([k, x]) => `${k}: ${formatPlain(x, depth + 1)}`).join(', ');
-    return '{ ' + items + (entries.length > 6 ? ', …' : '') + ' }';
+  const m = vm();
+  switch (m.kind(v)) {
+    case 'tdz':       return '';
+    case 'undefined':
+    case 'none':
+    case 'bool':
+    case 'number':
+    case 'string':    return m.literal(v);
+    case 'function':
+    case 'class':
+    case 'native':    return 'ƒ';
+    case 'sequence': {
+      const [open, close] = m.brackets(v);
+      if (depth >= 3) return `${open}…${close}`;
+      const all = m.entries(v);
+      if (all.length === 0) return open + close;
+      const elems = all.slice(0, 6).map(([, x]) => formatPlain(x, depth + 1)).join(', ');
+      return open + elems + (all.length > 6 ? ', …' : '') + close;
+    }
+    case 'mapping':
+    case 'object': {
+      const [open, close] = m.brackets(v);
+      if (depth >= 3) return `${open}…${close}`;
+      const entries = m.entries(v).filter(([, x]) => !['function', 'class', 'native'].includes(m.kind(x)));
+      if (entries.length === 0) return open + close;
+      const items = entries.slice(0, 6).map(([k, x]) => `${k}: ${formatPlain(x, depth + 1)}`).join(', ');
+      return `${open} ` + items + (entries.length > 6 ? ', …' : '') + ` ${close}`;
+    }
   }
   return String(v);
 }
@@ -122,34 +141,41 @@ function valEqual(a, b) {
  * @returns {string}  HTML 文字列
  */
 export function formatValueDiff(val, prevVal) {
-  if (isTDZ(val))         return '<span class="lt-empty">—</span>';
-  if (val === undefined) return '<span class="v-undef">undefined</span>';
-  if (val === null)      return '<span class="v-null">null</span>';
-  if (isJSFunction(val)) return `<span class="v-fn">ƒ ${esc(val.name || '(anonymous)')}</span>`;
-  if (isJSClass(val))    return `<span class="v-fn">class ${esc(val.name || '(anonymous)')}</span>`;
-  if (typeof val === 'function') return '<span class="v-fn">[native]</span>';
+  const m = vm();
+  const kind = m.kind(val);
+  switch (kind) {
+    case 'tdz':       return '<span class="lt-empty">—</span>';
+    case 'undefined': return `<span class="v-undef">${m.literal(val)}</span>`;
+    case 'none':      return `<span class="v-null">${m.literal(val)}</span>`;
+    case 'function':  return `<span class="v-fn">ƒ ${esc(val.name || '(anonymous)')}</span>`;
+    case 'class':     return `<span class="v-fn">class ${esc(val.name || '(anonymous)')}</span>`;
+    case 'native':    return '<span class="v-fn">[native]</span>';
+  }
 
-  if (Array.isArray(val)) {
-    const prev  = Array.isArray(prevVal) ? prevVal : [];
-    const items = val.slice(0, 8).map((x, i) => {
+  if (kind === 'sequence') {
+    const [open, close] = m.brackets(val);
+    const prev  = m.kind(prevVal) === 'sequence' ? m.entries(prevVal).map(([, x]) => x) : [];
+    const all   = m.entries(val);
+    const items = all.slice(0, 8).map(([, x], i) => {
       const cell = formatValue(x, 1);
       return valEqual(x, prev[i]) ? cell : `<b class="v-diff">${cell}</b>`;
     });
-    const more = val.length > 8
-      ? `, <span class="v-muted">+${val.length - 8}</span>` : '';
-    return `<span class="v-obj">[${items.join(', ')}${more}]</span>`;
+    const more = all.length > 8
+      ? `, <span class="v-muted">+${all.length - 8}</span>` : '';
+    return `<span class="v-obj">${open}${items.join(', ')}${more}${close}</span>`;
   }
 
-  if (typeof val === 'object') {
-    const prev    = (prevVal !== null && typeof prevVal === 'object' && !Array.isArray(prevVal))
-      ? prevVal : {};
-    const entries = Object.entries(val).slice(0, 4);
+  if (kind === 'mapping' || kind === 'object') {
+    const [open, close] = m.brackets(val);
+    const prevKind = m.kind(prevVal);
+    const prev    = new Map(prevKind === 'mapping' || prevKind === 'object' ? m.entries(prevVal, { hidden: true }) : []);
+    const entries = m.entries(val, { hidden: true }).slice(0, 4);
     const items   = entries.map(([k, v]) => {
       const fmt = `<span class="v-key">${esc(k)}</span>: ${formatValue(v, 1)}`;
-      return valEqual(v, prev[k]) ? fmt : `<b class="v-diff">${fmt}</b>`;
+      return valEqual(v, prev.get(k)) ? fmt : `<b class="v-diff">${fmt}</b>`;
     });
-    const more = Object.keys(val).length > 4 ? ', …' : '';
-    return `<span class="v-obj">{ ${items.join(', ')}${more} }</span>`;
+    const more = m.length(val, { hidden: true }) > 4 ? ', …' : '';
+    return `<span class="v-obj">${open} ${items.join(', ')}${more} ${close}</span>`;
   }
 
   // スカラー（number, boolean, string）
@@ -179,18 +205,28 @@ export function flattenEnv(envChain) {
  * @returns {string}
  */
 function fmtArgPlain(v) {
-  if (v === undefined || v === null) return String(v);
-  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
-  if (typeof v === 'string') {
-    const s = JSON.stringify(v);
-    return s.length > 10 ? s.slice(0, 9) + '…"' : s;
+  const m = vm();
+  switch (m.kind(v)) {
+    case 'undefined':
+    case 'none':
+    case 'bool':
+    case 'number':    return m.literal(v);
+    case 'string':    return truncLiteral(m.literal(v), 10);
+    case 'sequence': {
+      const [open, close] = m.brackets(v);
+      const all = m.entries(v);
+      if (all.length === 0) return open + close;
+      const elems = all.slice(0, 3).map(([, e]) => fmtArgPlain(e)).join(', ');
+      return all.length > 3 ? `${open}${elems}, …${close}` : `${open}${elems}${close}`;
+    }
+    case 'mapping':
+    case 'object':
+    case 'function':
+    case 'class': {
+      const [open, close] = m.brackets(v);
+      return `${open}…${close}`;
+    }
   }
-  if (Array.isArray(v)) {
-    if (v.length === 0) return '[]';
-    const elems = v.slice(0, 3).map(e => fmtArgPlain(e)).join(', ');
-    return v.length > 3 ? `[${elems}, …]` : `[${elems}]`;
-  }
-  if (typeof v === 'object') return '{…}';
   return String(v).slice(0, 12);
 }
 

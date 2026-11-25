@@ -7,6 +7,7 @@
  * 縦線 = 現在の humanStep カーソル位置
  */
 
+import { vm } from '../../utils/value-model.js';
 import { BaseView } from '../base-view.js';
 import { esc, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
 import { t } from '../../i18n.js';
@@ -39,30 +40,37 @@ function svgEl(tag, attrs = {}) {
 
 /** 値をプレーン文字列に変換（バー内表示用） */
 function fmtPlain(v) {
-  if (v === null)      return 'null';
-  if (v === undefined) return 'undefined';
-  if (typeof v === 'function') return '[native fn]';
-  if (typeof v !== 'object') {
-    const s = typeof v === 'string' ? JSON.stringify(v) : String(v);
-    return s.length > 18 ? s.slice(0, 17) + '…' : s;
+  const m = vm();
+  const k = m.kind(v);
+  switch (k) {
+    case 'none':
+    case 'undefined': return m.literal(v);
+    case 'native':    return '[native fn]';
+    case 'function':  return '[Function]';
+    case 'class':     return '[Class]';
+    case 'sequence': {
+      const [open, close] = m.brackets(v);
+      const all = m.entries(v);
+      if (!all.length) return open + close;
+      const elems = all.slice(0, 3).map(([, x]) => fmtPlain(x)).join(', ');
+      return all.length > 3 ? `${open}${elems}, …${close}` : `${open}${elems}${close}`;
+    }
+    case 'mapping':
+    case 'object': {
+      const [open, close] = m.brackets(v);
+      const entries = m.entries(v);
+      if (!entries.length) return open + close;
+      const pairs = entries.slice(0, 2).map(([key, x]) => `${key}: ${fmtPlain(x)}`).join(', ');
+      return open + pairs + (entries.length > 2 ? ', …' : '') + close;
+    }
   }
-  if (v.__type__ === 'JSFunction') return '[Function]';
-  if (v.__type__ === 'JSClass')    return '[Class]';
-  if (Array.isArray(v)) {
-    if (!v.length) return '[]';
-    const elems = v.slice(0, 3).map(fmtPlain).join(', ');
-    return v.length > 3 ? `[${elems}, …]` : `[${elems}]`;
-  }
-  const keys = Object.keys(v).filter(k => !k.startsWith('__'));
-  if (!keys.length) return '{}';
-  const pairs = keys.slice(0, 2).map(k => `${k}: ${fmtPlain(v[k])}`).join(', ');
-  return '{' + pairs + (keys.length > 2 ? ', …' : '') + '}';
+  const s = k === 'string' || k === 'bool' || k === 'number' ? m.literal(v) : String(v);
+  return s.length > 18 ? s.slice(0, 17) + '…' : s;
 }
 
 function isJSFunc(v) {
-  return typeof v === 'function' ||
-    (v != null && typeof v === 'object' &&
-      (v.__type__ === 'JSFunction' || v.__type__ === 'JSClass'));
+  const k = vm().kind(v);
+  return k === 'native' || k === 'function' || k === 'class';
 }
 
 /**

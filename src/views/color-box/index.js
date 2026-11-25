@@ -8,6 +8,7 @@
  * - チップで複数の配列変数を同時選択可能
  */
 
+import { vm, isObjectLike } from '../../utils/value-model.js';
 import { BaseView }                                   from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES, esc }              from '../../utils/format.js';
 import { computeSubscriptVars, detectPointerVars, renderArrayGrid } from '../../utils/array-grid.js';
@@ -27,17 +28,21 @@ const OBJ_FONT = 10;
  * @returns {string}
  */
 function formatObjectPlain(v) {
-  if (v === null || v === undefined) return String(v);
-  if (Array.isArray(v)) {
-    if (v.length === 0) return '[]';
-    return '[' + v.map(formatObjectPlain).join(', ') + ']';
+  const m = vm();
+  const k = m.kind(v);
+  if (k === 'sequence') {
+    const [open, close] = m.brackets(v);
+    const all = m.entries(v);
+    if (all.length === 0) return open + close;
+    return open + all.map(([, x]) => formatObjectPlain(x)).join(', ') + close;
   }
-  if (typeof v === 'object') {
-    const entries = Object.entries(v).filter(([k]) => !k.startsWith('__'));
-    if (entries.length === 0) return '{}';
-    return '{' + entries.map(([k, val]) => `${k}: ${formatObjectPlain(val)}`).join(', ') + '}';
+  if (k === 'mapping' || k === 'object' || k === 'function' || k === 'class') {
+    const [open, close] = m.brackets(v);
+    const entries = m.entries(v);
+    if (entries.length === 0) return open + close;
+    return open + entries.map(([key, val]) => `${key}: ${formatObjectPlain(val)}`).join(', ') + close;
   }
-  if (typeof v === 'string') return JSON.stringify(v);
+  if (k === 'none' || k === 'undefined' || k === 'string' || k === 'bool' || k === 'number') return m.literal(v);
   return String(v);
 }
 
@@ -150,8 +155,9 @@ export class Arrays extends BaseView {
         for (let i = 0; i < val.length; i++) {
           const v = val[i];
           if (v === undefined) m.hasUndefined = true;
-          if (typeof v === 'number' && isFinite(v)) m.maxVal = Math.max(m.maxVal, Math.abs(v));
-          else if (v !== null && typeof v === 'object') {
+          const num = vm().kind(v) === 'number' ? vm().numberValue(v) : NaN;
+          if (isFinite(num)) m.maxVal = Math.max(m.maxVal, Math.abs(num));
+          else if (isObjectLike(v)) {
             m.maxObjectTextLen = Math.max(m.maxObjectTextLen, formatObjectPlain(v).length);
           }
         }
