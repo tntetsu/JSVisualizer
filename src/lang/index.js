@@ -25,6 +25,7 @@
  * @property {{label: string, keys: string[]}[]} sampleGroups サンプル選択の optgroup
  * @property {string}   defaultSample    起動時に表示するサンプルのキー
  * @property {{enter: string[], exit: string[]}} traceRowTypes TraceBuilder.buildHumanIndices（Exec Trace などの行）で、enter / exit で行を作るノード型
+ * @property {boolean} [supportsInput] true なら、ソースペインに入力欄を出し、実行時に Debugger へ { stdin } を渡す（Python の input()）
  * @property {ValueModel} valueModel  値の見せ方（ビューは utils/value-model.js の vm() 経由で使う）
  * @property {{cls: string, re: RegExp}[]} syntaxTokens コード表示の色分けの規則。先頭 2 つ（コメント・文字列）は HTML エスケープ前に、残りはエスケープ後に適用する
  *

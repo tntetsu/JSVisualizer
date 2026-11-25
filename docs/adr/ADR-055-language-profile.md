@@ -37,6 +37,8 @@ Python の値（小数・辞書・タプル・`None`）は、そのままでは 
 
 変換しないのは、メモリ・オブジェクトのビューが、値そのものの同一性で「同じオブジェクトを指しているか」を判定しているため。sequence は、どの言語でも JS の配列で表す約束にした（配列のビューが添字でアクセスするため）。
 
+**入力欄（2026-11-25 追記）**：言語プロファイルが `supportsInput: true` のとき（Python の `input()`）、ソースペインのエラー表示の上に入力欄（`components/input-panel.js`）を出し、実行時にその内容を `adapter.load(source, { stdin })` で Debugger に渡す。JS 版のプロファイルは `supportsInput` を持たないので、入力欄は作らず、`load(source)` も従来どおり（JS 版の画面で入力欄が 0 個、ソースペインの HTML が変わらないこと、7 本のサンプル・題材 × 全タブ × 5 位置の画面が main と一致することを確かめた）。
+
 コンソールは、出力の断片（行の途中で終わる出力。JSInterpreter の共通コアの `Recorder.write()`）を行にまとめてから表示する（`utils/console-lines.js`）。JS の出力は断片を含まないので変わらない。
 
 ビューのノード型名の参照は、言語プロファイルに移していない。Python の AST は、意味が同じ構文に ESTree と同じノード型名を使う（PyVisualizer の計画書 2.1 節）。そのため、言語で違うのは実行トレースの行の集合（`traceRowTypes`）だけだった。

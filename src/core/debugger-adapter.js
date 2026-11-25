@@ -103,11 +103,13 @@ export class DebuggerAdapter extends EventTarget {
    * ソースコードをロードして全ステップを記録する。
    * 成功時に 'ready' イベント、失敗時に 'error' イベントを dispatch する。
    * @param {string} source
+   * @param {Object} [options] 言語ごとの実行の指定（Python の stdin など）
    */
-  load(source) {
+  load(source, options = {}) {
     try {
       const { Debugger } = getLanguage();
-      this.#dbg = new Debugger(source, { maxSteps: 50_000 });
+      // options：言語ごとの実行の指定（Python の stdin など。JS 版では渡さない）
+      this.#dbg = new Debugger(source, { maxSteps: 50_000, ...options });
       this.#prevFlat = new Map();
       this.dispatchEvent(new CustomEvent('ready', { detail: this.#buildState([]) }));
     } catch (err) {

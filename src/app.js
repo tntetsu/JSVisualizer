@@ -38,6 +38,8 @@ import { ObjectGraph }      from './views/object-graph/index.js';
 import { SubstTrace }      from './views/subst-trace/index.js';
 import { ExprTrace }       from './views/expr-trace/index.js';
 import { loadExerciseFromQuery, parseQuery } from './core/exercise-source.js';
+import { InputPanel }       from './components/input-panel.js';
+import { getLanguage }      from './lang/index.js';
 
 // ── DOM 参照 ───────────────────────────────────────────────────────────────
 
@@ -324,10 +326,14 @@ function updateConsolePanel(state) {
 
 // ── 実行・リセット ────────────────────────────────────────────────────────
 
+// 入力欄：言語プロファイルが input() に対応しているときだけ作る（JS 版では作らない。ADR-055）
+const inputPanel = getLanguage().supportsInput ? new InputPanel(errorMsg) : null;
+
 function runCode(source) {
   if (!source.trim()) return;
   editor.showError(null);
-  adapter.load(source);
+  if (inputPanel) adapter.load(source, { stdin: inputPanel.value });
+  else adapter.load(source);
   // 先頭ステップに移動して初期状態を表示
   adapter.moveTo(0);
 }

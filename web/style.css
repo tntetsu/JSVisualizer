@@ -3147,3 +3147,28 @@ body {
   fill: var(--text-muted);
   dominant-baseline: middle;
 }
+
+/* ── 入力欄（言語プロファイルが supportsInput のときだけ表示。Python の input()。ADR-055） ── */
+.input-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.input-panel-label {
+  font-size: 11px;
+  color: var(--text-muted, var(--fg-muted, #666));
+}
+.input-panel-text {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  resize: vertical;
+  min-height: 3.2em;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text, inherit);
+}

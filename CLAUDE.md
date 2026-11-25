@@ -56,6 +56,7 @@ JSVisualizer/
 │   │   └── animated-trace/       # アニメーション付きトレース表（実装済み・非アクティブ）
 │   ├── components/
 │   │   ├── code-editor.js        # CodeMirror 6 エディタ（21種サンプル・プログラム名・テーマ連動）
+│   │   ├── input-panel.js        # 入力欄（言語プロファイルが supportsInput のときだけ。Python の input()。ADR-055）
 │   │   ├── pane-resizer.js       # ペインリサイザー（ドラッグで editor/viz 幅を変更・localStorage 永続化）
 │   │   ├── step-controls.js      # ステップ操作バー（2行×4列ボタン＋キーボード）
 │   │   ├── view-switcher.js      # ビュー切り替えタブ（1〜9キー・localStorage復元）

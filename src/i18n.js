@@ -17,6 +17,9 @@ const STRINGS = {
     // ── サンプルセレクト ──────────────────────────────────────
     'sample-ph':             '— サンプル —',
     'editor-hint':           'コードは自由に編集して実行できます',
+    // ── 入力欄（言語プロファイルが supportsInput のとき） ──────
+    'input-label':           '入力（input() で 1 行ずつ読みます）',
+    'input-placeholder':     '例：\n太郎\n20',
     // ── ステップボタンラベル ──────────────────────────────────
     'label-func':            '関数',
     'label-human':           '人',
@@ -78,6 +81,8 @@ const STRINGS = {
     'source-title':          'Source',
     'sample-ph':             '— Sample —',
     'editor-hint':           'You can freely edit and run this code',
+    'input-label':           'Input (read one line per input() call)',
+    'input-placeholder':     'e.g.\nTaro\n20',
     'label-func':            'Func',
     'label-human':           'Human',
     'label-stmt':            'Stmt',
