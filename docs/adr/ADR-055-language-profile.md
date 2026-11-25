@@ -47,6 +47,12 @@ Python の値（小数・辞書・タプル・`None`）は、そのままでは 
 
 **Python だけの文の制御フロー（2026-11-25 追記）**：制御フローのビュー（`CfgBuilder`）は、Python だけのノード型 `DecoratedStatement`（定義と同じ）・`WithStatement`（見出しの行のあとに本体）・`MatchStatement`（`case` を `if … else` の連なり）を描き、その中の関数もスコープとして描く。JS の AST にはこれらのノード型がないので、JS 版は変わらない（PyVisualizer の ADR-012）。
 
+**Java のクラスのメソッド・switch・型を書く宣言（2026-11-25 追記）**：JavaVisualizer（Java 版）の Phase 1 で、Java の AST に合わないビューを直した。
+
+- 制御フローのビュー（`CfgBuilder`）：言語プロファイルに省略できる `controlFlow` を足した。`classMethods: true` なら、`ClassDeclaration` の中の `MethodDefinition`（メソッド・コンストラクタ）をスコープとして描き、プログラムの直下に文がないときはグローバルのスコープを出さない。`switchCases: true` なら、`switch` を見出しの行のあとに `case` ごとの `if … else` の連なり（`default` は最後の `else`）として描く（`break` のない `case` から次へ進むフォールスルーは描かない）。JS のプロファイルは `controlFlow` を持たないので、JS のクラスのメソッドは従来どおり描かず、`switch` も従来どおり 1 つの文として描く
+- 式評価のビュー：宣言の行を `let`・`const`・`var` の正規表現で探していたため、`int x = …` の行が出なかった。正規表現に当てはまらないときだけ、初期化子の式のイベントの位置から、その直前の「名前 =」を読む。JS の宣言は今までどおり正規表現で読む
+- 置換のビューは変えていない。Java のエンジンが、JS・Python と同じく呼び出し先（`f`・`obj.m`）を呼び出しの最初の子として記録し、その値をユーザー定義の関数の印（`__type__: 'JSFunction'`）にした（JavaVisualizer の ADR-003 追記）
+
 ビューのノード型名の参照は、言語プロファイルに移していない。Python の AST は、意味が同じ構文に ESTree と同じノード型名を使う（PyVisualizer の計画書 2.1 節）。そのため、言語で違うのは実行トレースの行の集合（`traceRowTypes`）だけだった。
 
 タブに登録されていないビュー（棒グラフ・タイムライン・トレース表・スコープ・アニメーション）は書き換えていない。

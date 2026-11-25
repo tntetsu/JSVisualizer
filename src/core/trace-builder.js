@@ -457,12 +457,16 @@ class CfgBuilder {
 
   build(ast) {
     const scopes = [];
-    // グローバルスコープ
-    scopes.push({ name: 'global', params: [], items: this.#region(ast.body ?? []) });
+    // グローバルスコープ。クラスの中のメソッドを描く言語（Java）で、プログラムの直下に文がないときは出さない
+    const globalItems = this.#region(ast.body ?? []);
+    if (!(this.#opts.classMethods && globalItems.length === 0)) scopes.push({ name: 'global', params: [], items: globalItems });
     // 各関数定義をスコープとして追加
     this.#collectFuncs(ast.body ?? [], scopes);
     return scopes;
   }
+
+  /** 言語プロファイルの controlFlow（省略できる。JS は持たない）：classMethods・switchCases */
+  get #opts() { return getLanguage().controlFlow ?? {}; }
 
   // ── ID 生成 ───────────────────────────────────────────────────────────────
 
@@ -591,6 +595,29 @@ class CfgBuilder {
         return { type: 'seq', id: this.#id(), children: chain ? [head, chain] : [head] };
       }
 
+      // switch を case ごとの if … else の連なりとして描く（言語プロファイルの controlFlow.switchCases。Java。
+      // JS の switch は従来どおり 1 つの文として描く）。break のない case から次の case へ進む（フォールスルー）は描かない
+      case 'SwitchStatement': {
+        if (!this.#opts.switchCases) return this.#plainStmt(line);
+        const cases = node.cases ?? [];
+        const bodyOf = (c) => (c.consequent ?? []).flatMap(st => this.#body(st));
+        const def = cases.find(c => c.default);
+        const defItems = def ? bodyOf(def) : null;   // default は最後の else として描く
+        let chain = null;
+        for (const c of cases.filter(x => !x.default).reverse()) {
+          const cl = c.loc?.line ?? line;
+          chain = {
+            type: 'if', id: this.#id(),
+            condLine: cl, condLabel: this.#text(cl), execCount: this.#exec(cl),
+            then_: bodyOf(c),
+            else_: chain ? [chain] : defItems,
+          };
+        }
+        const head = { type: 'stmt', id: this.#id(), lineStart: line, lineEnd: line, label: this.#text(line), execCount: this.#exec(line) };
+        const children = [head, ...(chain ? [chain] : defItems ?? [])];
+        return { type: 'seq', id: this.#id(), children };
+      }
+
       case 'BlockStatement': {
         const items = this.#region(node.body ?? []);
         if (items.length === 0) return null;
@@ -598,17 +625,20 @@ class CfgBuilder {
         return { type: 'seq', id: this.#id(), children: items };
       }
 
-      default: {
-        const label = this.#text(line);
-        if (!label) return null;
-        return {
-          type: 'stmt', id: this.#id(),
-          lineStart: line, lineEnd: line,
-          label,
-          execCount: this.#exec(line),
-        };
-      }
+      default: return this.#plainStmt(line);
     }
+  }
+
+  /** 1 行の文 */
+  #plainStmt(line) {
+    const label = this.#text(line);
+    if (!label) return null;
+    return {
+      type: 'stmt', id: this.#id(),
+      lineStart: line, lineEnd: line,
+      label,
+      execCount: this.#exec(line),
+    };
   }
 
   // ── 関数定義を再帰的に収集 ────────────────────────────────────────────────
@@ -661,6 +691,18 @@ class CfgBuilder {
         break;
       case 'BlockStatement':
         this.#collectFuncs(node.body ?? [], scopes);
+        break;
+      // クラスの中のメソッド・コンストラクタ（言語プロファイルの controlFlow.classMethods。Java。
+      // JS のクラスのメソッドは従来どおり描かない）
+      case 'ClassDeclaration':
+        if (!this.#opts.classMethods) break;
+        for (const m of node.body?.body ?? []) {
+          if (m.type !== 'MethodDefinition' || m.value?.body?.type !== 'BlockStatement') continue;
+          const name = m.kind === 'constructor' ? (node.id?.name ?? 'constructor') : (m.key?.name ?? '(anonymous)');
+          const params = (m.value.params ?? []).map(p => this.#pname(p));
+          scopes.push({ name, params, items: this.#region(m.value.body.body ?? []) });
+          this.#collectFuncs(m.value.body.body ?? [], scopes);
+        }
         break;
       // Python だけの文（PyVisualizer の ADR-012）
       case 'DecoratedStatement':

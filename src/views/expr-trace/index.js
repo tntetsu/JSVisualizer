@@ -346,7 +346,7 @@ function buildSectionRows(trace, sourceLines, enterIdx, exitIdx, lineNo, initCol
  *   - WhileStatement        → test 式（イテレーションごとに 1 セクション）
  *   - ReturnStatement       → 引数式（return prefix 付き）
  */
-function buildExpressionSections(trace, sourceLines) {
+export function buildExpressionSections(trace, sourceLines) {
   const sections = [];
 
   for (let i = 0; i < trace.length; i++) {
@@ -374,10 +374,22 @@ function buildExpressionSections(trace, sourceLines) {
       const declLine = sourceLines[ev.loc.line - 1] ?? '';
       const mm = declLine.slice(ev.loc.column - 1)
         .match(/^(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*/);
-      if (!mm) continue;
-      const varName      = mm[1];
+      let varName, initColStart;
+      if (mm) {
+        varName      = mm[1];
+        initColStart = ev.loc.column - 1 + mm[0].length;
+      } else {
+        // 型を書く宣言（Java の int x = …）：初期化子の式（宣言の中の最初の enter）の位置から、
+        // 直前の「名前 =」を読む（ADR-055 追記）
+        const initEv = trace[i + 1];
+        if (!initEv || initEv.phase !== 'enter' || initEv.loc?.line !== ev.loc.line || initEv.callDepth !== ev.callDepth) continue;
+        const before = declLine.slice(ev.loc.column - 1, initEv.loc.column - 1);
+        const m2 = before.match(/([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*$/);
+        if (!m2) continue;
+        varName      = m2[1];
+        initColStart = initEv.loc.column - 1;
+      }
       const lineNo       = ev.loc.line;
-      const initColStart = ev.loc.column - 1 + mm[0].length;
 
       // 初期化式の end 位置をトレースイベントから探索（同行・同 callDepth の最初の enter）
       let srcEndCol = null;
