@@ -43,6 +43,8 @@ Python の値（小数・辞書・タプル・`None`）は、そのままでは 
 
 **値の表記の細部・ループの else（2026-11-25 追記）**：ビューのかっこの組み立て（`utils/format.js`・呼び出しツリー・再帰ツリー・ライフタイム・配列のビューの 16 か所）を、`utils/value-model.js` の `wrapItems()`（かっこと要素の並び）・`elided()`（`{…}`）にまとめた。言語で違う部分は `valueModel` の省略できる項目で与える：`padMapping`（mapping・object のかっこの内側の空白。既定 true）、`emptyText(v)`（要素が 0 個のときの書き方。Python の集合 → `set()`）、`trailingComma(v, count)`（Python の 1 要素の tuple → `(5,)`）。JS のプロファイルはどれも持たないので、各箇所の書き方（空のオブジェクトが `{  }` になることを含む）は変わらない。制御フローのビュー（`CfgBuilder`）は、`while`・`for` の `orelse`（Python のループの `else`）を `else_` として持ち、ループ本体の下に `else` の見出しを付けて描く。JS の AST には `orelse` がないので変わらない。Python 版で見える変化の例とテストは PyVisualizer の ADR-009 にある。
 
+**エラーメッセージの英語化（2026-11-25 追記）**：言語プロファイルに省略できる `localizeError(message, lang)` を足した。エラーの表示欄（`CodeEditor`）は、プロファイルが持っていればそれで、なければ従来どおり `utils/error-message.js` の `localizeErrorMessage`（JSInterpreter のメッセージの英訳。ADR-046）で表示言語に合わせる。JS のプロファイルは持たないので変わらない。Python のメッセージの英訳（CPython と同じ文面）は PyVisualizer の ADR-010 にある。
+
 ビューのノード型名の参照は、言語プロファイルに移していない。Python の AST は、意味が同じ構文に ESTree と同じノード型名を使う（PyVisualizer の計画書 2.1 節）。そのため、言語で違うのは実行トレースの行の集合（`traceRowTypes`）だけだった。
 
 タブに登録されていないビュー（棒グラフ・タイムライン・トレース表・スコープ・アニメーション）は書き換えていない。

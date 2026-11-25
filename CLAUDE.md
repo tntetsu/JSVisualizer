@@ -285,7 +285,7 @@ ENボタンクリック → setLang('en') → dispatchEvent('langchange')
 **永続化**: `localStorage('jsv-lang')`（`'ja'` または `'en'`）。保存された値がなければ、ブラウザの優先言語が日本語なら `'ja'`、それ以外は `'en'`（`detectLang()`。自動で決めた値は保存しない。ADR-046）
 
 **ローカライズ対象**: ボタンラベル・タブラベル・説明文・コンソールタイトル・設定パネルテキスト（約 46 項目）
-**エラーメッセージ**: JSInterpreter と `exercise-source.js` のメッセージは日本語で作られ、英語表示のときは `CodeEditor.showError()` が `src/utils/error-message.js` の `localizeErrorMessage()` で既知の文型を英訳する（表示中に言語を切り替えると訳し直す）。JSInterpreter のメッセージを増やしたら文型も足す（`tests/utils/error-message.test.js` が JSInterpreter のソースから集めて漏れを検出する）。利用ログには翻訳前のメッセージを記録する（ADR-046）
+**エラーメッセージ**: JSInterpreter と `exercise-source.js` のメッセージは日本語で作られ、英語表示のときは `CodeEditor.showError()` が `src/utils/error-message.js` の `localizeErrorMessage()` で既知の文型を英訳する（表示中に言語を切り替えると訳し直す）。言語プロファイルが `localizeError` を持っていればそちらを使う（Python。ADR-055）。JSInterpreter のメッセージを増やしたら文型も足す（`tests/utils/error-message.test.js` が JSInterpreter のソースから集めて漏れを検出する）。利用ログには翻訳前のメッセージを記録する（ADR-046）
 **ローカライズ非対象**: サンプルプログラム名
 
 ### テーマシステム

@@ -222,7 +222,8 @@ export class CodeEditor {
     const typeLabel = errorType === 'parse'   ? 'Syntax Error'
                     : errorType === 'runtime' ? 'Runtime Error'
                     : null;
-    const text = localizeErrorMessage(msg, getLang());
+    // 言語プロファイルが英語化を持っていればそれを使う（Python。PyVisualizer の ADR-010）。なければ JS 用（ADR-046）
+    const text = (getLanguage().localizeError ?? localizeErrorMessage)(msg, getLang());
     this.#errorEl.innerHTML = typeLabel
       ? `<span class="error-badge">${typeLabel}</span> ${_esc(text)}`
       : _esc(text);
