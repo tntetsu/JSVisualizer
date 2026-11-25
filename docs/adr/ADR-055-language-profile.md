@@ -53,6 +53,14 @@ Python の値（小数・辞書・タプル・`None`）は、そのままでは 
 - 式評価のビュー：宣言の行を `let`・`const`・`var` の正規表現で探していたため、`int x = …` の行が出なかった。正規表現に当てはまらないときだけ、初期化子の式のイベントの位置から、その直前の「名前 =」を読む。JS の宣言は今までどおり正規表現で読む
 - 置換のビューは変えていない。Java のエンジンが、JS・Python と同じく呼び出し先（`f`・`obj.m`）を呼び出しの最初の子として記録し、その値をユーザー定義の関数の印（`__type__: 'JSFunction'`）にした（JavaVisualizer の ADR-003 追記）
 
+**変数の型・static フィールド・String の置き場所（2026-11-25 追記）**：同じく JavaVisualizer の Phase 1 で、言語プロファイルに省略できる項目を 3 つ足した。どれも JS・Python のプロファイルは持たないので、両方の画面は変わらない。
+
+| 項目 | 使うビュー | Java の値 |
+|---|---|---|
+| `varType(name, frame, callStack)` | コールスタック（Call Stack タブ）・メモリ：変数名の前に宣言の型を書く（`int x = 3`）。`mergeScopesForDisplay()` が、表示する各スコープにそのフレーム（`frame`。グローバルは `null`）と `callStack` を持たせ、`utils/value-model.js` の `varTypeHtml()` が尋ねる | エンジンがフレームに持たせた「変数名 → 型」の表を引く |
+| `globalScope: { label, hideEmpty }` | コールスタック・メモリ：グローバルのスコープの見出しと、空のときに隠すか | `{ label: 'static', hideEmpty: true }`（グローバルには static フィールド `Main.count` だけを置く） |
+| `valueModel.onHeap(v)` | メモリ：スカラーでもヒープの箱として置き、矢印で指す。箱の中身はその値の書き方 1 つ、見出しは `label(v)` | `String`（同じリテラルは同じ箱、`new String(…)` は別の箱になり、`==` の違いが見える） |
+
 ビューのノード型名の参照は、言語プロファイルに移していない。Python の AST は、意味が同じ構文に ESTree と同じノード型名を使う（PyVisualizer の計画書 2.1 節）。そのため、言語で違うのは実行トレースの行の集合（`traceRowTypes`）だけだった。
 
 タブに登録されていないビュー（棒グラフ・タイムライン・トレース表・スコープ・アニメーション）は書き換えていない。

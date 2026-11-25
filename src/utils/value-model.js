@@ -62,3 +62,28 @@ export function elided(v) {
   const [open, close] = vm().brackets(v);
   return `${open}…${close}`;
 }
+
+/**
+ * 変数の名前の前に置く型の HTML（Java の int x の int）。言語プロファイルの省略できる
+ * varType(name, frame, callStack) が型の文字列を返したときだけ作る。JS・Python のプロファイルは
+ * varType を持たないので、空文字列を返す（ビューの HTML は変わらない。ADR-055 追記）
+ * @param {string} name 変数名
+ * @param {object|null} frame その変数のフレーム（コールスタックの 1 段。グローバルは null）
+ * @param {object[]} [callStack] その時点のコールスタック
+ * @param {string} [cls] 型の要素の class
+ */
+export function varTypeHtml(name, frame, callStack = [], cls = 'var-type') {
+  const f = getLanguage().varType;
+  const type = f ? f(name, frame, callStack) : null;
+  if (!type) return '';
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<span class="${cls}">${esc(type)}</span> `;
+}
+
+/**
+ * グローバルのスコープの見せ方（言語プロファイルの省略できる globalScope）。
+ * label：見出し（Java は static フィールドを置くので 'static'）。hideEmpty：変数がないときは出さない。
+ * JS・Python のプロファイルは持たないので、従来どおり（見出しは Global・global、空でも出す。ADR-055 追記）
+ * @returns {{ label?: string, hideEmpty?: boolean }}
+ */
+export const globalScopeOptions = () => getLanguage().globalScope ?? {};

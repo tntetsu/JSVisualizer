@@ -277,7 +277,7 @@ export function mergeScopesForDisplay(scopes, callStack, frameEnvs = [], globalB
   if (N === 0) {
     const merged = {};
     for (let j = M - 1; j >= 0; j--) Object.assign(merged, scopes[j] ?? {});
-    return [{ label: 'global', vars: merged, isInnermost: true }];
+    return [{ label: 'global', vars: merged, isInnermost: true, frame: null, callStack: callStack ?? [] }];
   }
 
   const display = [];
@@ -291,6 +291,8 @@ export function mergeScopesForDisplay(scopes, callStack, frameEnvs = [], globalB
     label:       formatFrameLabel(callStack[N - 1]),
     vars:        innermostVars,
     isInnermost: true,
+    frame:       callStack[N - 1],
+    callStack,
   });
 
   // 外側フレーム: frameEnvs[i] に、次のフレームを呼び出した地点から見える変数が記録されている
@@ -300,6 +302,8 @@ export function mergeScopesForDisplay(scopes, callStack, frameEnvs = [], globalB
       label:       formatFrameLabel(callStack[i]),
       vars:        frameEnvs[i] ? { ...frameEnvs[i] } : {},
       isInnermost: false,
+      frame:       callStack[i],
+      callStack,
     });
   }
 
@@ -308,6 +312,8 @@ export function mergeScopesForDisplay(scopes, callStack, frameEnvs = [], globalB
     label:       'global',
     vars:        { ...(scopes[M - 1] ?? {}), ...globalBlockVars },
     isInnermost: false,
+    frame:       null,   // frame・callStack：変数の型を言語プロファイルに尋ねるため（varTypeHtml。ADR-055 追記）
+    callStack,
   });
 
   return display;

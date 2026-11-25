@@ -6,6 +6,7 @@
  * 現在の最内スコープ（実行中フレーム）をアクセントカラーで強調する。
  */
 
+import { varTypeHtml } from '../../utils/value-model.js';
 import { BaseView }                                            from '../base-view.js';
 import { esc, formatValue, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
 import { t }                                                   from '../../i18n.js';
@@ -41,7 +42,7 @@ export class ScopeView extends BaseView {
     const displayScopes = mergeScopesForDisplay(scopes, callStack, state.frameEnvs, state.globalBlockVars);
     let html = '';
 
-    for (const { label, vars, isInnermost } of displayScopes) {
+    for (const { label, vars, isInnermost, frame, callStack: cs } of displayScopes) {
       const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));
 
       html += `<div class="scv-frame${isInnermost ? ' scv-frame--active' : ''}">
@@ -56,7 +57,7 @@ export class ScopeView extends BaseView {
         for (const [name, val] of entries) {
           const flash = changed.has(name) ? ' var-row--changed' : '';
           html += `<div class="var-row${flash}">
-            <span class="var-name">${esc(name)}</span>
+            <span class="var-name">${varTypeHtml(name, frame, cs)}${esc(name)}</span>
             <span class="var-eq">=</span>
             ${formatValue(val)}
           </div>`;

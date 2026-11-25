@@ -28,6 +28,12 @@
  * @property {boolean} [supportsInput] true なら、ソースペインに入力欄を出し、実行時に Debugger へ { stdin } を渡す（Python の input()）
  * @property {(message: string, lang: 'ja'|'en') => string} [localizeError]  エラーの表示欄の文字列を表示言語に合わせる。
  *   省略すると JS 用の utils/error-message.js の localizeErrorMessage（JSInterpreter のメッセージの英訳）を使う
+ * @property {{classMethods?: boolean, switchCases?: boolean}} [controlFlow]  制御フローのビューの描き方（省略できる）。
+ *   classMethods：クラスの中のメソッドをスコープとして描く。switchCases：switch を case ごとの分岐として描く（Java）
+ * @property {(name: string, frame: object|null, callStack: object[]) => string|null} [varType]  変数の宣言の型（省略できる）。
+ *   コールスタック・メモリのビューが変数名の前に表示する（Java の int x）。frame はその変数のフレーム（グローバルは null）
+ * @property {{label?: string, hideEmpty?: boolean}} [globalScope]  コールスタック・メモリのビューのグローバルのスコープの
+ *   見出しと、空のときに隠すか（省略できる。Java：static フィールドを置くので { label: 'static', hideEmpty: true }）
  * @property {ValueModel} valueModel  値の見せ方（ビューは utils/value-model.js の vm() 経由で使う）
  * @property {{cls: string, re: RegExp}[]} syntaxTokens コード表示の色分けの規則。先頭 2 つ（コメント・文字列）は HTML エスケープ前に、残りはエスケープ後に適用する
  *
@@ -43,6 +49,8 @@
  * @property {(v: any) => string} label  見出し（JS: Array[3]・Object）
  * @property {(v: any) => string} shortLabel  短い見出し（JS: Array・Obj）
  * @property {(v: any) => [string, string]} brackets  かっこ（JS: [ ]・{ }）
+ * @property {(v: any) => boolean} [onHeap]  スカラーでも、メモリのビューでヒープの箱として置いて矢印で指す値か（省略できる。
+ *   Java の String：同じリテラルは同じ箱、new String(…) は別の箱になり、== の違いが見える）。箱の見出しは label(v)
  * @property {boolean} [padMapping]  mapping・object のかっこの内側に空白を入れる書き方の箇所で、空白を入れるか（既定 true。
  *   JS: { a: 1 }、Python: {'a': 1}）。utils/value-model.js の wrapItems() が使う
  * @property {(v: any) => string|null} [emptyText]  要素が 0 個のときの書き方（かっこを並べた形と違う場合だけ。Python の set → set()）

@@ -7,6 +7,7 @@
  * Console は常時表示パネル（app-main 外の #console-panel）に移動済み。
  */
 
+import { varTypeHtml, globalScopeOptions } from '../../utils/value-model.js';
 import { BaseView }                                            from '../base-view.js';
 import { esc, formatValue, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
 
@@ -60,7 +61,7 @@ export class CallStackView extends BaseView {
 
   // ── 内部レンダリング ──────────────────────────────────────────────────────
 
-  #renderFrame(label, vars, changed, { active = false } = {}) {
+  #renderFrame(label, vars, changed, { active = false, frame = null, callStack = [] } = {}) {
     const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));
     let html = `<div class="scv-frame${active ? ' scv-frame--active' : ''}">
       <div class="scv-frame-header">
@@ -73,7 +74,7 @@ export class CallStackView extends BaseView {
       for (const [name, val] of entries) {
         const flash = changed.has(name) ? ' var-row--changed' : '';
         html += `<div class="var-row${flash}">
-          <span class="var-name">${esc(name)}</span>
+          <span class="var-name">${varTypeHtml(name, frame, callStack)}${esc(name)}</span>
           <span class="var-eq">=</span>
           ${formatValue(val)}
         </div>`;
@@ -101,9 +102,11 @@ export class CallStackView extends BaseView {
     }
 
     let html = '';
-    for (const { label, vars, isInnermost } of displayScopes) {
-      const displayLabel = label === 'global' ? 'Global' : label;
-      html += this.#renderFrame(displayLabel, vars, changed, { active: isInnermost });
+    const g = globalScopeOptions();
+    for (const { label, vars, isInnermost, frame, callStack: cs } of displayScopes) {
+      if (label === 'global' && g.hideEmpty && Object.keys(vars).filter(k => !BUILTIN_NAMES.has(k)).length === 0) continue;
+      const displayLabel = label === 'global' ? (g.label ?? 'Global') : label;
+      html += this.#renderFrame(displayLabel, vars, changed, { active: isInnermost, frame, callStack: cs });
     }
     this.#callstackEl.innerHTML = html || '<p class="placeholder">—</p>';
   }

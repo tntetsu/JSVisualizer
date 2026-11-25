@@ -10,7 +10,7 @@
 
 import { BaseView }                      from '../base-view.js';
 import { formatValue, BUILTIN_NAMES, esc, mergeScopesForDisplay } from '../../utils/format.js';
-import { vm, isContainer, truncLiteral }  from '../../utils/value-model.js';
+import { vm, isContainer, truncLiteral, varTypeHtml, globalScopeOptions } from '../../utils/value-model.js';
 import { t }                             from '../../i18n.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -24,9 +24,18 @@ function svgEl(tag, attrs = {}) {
   return el;
 }
 
-/** ヒープに乗るべき値か（オブジェクト・配列・dict など、関数除く） */
+/**
+ * ヒープに乗るべき値か（オブジェクト・配列・dict など、関数除く）。
+ * 言語プロファイルの valueModel.onHeap(v) が true の値（Java の String）も、ヒープの箱として置く（ADR-055 追記）
+ */
 function isHeapVal(v) {
-  return isContainer(v);
+  return isContainer(v) || isHeapScalar(v);
+}
+
+/** ヒープに置くスカラー（Java の String）か。JS・Python の valueModel は onHeap を持たない */
+function isHeapScalar(v) {
+  const f = vm().onHeap;
+  return !!f && v !== null && typeof v === 'object' && f(v);
 }
 
 /** ヒープエントリのラベル */
@@ -57,6 +66,10 @@ function buildHeap(scopes) {
     // エントリを先に push してから entries を埋める（循環参照対策）
     const entry = { id, ref: v, label: heapLabel(v), entries: [] };
     heap.push(entry);
+    if (isHeapScalar(v)) {   // 中身はその値の書き方 1 つ（"hello"）
+      entry.scalar = true;
+      return id;
+    }
 
     const isArr    = vm().kind(v) === 'sequence';
     const rawEntries = vm().entries(v).slice(0, isArr ? 24 : 12);
@@ -94,6 +107,11 @@ function fmtPrim(v) {
     case 'native':    return '<span class="v-fn">[native]</span>';
   }
   return `<span>${esc(String(v))}</span>`;
+}
+
+/** ヒープの箱に置くスカラーの書き方（切り詰めを長めにする） */
+function fmtPrimFull(v) {
+  return `<span class="v-str">${esc(truncLiteral(vm().literal(v), 40))}</span>`;
 }
 
 // ── MemoryView ────────────────────────────────────────────────────────────
@@ -194,14 +212,16 @@ export class MemoryView extends BaseView {
 
     const displayScopes = mergeScopesForDisplay(scopes, callStack ?? [], frameEnvs, globalBlockVars);
 
-    for (const { label, vars, isInnermost } of displayScopes) {
+    for (const { label, vars, isInnermost, frame, callStack: cs } of displayScopes) {
       const entries = Object.entries(vars).filter(([k]) => !BUILTIN_NAMES.has(k));
 
-      // 変数なし かつ グローバルでもない外側フレームはスキップ
-      if (entries.length === 0 && label !== 'global') continue;
+      // 変数なし かつ グローバルでもない外側フレームはスキップ。グローバルも、言語プロファイルが
+      // 空のときに隠すとしていればスキップ（Java の static フィールド。ADR-055 追記）
+      const g = globalScopeOptions();
+      if (entries.length === 0 && (label !== 'global' || g.hideEmpty)) continue;
 
       html += `<div class="mv-frame${isInnermost ? ' mv-frame--top' : ''}">
-        <div class="mv-frame-name">${esc(label)}</div>
+        <div class="mv-frame-name">${esc(label === 'global' ? (g.label ?? label) : label)}</div>
         <div class="mv-frame-vars">`;
 
       for (const [name, val] of entries) {
@@ -210,12 +230,12 @@ export class MemoryView extends BaseView {
         if (isHeapVal(val)) {
           const heapId = refMap.get(val) ?? '?';
           html += `<div class="mv-var-row${changedCls}" data-ref-heap="${heapId}">
-            <span class="mv-var-name">${esc(name)}</span>
+            <span class="mv-var-name">${varTypeHtml(name, frame, cs, 'mv-var-type')}${esc(name)}</span>
             <span class="mv-ref-indicator">→ #${heapId}</span>
           </div>`;
         } else {
           html += `<div class="mv-var-row${changedCls}">
-            <span class="mv-var-name">${esc(name)}</span>
+            <span class="mv-var-name">${varTypeHtml(name, frame, cs, 'mv-var-type')}${esc(name)}</span>
             <span class="mv-var-val">${fmtPrim(val)}</span>
           </div>`;
         }
@@ -241,6 +261,7 @@ export class MemoryView extends BaseView {
         <div class="mv-heap-title">#${item.id} ${esc(item.label)}</div>
         <div class="mv-heap-cells">`;
 
+      if (item.scalar) html += `<span class="mv-heap-cell"><span class="mv-cell-val">${fmtPrimFull(item.ref)}</span></span>`;
       for (const { key, val, heapId } of item.entries) {
         if (heapId !== null && heapId !== undefined) {
           html += `<span class="mv-heap-cell mv-heap-cell--ref" data-ref-heap="${heapId}">

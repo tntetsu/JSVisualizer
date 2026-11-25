@@ -586,6 +586,8 @@ body {
 }
 
 .var-name  { color: var(--accent); }
+/* 変数の宣言の型（Java の int x の int。言語プロファイルの varType。ADR-055 追記） */
+.var-type, .mv-var-type { color: var(--text-muted, #888); font-weight: normal; }
 .var-eq    { color: var(--text-muted); }
 
 /* 値の型色 */
