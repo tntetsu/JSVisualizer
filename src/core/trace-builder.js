@@ -563,6 +563,34 @@ class CfgBuilder {
       case 'EmptyStatement':
         return null;
 
+      // ── Python だけの文（JS の AST には現れない。PyVisualizer の ADR-012） ──
+      case 'DecoratedStatement':   // @dec def …：定義そのものと同じ（関数はスコープとして別に描く）
+        return this.#stmt(node.definition);
+
+      case 'WithStatement': {      // with …:：見出しの行のあとに本体の文を並べる
+        const items = [{
+          type: 'stmt', id: this.#id(), lineStart: line, lineEnd: line,
+          label: this.#text(line), execCount: this.#exec(line),
+        }, ...this.#body(node.body)];
+        return { type: 'seq', id: this.#id(), children: items };
+      }
+
+      case 'MatchStatement': {     // match …:：見出しの行のあとに、case を if … else の連なりとして描く
+        let chain = null;
+        for (let i = (node.cases ?? []).length - 1; i >= 0; i--) {
+          const c = node.cases[i];
+          const cl = c.loc?.line ?? line;
+          chain = {
+            type: 'if', id: this.#id(),
+            condLine: cl, condLabel: this.#text(cl), execCount: this.#exec(cl),
+            then_: this.#body(c.body),
+            else_: chain ? [chain] : null,
+          };
+        }
+        const head = { type: 'stmt', id: this.#id(), lineStart: line, lineEnd: line, label: this.#text(line), execCount: this.#exec(line) };
+        return { type: 'seq', id: this.#id(), children: chain ? [head, chain] : [head] };
+      }
+
       case 'BlockStatement': {
         const items = this.#region(node.body ?? []);
         if (items.length === 0) return null;
@@ -633,6 +661,16 @@ class CfgBuilder {
         break;
       case 'BlockStatement':
         this.#collectFuncs(node.body ?? [], scopes);
+        break;
+      // Python だけの文（PyVisualizer の ADR-012）
+      case 'DecoratedStatement':
+        this.#extractFunc(node.definition, scopes);
+        break;
+      case 'WithStatement':
+        this.#extractFunc(node.body, scopes);
+        break;
+      case 'MatchStatement':
+        for (const c of node.cases ?? []) this.#extractFunc(c.body, scopes);
         break;
     }
   }

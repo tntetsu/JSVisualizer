@@ -45,6 +45,8 @@ Python の値（小数・辞書・タプル・`None`）は、そのままでは 
 
 **エラーメッセージの英語化（2026-11-25 追記）**：言語プロファイルに省略できる `localizeError(message, lang)` を足した。エラーの表示欄（`CodeEditor`）は、プロファイルが持っていればそれで、なければ従来どおり `utils/error-message.js` の `localizeErrorMessage`（JSInterpreter のメッセージの英訳。ADR-046）で表示言語に合わせる。JS のプロファイルは持たないので変わらない。Python のメッセージの英訳（CPython と同じ文面）は PyVisualizer の ADR-010 にある。
 
+**Python だけの文の制御フロー（2026-11-25 追記）**：制御フローのビュー（`CfgBuilder`）は、Python だけのノード型 `DecoratedStatement`（定義と同じ）・`WithStatement`（見出しの行のあとに本体）・`MatchStatement`（`case` を `if … else` の連なり）を描き、その中の関数もスコープとして描く。JS の AST にはこれらのノード型がないので、JS 版は変わらない（PyVisualizer の ADR-012）。
+
 ビューのノード型名の参照は、言語プロファイルに移していない。Python の AST は、意味が同じ構文に ESTree と同じノード型名を使う（PyVisualizer の計画書 2.1 節）。そのため、言語で違うのは実行トレースの行の集合（`traceRowTypes`）だけだった。
 
 タブに登録されていないビュー（棒グラフ・タイムライン・トレース表・スコープ・アニメーション）は書き換えていない。
