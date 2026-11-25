@@ -19,7 +19,7 @@
  *   ct-node--done    … 戻り値が確定済み（緑）
  */
 
-import { vm, truncLiteral } from '../../utils/value-model.js';
+import { vm, truncLiteral, wrapItems } from '../../utils/value-model.js';
 import { BaseView } from '../base-view.js';
 import { t }        from '../../i18n.js';
 
@@ -54,11 +54,9 @@ function fmtArg(v, maxLen = 18) {
     case 'number':   return m.literal(v);
     case 'string':   return truncLiteral(m.literal(v), maxLen);
     case 'sequence': {
-      const [open, close] = m.brackets(v);
       const all = m.entries(v);
-      if (all.length === 0) return open + close;
-      const elems = all.slice(0, 4).map(([, e]) => fmtArg(e, 6)).join(', ');
-      return all.length > 4 ? `${open}${elems}, …${close}` : `${open}${elems}${close}`;
+      const elems = all.slice(0, 4).map(([, e]) => fmtArg(e, 6));
+      return wrapItems(v, elems, { more: all.length > 4 ? ', …' : '' });
     }
     case 'mapping':
     case 'object':
@@ -66,7 +64,7 @@ function fmtArg(v, maxLen = 18) {
     case 'class': {
       const [open, close] = m.brackets(v);
       const entries = m.entries(v);
-      return entries.length === 0 ? open + close : `${open}${entries[0][0]}:…${close}`;
+      return entries.length === 0 ? wrapItems(v, []) : `${open}${entries[0][0]}:…${close}`;
     }
   }
   return String(v).slice(0, maxLen);

@@ -34,3 +34,31 @@ export function isObjectLike(v) {
   const k = vm().kind(v);
   return k === 'sequence' || k === 'mapping' || k === 'object' || k === 'function' || k === 'class';
 }
+
+/**
+ * sequence・mapping・object を、かっこと要素の並びで書く（言語ごとの違いは valueModel の brackets・padMapping・
+ * emptyText・trailingComma に尋ねる）。JS 版の結果は、導入前の各ビューの書き方と同じになる。
+ * @param {any} v
+ * @param {string[]} items 書き終えた要素（区切りの ', ' は付けない）
+ * @param {{ more?: string, pad?: boolean }} [opts]
+ *   more：要素を省略したときに続ける文字列（', …' など。空なら全部並べた）。
+ *   pad：かっこの内側に空白を入れる箇所か（JS の { a: 1 }。valueModel.padMapping が false なら入れない）
+ * @returns {string}
+ */
+export function wrapItems(v, items, { more = '', pad = false } = {}) {
+  const m = vm();
+  const [open, close] = m.brackets(v);
+  if (items.length === 0 && !more) {
+    const empty = m.emptyText?.(v);
+    if (empty != null) return empty;
+  }
+  const sp    = pad && m.padMapping !== false ? ' ' : '';
+  const comma = !more && m.trailingComma?.(v, items.length) ? ',' : '';
+  return open + sp + items.join(', ') + comma + more + sp + close;
+}
+
+/** 中身を省略して書く（{…}・[…]。Python のインスタンスは Dog{…}） */
+export function elided(v) {
+  const [open, close] = vm().brackets(v);
+  return `${open}…${close}`;
+}

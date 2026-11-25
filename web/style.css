@@ -2830,6 +2830,16 @@ body {
   gap: 6px;
 }
 
+/* ループの else（Python の for … else・while … else） */
+.cf-loop-else {
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  margin-left: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* ── seq ── */
 
 .cf-seq {

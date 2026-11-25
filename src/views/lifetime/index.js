@@ -7,7 +7,7 @@
  * 縦線 = 現在の humanStep カーソル位置
  */
 
-import { vm } from '../../utils/value-model.js';
+import { vm, wrapItems } from '../../utils/value-model.js';
 import { BaseView } from '../base-view.js';
 import { esc, BUILTIN_NAMES, mergeScopesForDisplay } from '../../utils/format.js';
 import { t } from '../../i18n.js';
@@ -49,19 +49,15 @@ function fmtPlain(v) {
     case 'function':  return '[Function]';
     case 'class':     return '[Class]';
     case 'sequence': {
-      const [open, close] = m.brackets(v);
       const all = m.entries(v);
-      if (!all.length) return open + close;
-      const elems = all.slice(0, 3).map(([, x]) => fmtPlain(x)).join(', ');
-      return all.length > 3 ? `${open}${elems}, …${close}` : `${open}${elems}${close}`;
+      const elems = all.slice(0, 3).map(([, x]) => fmtPlain(x));
+      return wrapItems(v, elems, { more: all.length > 3 ? ', …' : '' });
     }
     case 'mapping':
     case 'object': {
-      const [open, close] = m.brackets(v);
       const entries = m.entries(v);
-      if (!entries.length) return open + close;
-      const pairs = entries.slice(0, 2).map(([key, x]) => `${key}: ${fmtPlain(x)}`).join(', ');
-      return open + pairs + (entries.length > 2 ? ', …' : '') + close;
+      const pairs = entries.slice(0, 2).map(([key, x]) => `${key}: ${fmtPlain(x)}`);
+      return wrapItems(v, pairs, { more: entries.length > 2 ? ', …' : '' });
     }
   }
   const s = k === 'string' || k === 'bool' || k === 'number' ? m.literal(v) : String(v);

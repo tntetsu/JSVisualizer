@@ -41,6 +41,10 @@
  * @property {(v: any) => string} label  見出し（JS: Array[3]・Object）
  * @property {(v: any) => string} shortLabel  短い見出し（JS: Array・Obj）
  * @property {(v: any) => [string, string]} brackets  かっこ（JS: [ ]・{ }）
+ * @property {boolean} [padMapping]  mapping・object のかっこの内側に空白を入れる書き方の箇所で、空白を入れるか（既定 true。
+ *   JS: { a: 1 }、Python: {'a': 1}）。utils/value-model.js の wrapItems() が使う
+ * @property {(v: any) => string|null} [emptyText]  要素が 0 個のときの書き方（かっこを並べた形と違う場合だけ。Python の set → set()）
+ * @property {(v: any, count: number) => boolean} [trailingComma]  要素を count 個すべて並べたとき、最後にコンマを付けるか（Python の 1 要素の tuple → (1,)）
  */
 import { javascriptProfile } from './javascript.js';
 

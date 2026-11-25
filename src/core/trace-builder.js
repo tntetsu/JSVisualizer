@@ -394,6 +394,7 @@ export class TraceBuilder {
    * AST から構造的 CFG スコープ配列を生成する（制御フロービュー用）。
    * 返り値: Array<{ name:string, params:string[], items:CfgItem[] }>
    * CfgItem の type: 'stmt'|'return'|'jump'|'if'|'while'|'for'|'do-while'|'seq'
+   * while・for の else_ は、ループの else（Python の orelse。break しなかったときに実行する）。ない言語・ループでは null
    * @returns {Object[]}
    */
   buildCFG() {
@@ -516,6 +517,7 @@ class CfgBuilder {
           condLabel: this.#text(line),
           execCount: this.#exec(line),
           body: this.#body(node.body),
+          else_: node.orelse ? this.#body(node.orelse) : null,
         };
 
       case 'DoWhileStatement':
@@ -536,6 +538,7 @@ class CfgBuilder {
           condLabel: this.#text(line),
           execCount: this.#exec(line),
           body: this.#body(node.body),
+          else_: node.orelse ? this.#body(node.orelse) : null,
         };
 
       case 'ReturnStatement':
@@ -626,6 +629,7 @@ class CfgBuilder {
       case 'ForOfStatement':
       case 'ForInStatement':
         this.#extractFunc(node.body, scopes);
+        this.#extractFunc(node.orelse, scopes);
         break;
       case 'BlockStatement':
         this.#collectFuncs(node.body ?? [], scopes);

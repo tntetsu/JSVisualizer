@@ -8,7 +8,7 @@
  * - チップで複数の配列変数を同時選択可能
  */
 
-import { vm, isObjectLike } from '../../utils/value-model.js';
+import { vm, isObjectLike, wrapItems } from '../../utils/value-model.js';
 import { BaseView }                                   from '../base-view.js';
 import { flattenEnv, BUILTIN_NAMES, esc }              from '../../utils/format.js';
 import { computeSubscriptVars, detectPointerVars, renderArrayGrid } from '../../utils/array-grid.js';
@@ -31,16 +31,10 @@ function formatObjectPlain(v) {
   const m = vm();
   const k = m.kind(v);
   if (k === 'sequence') {
-    const [open, close] = m.brackets(v);
-    const all = m.entries(v);
-    if (all.length === 0) return open + close;
-    return open + all.map(([, x]) => formatObjectPlain(x)).join(', ') + close;
+    return wrapItems(v, m.entries(v).map(([, x]) => formatObjectPlain(x)));
   }
   if (k === 'mapping' || k === 'object' || k === 'function' || k === 'class') {
-    const [open, close] = m.brackets(v);
-    const entries = m.entries(v);
-    if (entries.length === 0) return open + close;
-    return open + entries.map(([key, val]) => `${key}: ${formatObjectPlain(val)}`).join(', ') + close;
+    return wrapItems(v, m.entries(v).map(([key, val]) => `${key}: ${formatObjectPlain(val)}`));
   }
   if (k === 'none' || k === 'undefined' || k === 'string' || k === 'bool' || k === 'number') return m.literal(v);
   return String(v);

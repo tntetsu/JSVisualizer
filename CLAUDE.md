@@ -32,7 +32,7 @@ JSVisualizer/
 │   │   ├── format.js             # formatValueDiff・mergeScopesForDisplay 等の表示整形ヘルパー
 │   │   ├── array-grid.js         # 配列＋ポインタのグリッド描画（Arrays・ExecTrace共通、ADR-037）
 │   │   ├── line-exec.js          # humanStep を文の実行単位にまとめる（Heatmap・ExecTrace共通）
-│   │   ├── value-model.js        # 値の見せ方（言語プロファイルの valueModel）を使う vm()。ビューは値の判定・書き方にこれを使う（ADR-055）
+│   │   ├── value-model.js        # 値の見せ方（言語プロファイルの valueModel）を使う vm()。ビューは値の判定・書き方にこれを使う。かっこと要素の並びは wrapItems()・elided()（ADR-055）
 │   │   └── console-lines.js      # コンソール出力の断片（行の途中で終わる出力）を行にまとめる（ADR-055）
 │   ├── views/                    # 各可視化ビュー（共通 I/F: init/update/reset/destroy）
 │   │   ├── code-view/            # コードハイライト（3層: 行・式・呼び出し元）       ✅

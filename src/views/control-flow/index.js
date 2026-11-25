@@ -277,6 +277,18 @@ export class ControlFlow extends BaseView {
     }
     wrap.appendChild(body);
 
+    // ループの else（Python の for … else・while … else。break しなかったときに実行する）
+    if (item.else_ && item.else_.length > 0) {
+      const orelse = document.createElement('div');
+      orelse.className = 'cf-loop-else';
+      const hdr = document.createElement('div');
+      hdr.className = 'cf-branch-hdr';
+      hdr.textContent = 'else';
+      orelse.appendChild(hdr);
+      this.#renderItems(item.else_, orelse);
+      wrap.appendChild(orelse);
+    }
+
     return wrap;
   }
 

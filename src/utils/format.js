@@ -3,7 +3,7 @@
  *
  * 値の種類と書き方は言語プロファイルの valueModel（utils/value-model.js の vm()）に尋ねる。
  */
-import { vm, truncLiteral } from './value-model.js';
+import { vm, truncLiteral, wrapItems, elided } from './value-model.js';
 
 export const BUILTIN_NAMES = new Set([
   'undefined', 'NaN', 'Infinity',
@@ -63,23 +63,21 @@ export function formatValue(v, depth = 0) {
     case 'class':     return `<span class="v-fn">class ${esc(v.name || '(anonymous)')}</span>`;
     case 'native':    return '<span class="v-fn">[native]</span>';
     case 'sequence': {
-      const [open, close] = m.brackets(v);
-      if (depth > 0) return `<span class="v-obj">${open}…${close}</span>`;
+      if (depth > 0) return `<span class="v-obj">${elided(v)}</span>`;
       const all   = m.entries(v);
-      const items = all.slice(0, 8).map(([, x]) => formatValue(x, depth + 1)).join(', ');
+      const items = all.slice(0, 8).map(([, x]) => formatValue(x, depth + 1));
       const more  = all.length > 8 ? `, <span class="v-muted">+${all.length - 8}</span>` : '';
-      return `<span class="v-obj">${open}${items}${more}${close}</span>`;
+      return `<span class="v-obj">${wrapItems(v, items, { more })}</span>`;
     }
     case 'mapping':
     case 'object': {
-      const [open, close] = m.brackets(v);
-      if (depth > 0) return `<span class="v-obj">${open}…${close}</span>`;
+      if (depth > 0) return `<span class="v-obj">${elided(v)}</span>`;
       const entries = m.entries(v, { hidden: true }).slice(0, 4);
       const items   = entries.map(([k, val]) =>
         `<span class="v-key">${esc(k)}</span>: ${formatValue(val, depth + 1)}`
-      ).join(', ');
+      );
       const more = m.length(v, { hidden: true }) > 4 ? ', …' : '';
-      return `<span class="v-obj">${open} ${items}${more} ${close}</span>`;
+      return `<span class="v-obj">${wrapItems(v, items, { more, pad: true })}</span>`;
     }
   }
   return `<span>${esc(String(v))}</span>`;
@@ -104,21 +102,18 @@ export function formatPlain(v, depth = 0) {
     case 'class':
     case 'native':    return 'ƒ';
     case 'sequence': {
-      const [open, close] = m.brackets(v);
-      if (depth >= 3) return `${open}…${close}`;
+      if (depth >= 3) return elided(v);
       const all = m.entries(v);
-      if (all.length === 0) return open + close;
-      const elems = all.slice(0, 6).map(([, x]) => formatPlain(x, depth + 1)).join(', ');
-      return open + elems + (all.length > 6 ? ', …' : '') + close;
+      const elems = all.slice(0, 6).map(([, x]) => formatPlain(x, depth + 1));
+      return wrapItems(v, elems, { more: all.length > 6 ? ', …' : '' });
     }
     case 'mapping':
     case 'object': {
-      const [open, close] = m.brackets(v);
-      if (depth >= 3) return `${open}…${close}`;
+      if (depth >= 3) return elided(v);
       const entries = m.entries(v).filter(([, x]) => !['function', 'class', 'native'].includes(m.kind(x)));
-      if (entries.length === 0) return open + close;
-      const items = entries.slice(0, 6).map(([k, x]) => `${k}: ${formatPlain(x, depth + 1)}`).join(', ');
-      return `${open} ` + items + (entries.length > 6 ? ', …' : '') + ` ${close}`;
+      if (entries.length === 0) return wrapItems(v, []);
+      const items = entries.slice(0, 6).map(([k, x]) => `${k}: ${formatPlain(x, depth + 1)}`);
+      return wrapItems(v, items, { more: entries.length > 6 ? ', …' : '', pad: true });
     }
   }
   return String(v);
@@ -153,7 +148,6 @@ export function formatValueDiff(val, prevVal) {
   }
 
   if (kind === 'sequence') {
-    const [open, close] = m.brackets(val);
     const prev  = m.kind(prevVal) === 'sequence' ? m.entries(prevVal).map(([, x]) => x) : [];
     const all   = m.entries(val);
     const items = all.slice(0, 8).map(([, x], i) => {
@@ -162,11 +156,10 @@ export function formatValueDiff(val, prevVal) {
     });
     const more = all.length > 8
       ? `, <span class="v-muted">+${all.length - 8}</span>` : '';
-    return `<span class="v-obj">${open}${items.join(', ')}${more}${close}</span>`;
+    return `<span class="v-obj">${wrapItems(val, items, { more })}</span>`;
   }
 
   if (kind === 'mapping' || kind === 'object') {
-    const [open, close] = m.brackets(val);
     const prevKind = m.kind(prevVal);
     const prev    = new Map(prevKind === 'mapping' || prevKind === 'object' ? m.entries(prevVal, { hidden: true }) : []);
     const entries = m.entries(val, { hidden: true }).slice(0, 4);
@@ -175,7 +168,7 @@ export function formatValueDiff(val, prevVal) {
       return valEqual(v, prev.get(k)) ? fmt : `<b class="v-diff">${fmt}</b>`;
     });
     const more = m.length(val, { hidden: true }) > 4 ? ', …' : '';
-    return `<span class="v-obj">${open} ${items.join(', ')}${more} ${close}</span>`;
+    return `<span class="v-obj">${wrapItems(val, items, { more, pad: true })}</span>`;
   }
 
   // スカラー（number, boolean, string）
@@ -213,19 +206,15 @@ function fmtArgPlain(v) {
     case 'number':    return m.literal(v);
     case 'string':    return truncLiteral(m.literal(v), 10);
     case 'sequence': {
-      const [open, close] = m.brackets(v);
       const all = m.entries(v);
-      if (all.length === 0) return open + close;
-      const elems = all.slice(0, 3).map(([, e]) => fmtArgPlain(e)).join(', ');
-      return all.length > 3 ? `${open}${elems}, …${close}` : `${open}${elems}${close}`;
+      const elems = all.slice(0, 3).map(([, e]) => fmtArgPlain(e));
+      return wrapItems(v, elems, { more: all.length > 3 ? ', …' : '' });
     }
     case 'mapping':
     case 'object':
     case 'function':
-    case 'class': {
-      const [open, close] = m.brackets(v);
-      return `${open}…${close}`;
-    }
+    case 'class':
+      return elided(v);
   }
   return String(v).slice(0, 12);
 }
