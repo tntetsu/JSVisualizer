@@ -68,6 +68,8 @@ Python の値（小数・辞書・タプル・`None`）は、そのままでは 
 - エラーの `name` が `'CompileError'` のとき（Java の静的な検査）、`debugger-adapter.js` は `errorType: 'compile'` を出し、エラーの表示欄は見出しを「Compile Error」にする。ログ（`sessionLogger.logRun`）の `errorType` にも `'compile'` が入る。JS・Python のエンジンは `CompileError` を作らないので、両方の表示とログは変わらない
 - 言語プロファイルの省略できる `inputText: { ja: { label, placeholder }, en: { … } }` で、入力欄の見出しと例を変えられる（Java は Scanner の文言）。省略すると今までどおり（Python の `input()` の文言）
 
+この追記の前後でも、JS 版の画面（3,050 件）がすべて一致することを確かめた（2026-11-26）。
+
 ビューのノード型名の参照は、言語プロファイルに移していない。Python の AST は、意味が同じ構文に ESTree と同じノード型名を使う（PyVisualizer の計画書 2.1 節）。そのため、言語で違うのは実行トレースの行の集合（`traceRowTypes`）だけだった。
 
 タブに登録されていないビュー（棒グラフ・タイムライン・トレース表・スコープ・アニメーション）は書き換えていない。
