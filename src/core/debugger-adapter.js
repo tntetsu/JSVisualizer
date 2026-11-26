@@ -148,10 +148,12 @@ export class DebuggerAdapter extends EventTarget {
         const m = msg.match(/^\[(?:Parser|Lexer|Runtime)\]\s+(\d+):(\d+):/);
         if (m) errLoc = { line: +m[1], column: +m[2] };
       }
+      // コンパイルエラー（Java の静的な検査。エラーの name が 'CompileError'）は 'compile'。JS・Python は作らない（ADR-055 追記）
+      const isCompileError = err?.name === 'CompileError';
       this.dispatchEvent(new CustomEvent('error', {
         detail: {
           message:   err.message ?? String(err),
-          errorType: isParseError ? 'parse' : 'runtime',
+          errorType: isCompileError ? 'compile' : isParseError ? 'parse' : 'runtime',
           loc:       errLoc,
         },
       }));

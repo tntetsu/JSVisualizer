@@ -73,7 +73,7 @@ class SessionLogger {
    * @param {string} result.sampleName サンプル名、またはカスタムコードなら 'custom'
    * @param {string} result.code 実行時点のソースコード全文
    * @param {boolean} result.success
-   * @param {'parse'|'runtime'|null} [result.errorType]
+   * @param {'parse'|'compile'|'runtime'|null} [result.errorType]  'compile' は Java の静的な検査（ADR-055 追記）
    * @param {string|null} [result.errorMessage]
    * @param {{line:number,column:number}|null} [result.errorLoc]
    * @param {number|null} [result.traceLength] success: true のときのみ

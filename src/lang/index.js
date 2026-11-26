@@ -26,6 +26,8 @@
  * @property {string}   defaultSample    起動時に表示するサンプルのキー
  * @property {{enter: string[], exit: string[]}} traceRowTypes TraceBuilder.buildHumanIndices（Exec Trace などの行）で、enter / exit で行を作るノード型
  * @property {boolean} [supportsInput] true なら、ソースペインに入力欄を出し、実行時に Debugger へ { stdin } を渡す（Python の input()）
+ * @property {Object<'ja'|'en', {label: string, placeholder: string}>} [inputText]  入力欄の見出しと例（省略できる。
+ *   省略すると i18n の input-label・input-placeholder（Python の input() の文言）。Java は Scanner の文言）
  * @property {(message: string, lang: 'ja'|'en') => string} [localizeError]  エラーの表示欄の文字列を表示言語に合わせる。
  *   省略すると JS 用の utils/error-message.js の localizeErrorMessage（JSInterpreter のメッセージの英訳）を使う
  * @property {{classMethods?: boolean, switchCases?: boolean}} [controlFlow]  制御フローのビューの描き方（省略できる）。

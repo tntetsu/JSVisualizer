@@ -220,6 +220,7 @@ export class CodeEditor {
     if (!this.#errorShown) return;
     const { msg, errorType } = this.#errorShown;
     const typeLabel = errorType === 'parse'   ? 'Syntax Error'
+                    : errorType === 'compile' ? 'Compile Error'   // Java の静的な検査（ADR-055 追記）
                     : errorType === 'runtime' ? 'Runtime Error'
                     : null;
     // 言語プロファイルが英語化を持っていればそれを使う（Python。PyVisualizer の ADR-010）。なければ JS 用（ADR-046）
