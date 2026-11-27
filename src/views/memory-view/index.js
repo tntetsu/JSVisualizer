@@ -38,6 +38,27 @@ function isHeapScalar(v) {
   return !!f && v !== null && typeof v === 'object' && f(v);
 }
 
+// ── C のメモリの見せ方（言語プロファイルの valueModel の省略できる関数。JS・Python・Java は持たない。ADR-056） ──
+
+/** ポインタの値の指す先（{ target, key } か { variable, frame }）。言語プロファイルが pointer を持たなければ null */
+const pointerOf = (v) => vm().pointer?.(v) ?? null;
+/** C のメモリの見せ方を使うか（pointer を持つ言語プロファイル）。使わないときは、HTML を従来と同じにする */
+const cMemory = () => typeof vm().pointer === 'function';
+/** 変数の箱を、ヒープでなくフレームの中に描くか（C のスタックの配列・構造体） */
+const drawnInFrame = (v) => !!vm().inFrame?.(v);
+/** 箱の中の箱を、中に描くか（C の 2 次元配列の行・構造体の中の配列） */
+const drawnInside = (v) => !!vm().embedded?.(v);
+/** 解放した・スコープが終わった箱か（薄く描く） */
+const isStale = (v) => !!vm().stale?.(v);
+
+/** 矢印の先を示す属性（箱の全体：data-ref-heap、箱の中のマス：data-ref-cell、変数：data-ref-var） */
+function pointerAttrs(p, refMap) {
+  if (p.variable !== undefined) return ` data-ref-var="${esc(`${p.frame ?? 'global'}|${p.variable}`)}"`;
+  const id = refMap.get(p.target);
+  if (id === undefined) return '';
+  return p.key === null || p.key === undefined ? ` data-ref-heap="${id}"` : ` data-ref-cell="${esc(`${id}|${p.key}`)}"`;
+}
+
 /** ヒープエントリのラベル */
 function heapLabel(v) {
   return vm().label(v);
@@ -52,7 +73,7 @@ function heapLabel(v) {
  * @param {Object[]} scopes  ev.env（env[0] = 最内スコープ）
  * @returns {{ heap: Object[], refMap: WeakMap }}
  */
-function buildHeap(scopes) {
+export function buildHeap(scopes) {
   const heap   = [];
   const refMap = new WeakMap(); // object reference → heapId
 
@@ -77,6 +98,9 @@ function buildHeap(scopes) {
     for (const [k, x] of rawEntries) {
       const childId = depth < 5 ? register(x, depth + 1) : null;
       entry.entries.push({ key: k, val: x, heapId: childId });
+      // ポインタが指す箱も、ヒープに載せる（C。矢印の先）
+      const p = pointerOf(x);
+      if (p?.target && depth < 5) register(p.target, depth + 1);
     }
 
     return id;
@@ -86,6 +110,8 @@ function buildHeap(scopes) {
     for (const [name, val] of Object.entries(scope ?? {})) {
       if (BUILTIN_NAMES.has(name)) continue;
       register(val);
+      const p = pointerOf(val);
+      if (p?.target) register(p.target);
     }
   }
 
@@ -123,6 +149,8 @@ export class MemoryView extends BaseView {
   #heapEl     = null;
   #svgEl      = null;
   #rafId      = null;
+  #inline     = new Set();   // フレームの中・ほかの箱の中に描くヒープ要素の id（C。ADR-056）
+  #refMap     = new WeakMap();
 
   // ── BaseView ──────────────────────────────────────────────────────────────
 
@@ -173,6 +201,8 @@ export class MemoryView extends BaseView {
     // JSInterpreter が同じ値を同じクローンで記録するので、共有している値は 1 つのヒープ要素になる
     const { heap, refMap } = buildHeap([...scopes, ...(frameEnvs ?? []), globalBlockVars ?? {}]);
 
+    this.#inline = new Set();
+    this.#refMap = refMap;
     this.#renderStack(scopes, callStack ?? [], changed, refMap, heap, frameEnvs ?? [], globalBlockVars ?? {});
     this.#renderHeap(heap);
 
@@ -226,6 +256,36 @@ export class MemoryView extends BaseView {
 
       for (const [name, val] of entries) {
         const changedCls = changed.has(name) ? ' mv-var--changed' : '';
+        const ptr = pointerOf(val);
+
+        if (cMemory()) {
+          // C：変数の行に、矢印の先として探せる印（フレームの呼び出しの番号と名前）を付ける
+          const varKey = esc(`${frame?.callId ?? 'global'}|${name}`);
+          const nameHtml = `<span class="mv-var-name">${varTypeHtml(name, frame, cs, 'mv-var-type')}${esc(name)}</span>`;
+          if (ptr) {
+            html += `<div class="mv-var-row${changedCls}" data-var="${varKey}"${pointerAttrs(ptr, refMap)}>
+            ${nameHtml}
+            <span class="mv-ref-indicator">${esc(vm().literal(val))}</span>
+          </div>`;
+            continue;
+          }
+          if (isHeapVal(val) && drawnInFrame(val) && refMap.has(val)) {
+            const id = refMap.get(val);
+            this.#inline.add(id);
+            html += `<div class="mv-var-row mv-var-row--box${changedCls}" data-var="${varKey}">
+            ${nameHtml}
+            <span class="mv-inline-box" data-heap-id="${id}">${this.#cellsHtml(heap[id], heap, refMap)}</span>
+          </div>`;
+            continue;
+          }
+          if (!isHeapVal(val)) {
+            html += `<div class="mv-var-row${changedCls}" data-var="${varKey}">
+            ${nameHtml}
+            <span class="mv-var-val">${fmtPrim(val)}</span>
+          </div>`;
+            continue;
+          }
+        }
 
         if (isHeapVal(val)) {
           const heapId = refMap.get(val) ?? '?';
@@ -247,6 +307,38 @@ export class MemoryView extends BaseView {
     this.#stackEl.innerHTML = html || '<p class="placeholder">—</p>';
   }
 
+  /** ヒープ要素 item が、ほかの箱の中に描かれる（C の 2 次元配列の行など）か */
+  #isInside(item, heap) {
+    return heap.some(h => h !== item && h.entries.some(e => e.heapId === item.id) && drawnInside(item.ref));
+  }
+
+  /**
+   * 箱の中身のマス（C）。中に描く箱（2 次元配列の行・構造体の中の配列）は入れ子にし、ポインタは指す先への印にする。
+   * どのマスにも、矢印の先として探せる印（data-cell-key）を付ける
+   */
+  #cellsHtml(item, heap, refMap) {
+    let html = '';
+    if (item.scalar) return `<span class="mv-heap-cell"><span class="mv-cell-val">${fmtPrimFull(item.ref)}</span></span>`;
+    for (const { key, val, heapId } of item.entries) {
+      const k = esc(String(key));
+      const keyHtml = `<span class="mv-cell-key">${k}</span><span class="mv-cell-sep">:</span>`;
+      const ptr = pointerOf(val);
+      if (heapId !== null && heapId !== undefined && drawnInside(val)) {
+        this.#inline.add(heapId);
+        html += `<span class="mv-heap-cell mv-heap-cell--box" data-cell-key="${k}">${keyHtml}<span class="mv-inline-box" data-heap-id="${heapId}">${this.#cellsHtml(heap[heapId], heap, refMap)}</span></span>`;
+      } else if (heapId !== null && heapId !== undefined) {
+        html += `<span class="mv-heap-cell mv-heap-cell--ref" data-cell-key="${k}" data-ref-heap="${heapId}">${keyHtml}<span class="mv-ref-indicator">→#${heapId}</span></span>`;
+      } else if (ptr) {
+        html += `<span class="mv-heap-cell mv-heap-cell--ref" data-cell-key="${k}"${pointerAttrs(ptr, refMap)}>${keyHtml}<span class="mv-ref-indicator">${esc(vm().literal(val))}</span></span>`;
+      } else {
+        html += `<span class="mv-heap-cell" data-cell-key="${k}">${keyHtml}<span class="mv-cell-val">${fmtPrim(val)}</span></span>`;
+      }
+    }
+    const seqLen = item.ref && vm().kind(item.ref) === 'sequence' ? vm().length(item.ref) : 0;
+    if (seqLen > 24) html += `<span class="mv-heap-overflow">+${seqLen - 24}…</span>`;
+    return html;
+  }
+
   /** ヒープパネルを更新する */
   #renderHeap(heap) {
     if (heap.length === 0) {
@@ -255,6 +347,18 @@ export class MemoryView extends BaseView {
     }
 
     let html = '';
+
+    if (cMemory()) {
+      // C：フレームの中に描いた箱と、ほかの箱の中に描く箱は、ヒープの側に出さない
+      const shown = heap.filter(item => !this.#inline.has(item.id) && !this.#isInside(item, heap));
+      for (const item of shown) {
+        html += `<div class="mv-heap-obj${isStale(item.ref) ? ' mv-heap-obj--stale' : ''}" data-heap-id="${item.id}">
+        <div class="mv-heap-title">#${item.id} ${esc(item.label)}</div>
+        <div class="mv-heap-cells">${this.#cellsHtml(item, heap, this.#refMap)}</div></div>`;
+      }
+      this.#heapEl.innerHTML = html || `<p class="placeholder">${esc(t('memoryview-empty'))}</p>`;
+      return;
+    }
 
     for (const item of heap) {
       html += `<div class="mv-heap-obj" data-heap-id="${item.id}">
@@ -294,6 +398,26 @@ export class MemoryView extends BaseView {
     for (const el of this.#svgEl.querySelectorAll('.mv-arrow')) el.remove();
   }
 
+  /**
+   * 矢印の終点の要素。ヒープの箱は「#1 Object」の見出し（親のヒープボックス全体ではない）。
+   * C では、フレームの中・箱の中に描いた箱、箱の中のマス、変数の名前も終点になる（ADR-056）
+   */
+  #arrowTarget(key) {
+    const q = (sel) => this.#layoutEl.querySelector(sel);
+    if (key.startsWith('cell:')) {
+      const [id, k] = key.slice(5).split('|');
+      const box = q(`[data-heap-id="${id}"]`);
+      const cells = box?.querySelector('.mv-heap-cells') ?? box;
+      return cells ? [...cells.children].find(c => c.dataset.cellKey === k) ?? box : null;
+    }
+    if (key.startsWith('var:')) {
+      return [...this.#layoutEl.querySelectorAll('[data-var]')].find(r => r.dataset.var === key.slice(4)) ?? null;
+    }
+    const heapObj = cMemory() ? q(`[data-heap-id="${key}"]`) : this.#heapEl.querySelector(`[data-heap-id="${key}"]`);
+    if (!heapObj) return null;
+    return heapObj.querySelector(':scope > .mv-heap-title') || heapObj;
+  }
+
   #drawArrows() {
     if (!this.#svgEl || !this.#layoutEl) return;
     this.#clearArrows();
@@ -308,19 +432,17 @@ export class MemoryView extends BaseView {
     // スタックとヒープ両方の参照インジケーターからの矢印。
     // 同じ heapId を参照する矢印をグループ化し、終点をタイトル幅内で分散させる
     // （矢じり同士が重ならないようにするため）。
-    const refEls = this.#layoutEl.querySelectorAll('[data-ref-heap]');
-    const byTarget = new Map(); // heapId → refEl[]
+    const refEls = this.#layoutEl.querySelectorAll(cMemory() ? '[data-ref-heap], [data-ref-cell], [data-ref-var]' : '[data-ref-heap]');
+    const byTarget = new Map(); // heapId（C では箱・マス・変数の印）→ refEl[]
     for (const refEl of refEls) {
-      const heapId = refEl.dataset.refHeap;
+      const heapId = refEl.dataset.refHeap ?? (refEl.dataset.refCell !== undefined ? `cell:${refEl.dataset.refCell}` : `var:${refEl.dataset.refVar}`);
       if (!byTarget.has(heapId)) byTarget.set(heapId, []);
       byTarget.get(heapId).push(refEl);
     }
 
     for (const [heapId, srcEls] of byTarget) {
-      const heapObj = this.#heapEl.querySelector(`[data-heap-id="${heapId}"]`);
-      if (!heapObj) continue;
-      // 終点は「#1 Object」ラベル要素そのもの（親のヒープボックス全体ではない）
-      const titleEl = heapObj.querySelector('.mv-heap-title') || heapObj;
+      const titleEl = this.#arrowTarget(heapId);
+      if (!titleEl) continue;
       const toRect  = titleEl.getBoundingClientRect();
 
       srcEls.forEach((refEl, i) => {
@@ -332,7 +454,16 @@ export class MemoryView extends BaseView {
         const frac = (i + 1) / (n + 1);
         let d;
 
-        if (from.right + 8 < toRect.left) {
+        if (heapId.startsWith('var:')) {
+          // 変数を指すポインタ（C）：スタックの右の余白を回り、変数の行の右端へ横から入れる。
+          // 行の上を縦に横切ると、間の変数の行やフレームの見出しと重なるため（ADR-056）
+          const x1 = from.right - containerRect.left;
+          const y1 = from.top + from.height / 2 - containerRect.top;
+          const x2 = toRect.right - containerRect.left;
+          const y2 = toRect.top + toRect.height * frac - containerRect.top;
+          const lane = Math.max(x1, x2) + 14 + i * 6;
+          d = `M ${x1},${y1} H ${lane - 8} C ${lane},${y1} ${lane},${y2} ${lane - 8},${y2} H ${x2}`;
+        } else if (from.right + 8 < toRect.left) {
           // 始点が終点より左に離れている（STACK → HEAP）: 右へ出して、見出しの左端へ横から入れる。
           // 上下から入れると、矢印が途中のヒープ要素のマスを横切ってしまうため（ADR-053）。
           // 同じ対象に集まる矢印は、見出しの高さの中で終点を分散させる

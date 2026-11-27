@@ -3060,6 +3060,34 @@ body {
   padding: 1px 4px;
 }
 
+/* C のメモリ：フレームの中・箱の中に描く箱、解放した・スコープが終わった箱（ADR-056） */
+.mv-var-row--box {
+  align-items: flex-start;
+}
+
+.mv-var-row--box .mv-var-name {
+  white-space: nowrap;
+}
+
+.mv-inline-box {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 2px 3px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.mv-heap-cell--box {
+  align-items: flex-start;
+}
+
+.mv-heap-obj--stale {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
 /* ── ObjectGraph (.og-*) ────────────────────────────────────────────────── */
 
 .og-wrap {

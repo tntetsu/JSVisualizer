@@ -45,6 +45,9 @@ const NODE_BG = [
 
 // ── グラフ構築 ────────────────────────────────────────────────────────────
 
+/** C のポインタの指す先（言語プロファイルの省略できる pointer。持たない言語では null。ADR-056） */
+const pointerOf = (v) => vm().pointer?.(v) ?? null;
+
 /**
  * 値がヒープに乗るオブジェクト/配列か
  */
@@ -111,6 +114,18 @@ export function buildGraph(variables, scopes, { callStack = [], frameEnvs = [], 
     nodeMap.set(id, node);
 
     for (const [k, x] of rawList) {
+      // C のポインタ：指す箱への辺にする（言語プロファイルの pointer。ADR-056）
+      const ptrTarget = pointerOf(x)?.target;
+      if (ptrTarget && depth < 6) {
+        const childId = register(ptrTarget, depth + 1);
+        node.rows.push({ key: k, displayVal: fmtVal(x), childId });
+        const eKey = `${id}->${childId}:${k}`;
+        if (childId !== null && !edgeSet.has(eKey)) {
+          edgeSet.add(eKey);
+          edges.push({ id: eKey, from: id, to: childId, label: k });
+        }
+        continue;
+      }
       if (isHeapObj(x) && depth < 6) {
         const childId = register(x, depth + 1);
         if (childId !== null) {
@@ -149,6 +164,8 @@ export function buildGraph(variables, scopes, { callStack = [], frameEnvs = [], 
     if (isHeapObj(val)) {
       const nid = register(val);
       rootVars.push({ name, type: 'ref', val, nodeId: nid });
+    } else if (pointerOf(val)?.target) {
+      rootVars.push({ name, type: 'ref', val, nodeId: register(pointerOf(val).target) });
     } else {
       rootVars.push({ name, type: 'prim', val, nodeId: null });
     }
@@ -159,8 +176,9 @@ export function buildGraph(variables, scopes, { callStack = [], frameEnvs = [], 
   // プリミティブは図が読みにくくなるので足さない。いま見えている変数と同じものは重ねて足さない
   const addCallerVars = (vars, frameName) => {
     for (const [name, val] of Object.entries(vars ?? {})) {
-      if (BUILTIN_NAMES.has(name) || !isHeapObj(val) || variables[name] === val) continue;
-      rootVars.push({ name: `${name} (${frameName})`, type: 'ref', val, nodeId: register(val) });
+      const target = pointerOf(val)?.target;
+      if (BUILTIN_NAMES.has(name) || !(isHeapObj(val) || target) || variables[name] === val) continue;
+      rootVars.push({ name: `${name} (${frameName})`, type: 'ref', val, nodeId: register(target ?? val) });
     }
   };
   for (let i = callStack.length - 2; i >= 0; i--) addCallerVars(frameEnvs[i], callStack[i].name);
@@ -369,7 +387,7 @@ export class ObjectGraph extends BaseView {
       if (!ev?.env) continue;
       for (const scope of ev.env) {
         for (const [k, v] of Object.entries(scope)) {
-          if (!BUILTIN_NAMES.has(k) && isHeapObj(v)) return true;
+          if (!BUILTIN_NAMES.has(k) && (isHeapObj(v) || pointerOf(v)?.target)) return true;
         }
       }
     }
